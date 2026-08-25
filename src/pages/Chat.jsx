@@ -86,10 +86,6 @@ export default function Chat() {
     setMessages((msgs) => (msgs.some((m) => m.id === data.id) ? msgs : [...msgs, data]))
   }
 
-  if (loading) {
-    return <div className="center-page">Loading…</div>
-  }
-
   if (error && !match) {
     return (
       <div className="center-page">
@@ -99,6 +95,13 @@ export default function Chat() {
         </button>
       </div>
     )
+  }
+
+  // loadMatch and loadMessages run in parallel, so messages can finish first —
+  // keep showing the loading state until both are in, not just messages,
+  // otherwise the render below crashes reaching into a still-null match.
+  if (loading || !match) {
+    return <div className="center-page">Loading…</div>
   }
 
   const counterpart =
