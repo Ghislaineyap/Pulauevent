@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-import { avatarFor } from '../../lib/avatars'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
+import { ProfileAvatar } from '../../components/ProfileAvatar'
 
 export default function OrganizerNotifications() {
   const { user } = useAuth()
@@ -12,7 +13,7 @@ export default function OrganizerNotifications() {
   useEffect(() => {
     supabase
       .from('matches')
-      .select('id, source, created_at, freelancer_profiles(name, location, avatar_key, pitch, skills)')
+      .select('id, source, created_at, freelancer_profiles(name, locations, avatar_key, photo_url, pitch, skills)')
       .eq('organizer_id', user.id)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
@@ -32,19 +33,20 @@ export default function OrganizerNotifications() {
         <div className="stack">
           {matches.map((m) => {
             const f = m.freelancer_profiles
-            const avatar = avatarFor(f.avatar_key)
             return (
-              <div key={m.id} className="card row" style={{ alignItems: 'center' }}>
-                <span className="avatar" style={{ background: avatar.gradient }}>
-                  {avatar.emoji}
-                </span>
-                <div>
-                  <strong>{f.name}</strong>
-                  <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                    📍 {f.location} · Matched via {m.source === 'application' ? 'their application' : 'your like'}
-                  </p>
-                  <p className="helper-text">In-app chat is coming in the next update — for now, coordinate the booking details together directly.</p>
+              <div key={m.id} className="card stack">
+                <div className="row" style={{ alignItems: 'center' }}>
+                  <ProfileAvatar avatarKey={f.avatar_key} photoUrl={f.photo_url} />
+                  <div>
+                    <strong>{f.name}</strong>
+                    <p className="subtitle" style={{ margin: '4px 0 0' }}>
+                      📍 {(f.locations || []).join(', ')} · Matched via {m.source === 'application' ? 'their application' : 'your like'}
+                    </p>
+                  </div>
                 </div>
+                <Link to={`/chat/${m.id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
+                  💬 Open chat
+                </Link>
               </div>
             )
           })}

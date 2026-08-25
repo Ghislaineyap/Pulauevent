@@ -233,6 +233,7 @@ textarea {
   justify-content: center;
   font-size: 24px;
   flex-shrink: 0;
+  object-fit: cover;
 }
 
 .avatar-picker {
@@ -326,6 +327,38 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.chat-thread {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-bubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-bubble.mine {
+  align-self: flex-end;
+  background: var(--coral);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-bubble.theirs {
+  align-self: flex-start;
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
 }
 
 .tabbar {

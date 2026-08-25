@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthProvider'
 export default function JobFeed() {
   const { roleProfile } = useAuth()
   const [jobs, setJobs] = useState([])
-  const [locationFilter, setLocationFilter] = useState(roleProfile?.location || '')
+  const [locationFilter, setLocationFilter] = useState(roleProfile?.locations?.[0] || '')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

@@ -1,16 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar } from '../../components/Layout'
 
 export default function OrganizerOnboarding() {
-  const { user, refreshProfile } = useAuth()
+  const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [orgName, setOrgName] = useState('')
   const [hideName, setHideName] = useState(true)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+
+  useEffect(() => {
+    if (hydrated || !roleProfile) return
+    setOrgName(roleProfile.org_name || '')
+    setHideName(Boolean(roleProfile.hide_name))
+    setHydrated(true)
+  }, [roleProfile, hydrated])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -36,7 +44,7 @@ export default function OrganizerOnboarding() {
 
   return (
     <div className="app-shell">
-      <Topbar title="Set up your organizer profile" />
+      <Topbar title={isOnboarded ? 'Edit your organizer profile' : 'Set up your organizer profile'} />
       <div className="page">
         <p className="subtitle">Freelancers see this once you match. Until then, you can choose to stay anonymous.</p>
         <form className="card stack" onSubmit={handleSubmit}>
@@ -61,7 +69,7 @@ export default function OrganizerOnboarding() {
           </div>
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-primary btn-block" disabled={busy} type="submit">
-            {busy ? 'Saving…' : 'Continue'}
+            {busy ? 'Saving…' : isOnboarded ? 'Save changes' : 'Continue'}
           </button>
         </form>
       </div>

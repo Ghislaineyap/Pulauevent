@@ -5,6 +5,7 @@ import { Guard } from './components/Guard'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import CheckEmail from './pages/CheckEmail'
+import Chat from './pages/Chat'
 
 import FreelancerOnboarding from './pages/freelancer/FreelancerOnboarding'
 import JobFeed from './pages/freelancer/JobFeed'
@@ -25,6 +26,14 @@ export default function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/check-email" element={<CheckEmail />} />
+          <Route
+            path="/chat/:matchId"
+            element={
+              <Guard>
+                <Chat />
+              </Guard>
+            }
+          />
 
           <Route
             path="/freelancer/onboarding"

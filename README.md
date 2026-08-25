@@ -61,16 +61,28 @@ frontend reveals it. **Known v1 simplification:** this hiding is enforced by the
 frontend, not the database — see the comment above the RLS policies in
 `supabase/schema.sql` for the honest caveat and how to harden it later.
 
+## What's shipped since v1
+
+- **Multiple locations per freelancer.** `freelancer_profiles.locations` is a
+  `text[]` — freelancers can list every city/area they're willing to work in, at no
+  extra cost to organizers (their rate stays the same regardless).
+- **Profile editing.** Both onboarding forms now pre-fill from the saved profile and
+  double as edit screens — reachable via the "Profile" tab.
+- **Job listing editing.** Organizers can edit a posting's details anytime; a
+  division can only be edited or removed while it has zero applicants (once someone's
+  applied, that division locks to keep things consistent for them).
+- **Real photo uploads.** Freelancers can upload a real photo (Supabase Storage,
+  auto-resized/compressed client-side to 640px JPEG) — the preset avatar
+  (`src/lib/avatars.js`) is now just the fallback shown when no photo is set.
+- **In-app chat.** Matched pairs get a real chat thread (`messages` table + Supabase
+  Realtime for live delivery) via the "Open chat" button on a match — no more
+  "coming soon" placeholder.
+
 ## What's next (deliberately out of v1)
 
-- **Real photo uploads.** Freelancers currently pick from 8 preset avatars
-  (`src/lib/avatars.js`) instead of uploading real photos — needs Supabase Storage
-  wired up plus upload UI.
-- **In-app chat.** Matches currently show a "coming in the next update" note instead
-  of real messaging — needs a `messages` table plus Supabase Realtime subscriptions.
 - **Real push notifications.** "Notified" today means a badge that appears next time
   they open the app — a phone push notification needs a native app or web push setup.
-- **True location/radius search.** Location is currently a free-typed string matched
+- **True location/radius search.** Location is currently free-typed strings matched
   with a simple text filter, not GPS-distance search.
-- **Profile editing after onboarding**, ratings/reviews, and swipe-gesture (drag)
-  interactions instead of tap buttons are also not in this pass.
+- **Ratings/reviews**, read receipts / typing indicators in chat, and swipe-gesture
+  (drag) interactions instead of tap buttons are also not in this pass.

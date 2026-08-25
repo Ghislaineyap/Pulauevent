@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-import { avatarFor } from '../../lib/avatars'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
+import { ProfileAvatar } from '../../components/ProfileAvatar'
 
 export default function ApplicantReview() {
   const { jobId } = useParams()
@@ -34,7 +34,7 @@ export default function ApplicantReview() {
     }
     const { data, error } = await supabase
       .from('applications')
-      .select('id, status, freelancer_profiles(id, name, location, avatar_key, pitch, rate_amount, rate_type, skills, years_experience, work_history)')
+      .select('id, status, freelancer_profiles(id, name, locations, avatar_key, photo_url, pitch, rate_amount, rate_type, skills, years_experience, work_history)')
       .eq('division_id', activeDivisionId)
       .eq('status', 'pending')
     if (error) console.error(error)
@@ -121,15 +121,12 @@ export default function ApplicantReview() {
 
 function ApplicantCard({ app, onPass, onLike }) {
   const f = app.freelancer_profiles
-  const avatar = avatarFor(f.avatar_key)
   return (
     <div className="swipe-card">
-      <span className="avatar" style={{ background: avatar.gradient }}>
-        {avatar.emoji}
-      </span>
+      <ProfileAvatar avatarKey={f.avatar_key} photoUrl={f.photo_url} />
       <h2 style={{ textAlign: 'center' }}>{f.name}</h2>
       <p className="subtitle" style={{ textAlign: 'center' }}>
-        📍 {f.location} {f.years_experience != null && `· ${f.years_experience} yrs experience`}
+        📍 {(f.locations || []).join(', ')} {f.years_experience != null && `· ${f.years_experience} yrs experience`}
       </p>
       {f.pitch && <p style={{ textAlign: 'center' }}>{f.pitch}</p>}
       <div className="chip-row" style={{ justifyContent: 'center' }}>

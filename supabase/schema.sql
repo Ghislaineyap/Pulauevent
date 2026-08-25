@@ -37,8 +37,9 @@ create table if not exists public.profiles (
 create table if not exists public.freelancer_profiles (
   id uuid primary key references public.profiles(id) on delete cascade,
   name text not null,
-  location text not null,
-  avatar_key text not null default 'avatar-1', -- preset avatar id, see src/lib/avatars.js — no photo uploads in v1
+  locations text[] not null default '{}', -- freelancer can cover more than one city/area; no extra cost to organizers either way
+  avatar_key text not null default 'avatar-1', -- preset avatar id, see src/lib/avatars.js — fallback when no photo is uploaded
+  photo_url text, -- public URL in the "avatars" storage bucket; null means "use the preset avatar instead"
   pitch text,
   rate_amount numeric,
   rate_type text check (rate_type in ('hourly', 'daily')),
@@ -260,3 +261,89 @@ create policy "the two matched parties can read a match" on public.matches
   for select using (auth.uid() = organizer_id or auth.uid() = freelancer_id);
 -- No insert/update/delete policy for matches: rows are created only by the
 -- security-definer trigger functions above, never directly by a client.
+
+-- ---------------------------------------------------------------------------
+-- In-app chat, scoped to one match. Only the two matched people can ever
+-- read or write here — enforced below, not just by the UI routing to it.
+-- ---------------------------------------------------------------------------
+create table if not exists public.messages (
+  id uuid primary key default uuid_generate_v4(),
+  match_id uuid not null references public.matches(id) on delete cascade,
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  body text not null check (char_length(trim(body)) > 0),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists messages_match_id_created_at_idx on public.messages (match_id, created_at);
+
+alter table public.messages enable row level security;
+
+create policy "the two matched parties can read their messages" on public.messages
+  for select using (
+    exists (
+      select 1 from public.matches m
+      where m.id = match_id and (m.organizer_id = auth.uid() or m.freelancer_id = auth.uid())
+    )
+  );
+
+create policy "a matched party can send a message as themselves" on public.messages
+  for insert with check (
+    auth.uid() = sender_id
+    and exists (
+      select 1 from public.matches m
+      where m.id = match_id and (m.organizer_id = auth.uid() or m.freelancer_id = auth.uid())
+    )
+  );
+
+-- Live delivery: add messages to Supabase's realtime publication so the chat
+-- UI gets new rows pushed to it instead of needing to poll. Wrapped in a
+-- check so re-running this script doesn't error if it's already added.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Base table-level grants. RLS policies above decide which *rows* a role can
+-- touch, but Postgres also requires a baseline grant on the *table* itself —
+-- normally set up automatically by Supabase, but included here so re-running
+-- this whole script on a fresh or reset project never hits a bare
+-- "permission denied for table ..." with no RLS message to explain it.
+-- ---------------------------------------------------------------------------
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant select on all tables in schema public to anon;
+alter default privileges in schema public grant select, insert, update, delete on tables to authenticated;
+alter default privileges in schema public grant select on tables to anon;
+grant usage, select on all sequences in schema public to authenticated;
+alter default privileges in schema public grant usage, select on sequences to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Storage bucket for freelancer profile photos. Public read (so an <img> tag
+-- just works with no signed URL), but writes are locked to a user's own
+-- folder — uploaded as "{auth.uid()}/photo.jpg" by src/lib/uploadPhoto.js.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+create policy "avatar photos are publicly readable"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+create policy "a user can upload their own avatar photo"
+  on storage.objects for insert
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "a user can replace their own avatar photo"
+  on storage.objects for update
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "a user can delete their own avatar photo"
+  on storage.objects for delete
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);

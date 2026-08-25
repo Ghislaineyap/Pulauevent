@@ -27,6 +27,9 @@ export function FreelancerTabbar({ pendingCount = 0 }) {
         </span>
         Activity
       </NavLink>
+      <NavLink to="/freelancer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
+        <span className="tab-icon">👤</span>Profile
+      </NavLink>
     </nav>
   )
 }
@@ -42,6 +45,9 @@ export function OrganizerTabbar() {
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon">🔔</span>Activity
+      </NavLink>
+      <NavLink to="/organizer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
+        <span className="tab-icon">👤</span>Profile
       </NavLink>
     </nav>
   )

@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { avatarFor } from '../../lib/avatars'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
+import { ProfileAvatar } from '../../components/ProfileAvatar'
 
 export default function FreelancerBrowse() {
   const { user } = useAuth()
@@ -16,11 +16,15 @@ export default function FreelancerBrowse() {
     const { data: likes } = await supabase.from('likes').select('freelancer_id').eq('organizer_id', user.id)
     const acted = new Set((likes || []).map((l) => l.freelancer_id))
 
-    let query = supabase.from('freelancer_profiles').select('*')
-    if (locationFilter.trim()) query = query.ilike('location', `%${locationFilter.trim()}%`)
-    const { data, error } = await query
+    const { data, error } = await supabase.from('freelancer_profiles').select('*')
     if (error) console.error(error)
-    setFreelancers((data || []).filter((f) => !acted.has(f.id)))
+    const needle = locationFilter.trim().toLowerCase()
+    const filtered = (data || []).filter((f) => {
+      if (acted.has(f.id)) return false
+      if (!needle) return true
+      return (f.locations || []).some((loc) => loc.toLowerCase().includes(needle))
+    })
+    setFreelancers(filtered)
     setLoading(false)
   }, [user.id, locationFilter])
 
@@ -72,12 +76,10 @@ export default function FreelancerBrowse() {
             {!loading && !top && <div className="empty-state">No more freelancers to show right now.</div>}
             {top && (
               <div className="swipe-card">
-                <span className="avatar" style={{ background: avatarFor(top.avatar_key).gradient }}>
-                  {avatarFor(top.avatar_key).emoji}
-                </span>
+                <ProfileAvatar avatarKey={top.avatar_key} photoUrl={top.photo_url} />
                 <h2 style={{ textAlign: 'center' }}>{top.name}</h2>
                 <p className="subtitle" style={{ textAlign: 'center' }}>
-                  📍 {top.location} {top.years_experience != null && `· ${top.years_experience} yrs experience`}
+                  📍 {(top.locations || []).join(', ')} {top.years_experience != null && `· ${top.years_experience} yrs experience`}
                 </p>
                 {top.pitch && <p style={{ textAlign: 'center' }}>{top.pitch}</p>}
                 <div className="chip-row" style={{ justifyContent: 'center' }}>

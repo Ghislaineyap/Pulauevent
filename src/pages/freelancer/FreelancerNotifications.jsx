@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
@@ -73,7 +74,9 @@ export default function FreelancerNotifications() {
               <p className="subtitle" style={{ margin: '4px 0 0' }}>
                 Matched via {m.source === 'application' ? 'your job application' : 'their like'}
               </p>
-              <p className="helper-text">In-app chat is coming in the next update — for now, coordinate the booking details together directly.</p>
+              <Link to={`/chat/${m.id}`} className="btn btn-primary btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
+                💬 Open chat
+              </Link>
             </div>
           ))}
         </div>
