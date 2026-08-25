@@ -1,0 +1,407 @@
+:root {
+  --navy: #2f3c7e;
+  --navy-dark: #232c61;
+  --coral: #f96167;
+  --coral-dark: #d94a50;
+  --gold: #f9e795;
+  --ink: #1f2333;
+  --muted: #6b7280;
+  --bg: #f7f7fa;
+  --card: #ffffff;
+  --border: #e7e7ef;
+  --success: #1e9e8b;
+  --danger: #d94a50;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+}
+
+.app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100%;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--navy);
+  color: white;
+}
+
+.topbar .brand {
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.2px;
+}
+
+.topbar button.link {
+  background: none;
+  border: none;
+  color: #d8dcf5;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.page {
+  flex: 1;
+  padding: 20px 18px 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+h1 {
+  font-size: 24px;
+  margin: 0 0 4px;
+}
+
+h2 {
+  font-size: 18px;
+  margin: 0 0 4px;
+}
+
+p.subtitle {
+  color: var(--muted);
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(30, 30, 60, 0.06);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  display: block;
+  margin-bottom: 6px;
+}
+
+input[type='text'],
+input[type='number'],
+input[type='email'],
+input[type='password'],
+input[type='date'],
+select,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: white;
+  color: var(--ink);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: var(--coral);
+  color: white;
+}
+.btn-primary:hover {
+  background: var(--coral-dark);
+}
+
+.btn-secondary {
+  background: var(--navy);
+  color: white;
+}
+
+.btn-outline {
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--navy);
+  color: white;
+}
+
+.chip-outline {
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+
+.chip-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.chip-toggle.active {
+  background: var(--coral);
+  color: white;
+}
+.chip-toggle:not(.active) {
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.avatar-picker {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.avatar-picker button {
+  border: 2px solid transparent;
+  border-radius: 50%;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+.avatar-picker button.selected {
+  border-color: var(--coral);
+}
+
+.swipe-stack {
+  position: relative;
+  height: 460px;
+}
+
+.swipe-card {
+  position: absolute;
+  inset: 0;
+  background: var(--card);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(30, 30, 60, 0.12);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.swipe-card .avatar {
+  width: 84px;
+  height: 84px;
+  font-size: 38px;
+  align-self: center;
+}
+
+.swipe-actions {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  margin-top: 10px;
+}
+
+.swipe-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+.swipe-btn.pass {
+  background: white;
+  border: 1px solid var(--border);
+  color: var(--danger);
+}
+.swipe-btn.like {
+  background: var(--coral);
+  color: white;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 20px;
+  font-size: 14px;
+}
+
+.badge {
+  background: var(--coral);
+  color: white;
+  border-radius: 999px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tabbar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 100%;
+  max-width: 480px;
+  background: white;
+  border-top: 1px solid var(--border);
+  display: flex;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.tabbar a {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 0;
+  position: relative;
+}
+.tabbar a.active {
+  color: var(--coral);
+}
+.tabbar .tab-icon {
+  display: block;
+  font-size: 18px;
+  margin-bottom: 2px;
+}
+
+.division-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.match-banner {
+  background: linear-gradient(135deg, var(--navy), var(--navy-dark));
+  color: white;
+  border-radius: 18px;
+  padding: 28px 20px;
+  text-align: center;
+}
+
+.match-banner .avatars {
+  display: flex;
+  justify-content: center;
+  gap: -10px;
+  margin: 14px 0;
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.helper-text {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.center-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 18px;
+  padding: 40px 24px;
+}

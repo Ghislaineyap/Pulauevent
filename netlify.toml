@@ -1,0 +1,11 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Single-page app: send every unknown path to index.html so React Router
+# handles client-side routing (without this, refreshing /freelancer/jobs
+# directly gives a 404 from Netlify).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
