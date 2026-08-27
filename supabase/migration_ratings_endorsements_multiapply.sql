@@ -118,7 +118,7 @@ create policy "a freelancer can endorse a past coworker's skill" on public.skill
       join public.applications a_theirs on a_theirs.division_id = jd_theirs.id
       where a_mine.freelancer_id = endorser_id
         and a_mine.status = 'accepted'
-        and a_theirs.freelancer_id = freelancer_id
+        and a_theirs.freelancer_id = skill_endorsements.freelancer_id
         and a_theirs.status = 'accepted'
     )
   );
