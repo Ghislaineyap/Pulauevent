@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
+import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
 
 export function Topbar({ title }) {
   const { signOut, user } = useAuth()
@@ -19,14 +20,18 @@ export function FreelancerTabbar({ pendingCount = 0 }) {
   return (
     <nav className="tabbar">
       <NavLink to="/freelancer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon">👤</span>Profile
+        <IconUser className="tab-icon" />Profile
       </NavLink>
       <NavLink to="/freelancer/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon">📋</span>Job
+        <IconClipboard className="tab-icon" />Job
+      </NavLink>
+      <NavLink to="/freelancer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconCalendar className="tab-icon" />My Event
       </NavLink>
       <NavLink to="/freelancer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon">
-          🔔{pendingCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{pendingCount}</span>}
+        <span className="tab-icon-wrap">
+          <IconChat className="tab-icon" />
+          {pendingCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{pendingCount}</span>}
         </span>
         Connect
       </NavLink>
@@ -38,16 +43,19 @@ export function OrganizerTabbar() {
   return (
     <nav className="tabbar">
       <NavLink to="/organizer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon">👤</span>Profile
+        <IconUser className="tab-icon" />Profile
       </NavLink>
       <NavLink to="/organizer/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon">🗂️</span>Post
+        <IconClipboard className="tab-icon" />Post
       </NavLink>
       <NavLink to="/organizer/browse" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon">🔎</span>Discover
+        <IconSearch className="tab-icon" />Discover
+      </NavLink>
+      <NavLink to="/organizer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconCalendar className="tab-icon" />My Event
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon">🔔</span>Connect
+        <IconChat className="tab-icon" />Connect
       </NavLink>
     </nav>
   )

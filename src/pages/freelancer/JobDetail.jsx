@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { formatEventDates } from '../../lib/date'
+import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/applicationStatus'
 
 export default function JobDetail() {
   const { jobId } = useParams()
@@ -82,7 +83,7 @@ export default function JobDetail() {
                   </p>
                 </div>
                 {mine ? (
-                  <span className="chip chip-outline">{mine.status === 'pending' ? 'Applied' : mine.status}</span>
+                  <span className={applicationStatusChipClass(mine.status)}>{applicationStatusLabel(mine.status)}</span>
                 ) : full ? (
                   <span className="chip chip-outline">Full</span>
                 ) : (

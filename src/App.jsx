@@ -10,6 +10,7 @@ import Chat from './pages/Chat'
 import FreelancerOnboarding from './pages/freelancer/FreelancerOnboarding'
 import JobFeed from './pages/freelancer/JobFeed'
 import JobDetail from './pages/freelancer/JobDetail'
+import FreelancerMyEvents from './pages/freelancer/MyEvents'
 import FreelancerNotifications from './pages/freelancer/FreelancerNotifications'
 
 import OrganizerOnboarding from './pages/organizer/OrganizerOnboarding'
@@ -17,6 +18,7 @@ import OrganizerDashboard from './pages/organizer/OrganizerDashboard'
 import ApplicantReview from './pages/organizer/ApplicantReview'
 import FreelancerBrowse from './pages/organizer/FreelancerBrowse'
 import FreelancerProfileDetail from './pages/organizer/FreelancerProfileDetail'
+import OrganizerMyEvents from './pages/organizer/MyEvents'
 import OrganizerNotifications from './pages/organizer/OrganizerNotifications'
 
 export default function App() {
@@ -57,6 +59,14 @@ export default function App() {
             element={
               <Guard role="freelancer">
                 <JobDetail />
+              </Guard>
+            }
+          />
+          <Route
+            path="/freelancer/my-events"
+            element={
+              <Guard role="freelancer">
+                <FreelancerMyEvents />
               </Guard>
             }
           />
@@ -106,6 +116,14 @@ export default function App() {
             element={
               <Guard role="organizer">
                 <FreelancerProfileDetail />
+              </Guard>
+            }
+          />
+          <Route
+            path="/organizer/my-events"
+            element={
+              <Guard role="organizer">
+                <OrganizerMyEvents />
               </Guard>
             }
           />

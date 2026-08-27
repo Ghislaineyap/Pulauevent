@@ -445,8 +445,17 @@ textarea {
 }
 .tabbar .tab-icon {
   display: block;
-  font-size: 18px;
+  width: 22px;
+  height: 22px;
+  margin: 0 auto 2px;
+}
+.tabbar .tab-icon-wrap {
+  display: flex;
+  justify-content: center;
   margin-bottom: 2px;
+}
+.tabbar .tab-icon-wrap .tab-icon {
+  margin-bottom: 0;
 }
 
 .division-row {

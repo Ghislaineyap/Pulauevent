@@ -6,6 +6,7 @@ import { uploadProfilePhoto, MAX_PHOTOS } from '../../lib/uploadPhoto'
 import { GENDERS } from '../../lib/gender'
 import { EXPERIENCE_BANDS } from '../../lib/experience'
 import { Topbar } from '../../components/Layout'
+import { RatingsSummary } from '../../components/RatingsSummary'
 
 export default function FreelancerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
@@ -158,6 +159,7 @@ export default function FreelancerOnboarding() {
       <Topbar title={isOnboarded ? 'Edit your profile' : 'Build your profile'} />
       <div className="page">
         <p className="subtitle">This is your CV on Pulau Event — organizers see this when you apply, or when they browse.</p>
+        {isOnboarded && <RatingsSummary freelancerId={user.id} />}
         <form className="stack" onSubmit={handleSubmit}>
           <div className="card stack">
             <div className="field">

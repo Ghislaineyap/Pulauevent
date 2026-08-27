@@ -108,6 +108,30 @@ frontend, not the database — see the comment above the RLS policies in
 - **Job feed location filter, automatic and adjustable.** Defaults to the
   freelancer's own saved location(s), shown as toggleable chips so they can add
   more cities or clear the filter entirely.
+- **New "My Event" tab, both sides.** For freelancers, it's the jobs they've
+  actually landed (accepted applications) — separate from the Job tab, which is
+  for browsing/applying. For organizers, it's an at-a-glance staffing view of
+  their own events (who's confirmed in each division), separate from Post,
+  which is for creating/editing postings.
+- **Outline-only tab icons.** The emoji tab icons are gone — every tab bar icon
+  is now a simple line-style SVG (`src/components/TabIcons.jsx`) for a
+  cleaner, less "app-store-emoji" look.
+- **Compare applicants, don't just swipe one.** A division can need more than
+  one person — `ApplicantReview` now shows every pending applicant for a role
+  at once (filterable by gender/experience/location), instead of a one-at-a-
+  time swipe deck. Accepting enough people to fill a role auto-declines
+  everyone else still pending for it, enforced in the database.
+- **Friendlier application status.** A freelancer's "My Event" tab now shows
+  every application (not just accepted ones), labeled Pending review /
+  Confirmed / Not selected this time — no "rejected".
+- **Post-event ratings.** Once a job's event end date has passed, the
+  organizer's "My Event" tab prompts them to rate (1–5 stars) and optionally
+  recommend everyone who was confirmed on it. Shows up as an average rating +
+  written recommendations on the freelancer's profile.
+- **Coworker skill endorsements.** A freelancer can endorse another
+  freelancer's specific skill, LinkedIn-style, directly from "My Event" — but
+  only for people they were actually confirmed on the same job with. No
+  separate "friend" system; it rides entirely on real job history.
 
 ## What's next (deliberately out of v1)
 

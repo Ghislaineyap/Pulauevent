@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { PhotoFrame } from '../../components/PhotoFrame'
+import { RatingsSummary } from '../../components/RatingsSummary'
 import { experienceBandLabel } from '../../lib/experience'
 
 // Full-detail view reached by tapping a freelancer's browse card — the
@@ -99,6 +100,8 @@ export default function FreelancerProfileDetail() {
           </p>
           {freelancer.pitch && <p>{freelancer.pitch}</p>}
         </div>
+
+        <RatingsSummary freelancerId={freelancer.id} />
 
         {freelancer.skills?.length > 0 && (
           <div className="stack">

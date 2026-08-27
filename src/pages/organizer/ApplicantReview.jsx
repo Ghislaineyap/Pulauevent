@@ -1,11 +1,19 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { PhotoFrame } from '../../components/PhotoFrame'
 import { formatEventDates } from '../../lib/date'
-import { experienceBandLabel } from '../../lib/experience'
+import { experienceBandLabel, EXPERIENCE_BANDS } from '../../lib/experience'
+import { GENDERS } from '../../lib/gender'
 
+const emptyFilters = { genders: [], experienceBands: [], locations: [] }
+
+// A division can need more than one person — this is a compare view of every
+// pending applicant for the selected role, not a one-at-a-time swipe deck, so
+// the organizer can actually weigh them against each other before deciding.
+// Once enough people are accepted to fill the role, the remaining pending
+// applicants for that division are auto-declined (enforced in the database).
 export default function ApplicantReview() {
   const { jobId } = useParams()
   const [job, setJob] = useState(null)
@@ -14,6 +22,8 @@ export default function ApplicantReview() {
   const [applicants, setApplicants] = useState([])
   const [loading, setLoading] = useState(true)
   const [justMatched, setJustMatched] = useState(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState(emptyFilters)
 
   const loadJob = useCallback(async () => {
     setLoading(true)
@@ -48,8 +58,34 @@ export default function ApplicantReview() {
   }, [loadJob])
 
   useEffect(() => {
+    setFilters(emptyFilters)
     loadApplicants()
   }, [loadApplicants])
+
+  const locationOptions = useMemo(() => {
+    const set = new Set()
+    applicants.forEach((a) => (a.freelancer_profiles.locations || []).forEach((l) => set.add(l)))
+    return [...set].sort()
+  }, [applicants])
+
+  const filteredApplicants = useMemo(() => {
+    return applicants.filter((a) => {
+      const f = a.freelancer_profiles
+      if (filters.genders.length && !filters.genders.includes(f.gender)) return false
+      if (filters.experienceBands.length && !filters.experienceBands.includes(f.experience_band)) return false
+      if (filters.locations.length && !(f.locations || []).some((l) => filters.locations.includes(l))) return false
+      return true
+    })
+  }, [applicants, filters])
+
+  function toggleFilter(category, value) {
+    setFilters((f) => ({
+      ...f,
+      [category]: f[category].includes(value) ? f[category].filter((v) => v !== value) : [...f[category], value],
+    }))
+  }
+
+  const activeFilterCount = Object.values(filters).reduce((n, arr) => n + arr.length, 0)
 
   async function respond(applicationId, freelancer, status) {
     const { error } = await supabase.from('applications').update({ status }).eq('id', applicationId)
@@ -58,14 +94,14 @@ export default function ApplicantReview() {
       return
     }
     if (status === 'accepted') setJustMatched(freelancer)
-    setApplicants((apps) => apps.filter((a) => a.id !== applicationId))
     loadJob()
+    loadApplicants()
   }
 
   if (loading) return <div className="center-page">Loading…</div>
   if (!job) return <div className="center-page">Job not found.</div>
 
-  const top = applicants[0]
+  const activeDivision = divisions.find((d) => d.id === activeDivisionId)
 
   return (
     <div className="app-shell">
@@ -90,6 +126,12 @@ export default function ApplicantReview() {
           ))}
         </div>
 
+        {activeDivision && activeDivision.filled_count >= activeDivision.quantity && (
+          <p className="helper-text">
+            This role is fully staffed — any remaining pending applicants were automatically declined.
+          </p>
+        )}
+
         {justMatched && (
           <div className="match-banner">
             <div style={{ fontSize: 30 }}>🎉 You're connected!</div>
@@ -103,21 +145,90 @@ export default function ApplicantReview() {
         )}
 
         {!justMatched && (
-          <div className="swipe-stack">
-            {applicants.length === 0 && (
-              <div className="empty-state">No pending applicants for this division yet.</div>
+          <>
+            <button
+              className="btn btn-outline btn-block"
+              style={{ justifyContent: 'space-between' }}
+              onClick={() => setShowFilters((s) => !s)}
+            >
+              <span>
+                Filter applicants
+                {activeFilterCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{activeFilterCount}</span>}
+              </span>
+              <span style={{ color: 'var(--muted)', fontWeight: 400 }}>{showFilters ? '▴' : '▾'}</span>
+            </button>
+
+            {showFilters && (
+              <div className="card stack">
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Gender</label>
+                  <div className="chip-row">
+                    {GENDERS.map((g) => (
+                      <span
+                        key={g.value}
+                        className={`chip chip-toggle ${filters.genders.includes(g.value) ? 'active' : ''}`}
+                        onClick={() => toggleFilter('genders', g.value)}
+                      >
+                        {g.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Experience</label>
+                  <div className="chip-row">
+                    {EXPERIENCE_BANDS.map((b) => (
+                      <span
+                        key={b.value}
+                        className={`chip chip-toggle ${filters.experienceBands.includes(b.value) ? 'active' : ''}`}
+                        onClick={() => toggleFilter('experienceBands', b.value)}
+                      >
+                        {b.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {locationOptions.length > 0 && (
+                  <div className="field" style={{ marginBottom: 0 }}>
+                    <label>Location</label>
+                    <div className="chip-row">
+                      {locationOptions.map((loc) => (
+                        <span
+                          key={loc}
+                          className={`chip chip-toggle ${filters.locations.includes(loc) ? 'active' : ''}`}
+                          onClick={() => toggleFilter('locations', loc)}
+                        >
+                          {loc}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {activeFilterCount > 0 && (
+                  <button type="button" className="btn btn-outline" onClick={() => setFilters(emptyFilters)}>
+                    Clear filters
+                  </button>
+                )}
+              </div>
             )}
-            {top && (
-              <ApplicantCard
-                key={top.id}
-                app={top}
-                onPass={() => respond(top.id, top.freelancer_profiles, 'declined')}
-                onLike={() => respond(top.id, top.freelancer_profiles, 'accepted')}
-              />
+
+            {applicants.length === 0 && <div className="empty-state">No pending applicants for this division yet.</div>}
+            {applicants.length > 0 && filteredApplicants.length === 0 && (
+              <div className="empty-state">No applicants match these filters.</div>
             )}
-          </div>
+
+            <div className="stack">
+              {filteredApplicants.map((app) => (
+                <ApplicantCard
+                  key={app.id}
+                  app={app}
+                  onPass={() => respond(app.id, app.freelancer_profiles, 'declined')}
+                  onLike={() => respond(app.id, app.freelancer_profiles, 'accepted')}
+                />
+              ))}
+            </div>
+          </>
         )}
-        {applicants.length > 1 && <p className="subtitle">{applicants.length - 1} more waiting after this one</p>}
       </div>
       <OrganizerTabbar />
     </div>
