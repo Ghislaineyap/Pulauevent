@@ -132,6 +132,32 @@ frontend, not the database — see the comment above the RLS policies in
   freelancer's specific skill, LinkedIn-style, directly from "My Event" — but
   only for people they were actually confirmed on the same job with. No
   separate "friend" system; it rides entirely on real job history.
+- **Bug fixes.** Profile pages (both roles) were missing their tab bar
+  entirely — fixed. Editing a job posting no longer shows the full postings
+  list duplicated underneath the edit form. A new posting's start date can't
+  be set in the past.
+- **Fee/transport disclosure per division.** An organizer marks each division
+  as all-in or "+ transport reimbursed" (with an optional cap), and it shows
+  right on the job post so applicants know upfront.
+- **Unified locations.** Freelancer locations and job posting locations now
+  pick from one curated list (`locations` table, same pattern as skills)
+  instead of free-typing a city — so Discover and Job Feed location filters
+  actually match reliably. A "type your own" escape hatch still exists for
+  anywhere not listed.
+- **Custom division roles + an "Other" skill filter.** A job division's role
+  can be typed freehand if it's not in the curated skill list. Discover's
+  skill filter gained an "Other" chip that catches freelancers with a custom
+  (non-curated) skill.
+- **Team roster + direct invites.** An organizer's "team" — everyone they've
+  been confirmed with before, plus anyone they add manually from a
+  freelancer's profile — can be invited straight into a new division when
+  posting a job. The freelancer still has to confirm (an "invited" status)
+  before it counts as booked.
+- **Group chat per event.** Everyone confirmed on a job (the organizer + every
+  accepted freelancer, across all its divisions) now shares one chat thread
+  named after the event, reachable from "My Event" and Connect. This replaces
+  the 1:1 chat for job-based connections; a Discover-sourced ("like")
+  connection still gets its own 1:1 chat since there's no job attached to it.
 
 ## What's next (deliberately out of v1)
 

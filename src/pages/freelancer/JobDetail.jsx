@@ -20,7 +20,7 @@ export default function JobDetail() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)'
+        'id, title, description, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount)'
       )
       .eq('id', jobId)
       .single()
@@ -80,6 +80,13 @@ export default function JobDetail() {
                   <p className="subtitle" style={{ margin: '4px 0 0' }}>
                     {d.filled_count}/{d.quantity} filled
                     {d.budget_amount && ` · Rp ${Number(d.budget_amount).toLocaleString('id-ID')} ${d.budget_type === 'flat' ? 'flat' : `/ ${d.budget_type}`}`}
+                  </p>
+                  <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                    {d.fee_type === 'plus_transport'
+                      ? d.transport_max_amount
+                        ? `+ Transport reimbursed, up to Rp ${Number(d.transport_max_amount).toLocaleString('id-ID')}`
+                        : '+ Transport reimbursed separately'
+                      : 'All-in rate — no separate reimbursement'}
                   </p>
                 </div>
                 {mine ? (

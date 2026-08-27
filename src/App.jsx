@@ -6,6 +6,7 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import CheckEmail from './pages/CheckEmail'
 import Chat from './pages/Chat'
+import EventChat from './pages/EventChat'
 
 import FreelancerOnboarding from './pages/freelancer/FreelancerOnboarding'
 import JobFeed from './pages/freelancer/JobFeed'
@@ -34,6 +35,14 @@ export default function App() {
             element={
               <Guard>
                 <Chat />
+              </Guard>
+            }
+          />
+          <Route
+            path="/event-chat/:jobId"
+            element={
+              <Guard>
+                <EventChat />
               </Guard>
             }
           />

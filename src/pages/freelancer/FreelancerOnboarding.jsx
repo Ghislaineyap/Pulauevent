@@ -5,13 +5,14 @@ import { useAuth } from '../../context/AuthProvider'
 import { uploadProfilePhoto, MAX_PHOTOS } from '../../lib/uploadPhoto'
 import { GENDERS } from '../../lib/gender'
 import { EXPERIENCE_BANDS } from '../../lib/experience'
-import { Topbar } from '../../components/Layout'
+import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { RatingsSummary } from '../../components/RatingsSummary'
 
 export default function FreelancerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [skillOptions, setSkillOptions] = useState([])
+  const [locationOptions, setLocationOptions] = useState([])
   const [form, setForm] = useState({
     name: '',
     gender: '',
@@ -78,6 +79,14 @@ export default function FreelancerOnboarding() {
       .then(({ data, error }) => {
         if (error) console.error(error)
         setSkillOptions((data || []).map((s) => s.label))
+      })
+    supabase
+      .from('locations')
+      .select('label')
+      .order('sort_order')
+      .then(({ data, error }) => {
+        if (error) console.error(error)
+        setLocationOptions((data || []).map((l) => l.label))
       })
   }, [])
 
@@ -267,10 +276,33 @@ export default function FreelancerOnboarding() {
                 </div>
               )}
               <div className="row">
-                <input
+                <select
                   id="location"
+                  value=""
+                  onChange={(e) => {
+                    const value = e.target.value
+                    if (!value) return
+                    setForm((f) =>
+                      f.locations.some((l) => l.toLowerCase() === value.toLowerCase())
+                        ? f
+                        : { ...f, locations: [...f.locations, value] }
+                    )
+                  }}
+                >
+                  <option value="">Add a location…</option>
+                  {locationOptions
+                    .filter((loc) => !form.locations.includes(loc))
+                    .map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="row" style={{ marginTop: 8 }}>
+                <input
                   type="text"
-                  placeholder="e.g. Makassar"
+                  placeholder="Not listed? Type your own"
                   value={form.locationInput}
                   onChange={(e) => setForm((f) => ({ ...f, locationInput: e.target.value }))}
                   onKeyDown={(e) => {
@@ -285,8 +317,8 @@ export default function FreelancerOnboarding() {
                 </button>
               </div>
               <p className="helper-text">
-                Organizers filter and search by this — be specific (city or area). You can add more than one city
-                you're willing to work in — tap a chip to remove it.
+                Picking from the list keeps this consistent with how organizers filter and search — use "type your
+                own" only if your city/area isn't listed. You can add more than one — tap a chip to remove it.
               </p>
               <p className="helper-text">
                 💡 Covering multiple locations doesn't cost organizers anything extra — your rate stays the same
@@ -378,6 +410,7 @@ export default function FreelancerOnboarding() {
           </button>
         </form>
       </div>
+      <FreelancerTabbar />
     </div>
   )
 }

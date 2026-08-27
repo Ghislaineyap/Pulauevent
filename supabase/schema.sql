@@ -25,6 +25,24 @@ insert into public.skills (label, sort_order) values
 on conflict (label) do nothing;
 
 -- ---------------------------------------------------------------------------
+-- Curated location list, same pattern as skills — freelancers and job
+-- postings pick from this instead of free-typing a city, so location filters
+-- on Discover/Job Feed actually match reliably.
+-- ---------------------------------------------------------------------------
+create table if not exists public.locations (
+  id serial primary key,
+  label text not null unique,
+  sort_order int not null default 0
+);
+
+insert into public.locations (label, sort_order) values
+  ('Jakarta', 1), ('Bandung', 2), ('Surabaya', 3), ('Bali (Denpasar)', 4), ('Yogyakarta', 5),
+  ('Semarang', 6), ('Medan', 7), ('Makassar', 8), ('Palembang', 9), ('Malang', 10),
+  ('Bogor', 11), ('Depok', 12), ('Tangerang', 13), ('Bekasi', 14), ('Batam', 15),
+  ('Balikpapan', 16), ('Solo (Surakarta)', 17), ('Manado', 18)
+on conflict (label) do nothing;
+
+-- ---------------------------------------------------------------------------
 -- One row per authenticated user (auth.users), holds just the role.
 -- Freelancer/organizer detail lives in its own table below.
 -- ---------------------------------------------------------------------------
@@ -81,14 +99,23 @@ create table if not exists public.job_divisions (
   quantity integer not null default 1,
   budget_amount numeric,
   budget_type text check (budget_type in ('hourly', 'daily', 'flat')),
-  filled_count integer not null default 0
+  filled_count integer not null default 0,
+  -- Whether the fee is all-in or transport gets reimbursed separately (and
+  -- up to how much, if capped) — shown on the job post so applicants know
+  -- upfront.
+  fee_type text not null default 'all_in' check (fee_type in ('all_in', 'plus_transport')),
+  transport_max_amount numeric
 );
 
 create table if not exists public.applications (
   id uuid primary key default uuid_generate_v4(),
   division_id uuid not null references public.job_divisions(id) on delete cascade,
   freelancer_id uuid not null references public.freelancer_profiles(id) on delete cascade,
-  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  -- 'invited' = an organizer put a known team member directly into this
+  -- division; the freelancer still has to confirm (transitions to accepted
+  -- or declined), same as a freelancer-initiated ('applied') application.
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'invited')),
+  source text not null default 'applied' check (source in ('applied', 'invited')),
   created_at timestamptz not null default now(),
   unique (division_id, freelancer_id)
 );
@@ -141,18 +168,22 @@ begin
     values (v_organizer_id, new.freelancer_id, 'application', new.id)
     on conflict (organizer_id, freelancer_id) do nothing;
 
+    insert into public.team_members (organizer_id, freelancer_id, source)
+    values (v_organizer_id, new.freelancer_id, 'connection')
+    on conflict (organizer_id, freelancer_id) do nothing;
+
     update public.job_divisions
     set filled_count = filled_count + 1
     where id = new.division_id
     returning filled_count into v_filled_count;
 
-    -- A division can need more than one person. Once enough applicants are
-    -- accepted to fill it, auto-decline everyone else still pending for the
+    -- A division can need more than one person. Once enough are accepted to
+    -- fill it, auto-decline everyone else still pending OR invited for the
     -- same role so the organizer doesn't have to clean up manually.
     if v_filled_count >= v_quantity then
       update public.applications
       set status = 'declined'
-      where division_id = new.division_id and status = 'pending' and id <> new.id;
+      where division_id = new.division_id and status in ('pending', 'invited') and id <> new.id;
     end if;
   end if;
   return new;
@@ -173,6 +204,10 @@ begin
   if new.status = 'accepted' and old.status is distinct from 'accepted' then
     insert into public.matches (organizer_id, freelancer_id, source, source_id)
     values (new.organizer_id, new.freelancer_id, 'like', new.id)
+    on conflict (organizer_id, freelancer_id) do nothing;
+
+    insert into public.team_members (organizer_id, freelancer_id, source)
+    values (new.organizer_id, new.freelancer_id, 'connection')
     on conflict (organizer_id, freelancer_id) do nothing;
   end if;
   return new;
@@ -264,6 +299,18 @@ create policy "an organizer can update application status on their own postings"
       where jd.id = division_id and jp.organizer_id = auth.uid()
     )
   );
+create policy "an organizer can invite a team member into their own division" on public.applications
+  for insert with check (
+    source = 'invited'
+    and status = 'invited'
+    and exists (
+      select 1 from public.job_divisions jd
+      join public.job_postings jp on jp.id = jd.job_id
+      where jd.id = division_id and jp.organizer_id = auth.uid()
+    )
+  );
+create policy "a freelancer can respond to an invitation" on public.applications
+  for update using (auth.uid() = freelancer_id and source = 'invited');
 
 create policy "an organizer can read their own likes" on public.likes
   for select using (auth.uid() = organizer_id);
@@ -278,6 +325,27 @@ create policy "the two matched parties can read a match" on public.matches
   for select using (auth.uid() = organizer_id or auth.uid() = freelancer_id);
 -- No insert/update/delete policy for matches: rows are created only by the
 -- security-definer trigger functions above, never directly by a client.
+
+-- ---------------------------------------------------------------------------
+-- Team roster: an organizer's list of freelancers they've worked with or
+-- added directly. Auto-added by the trigger functions above on any match;
+-- manually addable from a freelancer's profile page.
+-- ---------------------------------------------------------------------------
+create table if not exists public.team_members (
+  id uuid primary key default uuid_generate_v4(),
+  organizer_id uuid not null references public.organizer_profiles(id) on delete cascade,
+  freelancer_id uuid not null references public.freelancer_profiles(id) on delete cascade,
+  source text not null default 'manual' check (source in ('connection', 'manual')),
+  created_at timestamptz not null default now(),
+  unique (organizer_id, freelancer_id)
+);
+
+alter table public.team_members enable row level security;
+
+create policy "an organizer can read their own team" on public.team_members
+  for select using (auth.uid() = organizer_id);
+create policy "an organizer can add to their own team" on public.team_members
+  for insert with check (auth.uid() = organizer_id);
 
 -- ---------------------------------------------------------------------------
 -- In-app chat, scoped to one match. Only the two matched people can ever
@@ -322,6 +390,58 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
   ) then
     alter publication supabase_realtime add table public.messages;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Group event chat: everyone confirmed on a job (the organizer + every
+-- freelancer accepted into any of its divisions) shares one thread, named
+-- after the event. This is what a job-based connection uses instead of the
+-- 1:1 chat above; a Discover-sourced ("like") connection still uses the 1:1
+-- chat since there's no specific job attached to it.
+-- ---------------------------------------------------------------------------
+create table if not exists public.job_chat_messages (
+  id uuid primary key default uuid_generate_v4(),
+  job_id uuid not null references public.job_postings(id) on delete cascade,
+  sender_id uuid not null references public.profiles(id) on delete cascade,
+  body text not null check (char_length(trim(body)) > 0),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists job_chat_messages_job_id_created_at_idx on public.job_chat_messages (job_id, created_at);
+
+alter table public.job_chat_messages enable row level security;
+
+create policy "job team members can read the event chat" on public.job_chat_messages
+  for select using (
+    exists (select 1 from public.job_postings jp where jp.id = job_id and jp.organizer_id = auth.uid())
+    or exists (
+      select 1 from public.applications a
+      join public.job_divisions jd on jd.id = a.division_id
+      where jd.job_id = job_chat_messages.job_id and a.freelancer_id = auth.uid() and a.status = 'accepted'
+    )
+  );
+
+create policy "job team members can send an event chat message" on public.job_chat_messages
+  for insert with check (
+    auth.uid() = sender_id
+    and (
+      exists (select 1 from public.job_postings jp where jp.id = job_id and jp.organizer_id = auth.uid())
+      or exists (
+        select 1 from public.applications a
+        join public.job_divisions jd on jd.id = a.division_id
+        where jd.job_id = job_chat_messages.job_id and a.freelancer_id = auth.uid() and a.status = 'accepted'
+      )
+    )
+  );
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'job_chat_messages'
+  ) then
+    alter publication supabase_realtime add table public.job_chat_messages;
   end if;
 end $$;
 

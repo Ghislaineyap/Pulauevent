@@ -5,12 +5,27 @@ import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { formatEventDates } from '../../lib/date'
 
-const emptyDivision = () => ({ skill: '', quantity: 1, budgetAmount: '', budgetType: 'flat' })
-const emptyForm = () => ({ title: '', description: '', location: '', eventStartDate: '', eventEndDate: '' })
+const OTHER_SKILL = '__other__'
+const OTHER_LOCATION = '__other__'
+
+const emptyDivision = () => ({
+  skill: '',
+  customSkill: '',
+  quantity: 1,
+  budgetAmount: '',
+  budgetType: 'flat',
+  feeType: 'all_in',
+  transportMax: '',
+  inviteIds: [],
+})
+const emptyForm = () => ({ title: '', description: '', location: '', customLocation: '', eventStartDate: '', eventEndDate: '' })
+const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export default function OrganizerDashboard() {
   const { user } = useAuth()
   const [skillOptions, setSkillOptions] = useState([])
+  const [locationOptions, setLocationOptions] = useState([])
+  const [teamMembers, setTeamMembers] = useState([])
   const [postings, setPostings] = useState([])
   const [loadingPostings, setLoadingPostings] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -28,6 +43,20 @@ export default function OrganizerDashboard() {
       .select('label')
       .order('sort_order')
       .then(({ data }) => setSkillOptions((data || []).map((s) => s.label)))
+    supabase
+      .from('locations')
+      .select('label')
+      .order('sort_order')
+      .then(({ data }) => setLocationOptions((data || []).map((l) => l.label)))
+    supabase
+      .from('team_members')
+      .select('freelancer_id, freelancer_profiles(id, name, skills)')
+      .eq('organizer_id', user.id)
+      .then(({ data, error: teamError }) => {
+        if (teamError) console.error(teamError)
+        setTeamMembers((data || []).map((t) => t.freelancer_profiles).filter(Boolean))
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadPostings() {
@@ -35,7 +64,7 @@ export default function OrganizerDashboard() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_start_date, event_end_date, status, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)'
+        'id, title, description, location, event_start_date, event_end_date, status, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount)'
       )
       .eq('organizer_id', user.id)
       .order('created_at', { ascending: false })
@@ -51,6 +80,21 @@ export default function OrganizerDashboard() {
 
   function updateDivision(i, patch) {
     setDivisions((ds) => ds.map((d, idx) => (idx === i ? { ...d, ...patch } : d)))
+  }
+
+  function toggleInvite(i, freelancerId) {
+    setDivisions((ds) =>
+      ds.map((d, idx) =>
+        idx === i
+          ? {
+              ...d,
+              inviteIds: d.inviteIds.includes(freelancerId)
+                ? d.inviteIds.filter((id) => id !== freelancerId)
+                : [...d.inviteIds, freelancerId],
+            }
+          : d
+      )
+    )
   }
 
   function removeDivisionAt(i) {
@@ -71,21 +115,30 @@ export default function OrganizerDashboard() {
 
   async function startEdit(job) {
     setEditingJobId(job.id)
+    const knownLocation = job.location && locationOptions.includes(job.location)
     setForm({
       title: job.title,
       description: job.description || '',
-      location: job.location,
+      location: knownLocation ? job.location : OTHER_LOCATION,
+      customLocation: knownLocation ? '' : job.location,
       eventStartDate: job.event_start_date,
       eventEndDate: job.event_end_date,
     })
     setDivisions(
-      job.job_divisions.map((d) => ({
-        id: d.id,
-        skill: d.skill,
-        quantity: d.quantity,
-        budgetAmount: d.budget_amount != null ? String(d.budget_amount) : '',
-        budgetType: d.budget_type,
-      }))
+      job.job_divisions.map((d) => {
+        const knownSkill = skillOptions.includes(d.skill)
+        return {
+          id: d.id,
+          skill: knownSkill ? d.skill : OTHER_SKILL,
+          customSkill: knownSkill ? '' : d.skill,
+          quantity: d.quantity,
+          budgetAmount: d.budget_amount != null ? String(d.budget_amount) : '',
+          budgetType: d.budget_type,
+          feeType: d.fee_type || 'all_in',
+          transportMax: d.transport_max_amount != null ? String(d.transport_max_amount) : '',
+          inviteIds: [],
+        }
+      })
     )
     setRemovedDivisionIds([])
     setError('')
@@ -114,18 +167,47 @@ export default function OrganizerDashboard() {
     setError('')
   }
 
+  function divisionPayload(d) {
+    return {
+      skill: d.skill === OTHER_SKILL ? d.customSkill.trim() : d.skill,
+      quantity: Number(d.quantity) || 1,
+      budget_amount: d.budgetAmount ? Number(d.budgetAmount) : null,
+      budget_type: d.budgetType,
+      fee_type: d.feeType,
+      transport_max_amount: d.feeType === 'plus_transport' && d.transportMax ? Number(d.transportMax) : null,
+    }
+  }
+
+  async function inviteTeamMembers(divisionId, inviteIds) {
+    if (!inviteIds || inviteIds.length === 0) return
+    const { error: inviteError } = await supabase.from('applications').insert(
+      inviteIds.map((freelancerId) => ({
+        division_id: divisionId,
+        freelancer_id: freelancerId,
+        status: 'invited',
+        source: 'invited',
+      }))
+    )
+    if (inviteError) console.error(inviteError)
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.title.trim() || !form.location.trim() || !form.eventStartDate || !form.eventEndDate) {
+    const resolvedLocation = form.location === OTHER_LOCATION ? form.customLocation.trim() : form.location
+    if (!form.title.trim() || !resolvedLocation || !form.eventStartDate || !form.eventEndDate) {
       setError('Title, location, and start/end dates are required.')
+      return
+    }
+    if (!editingJobId && form.eventStartDate < todayISO()) {
+      setError("Start date can't be in the past.")
       return
     }
     if (form.eventEndDate < form.eventStartDate) {
       setError('End date can\'t be before the start date.')
       return
     }
-    const cleanDivisions = divisions.filter((d) => d.skill)
+    const cleanDivisions = divisions.filter((d) => (d.skill === OTHER_SKILL ? d.customSkill.trim() : d.skill))
     if (cleanDivisions.length === 0) {
       setError('Add at least one division (role you need to hire).')
       return
@@ -141,7 +223,7 @@ export default function OrganizerDashboard() {
           organizer_id: user.id,
           title: form.title.trim(),
           description: form.description.trim(),
-          location: form.location.trim(),
+          location: resolvedLocation,
           event_start_date: form.eventStartDate,
           event_end_date: form.eventEndDate,
         })
@@ -154,20 +236,19 @@ export default function OrganizerDashboard() {
         return
       }
 
-      const { error: divError } = await supabase.from('job_divisions').insert(
-        cleanDivisions.map((d) => ({
-          job_id: job.id,
-          skill: d.skill,
-          quantity: Number(d.quantity) || 1,
-          budget_amount: d.budgetAmount ? Number(d.budgetAmount) : null,
-          budget_type: d.budgetType,
-        }))
-      )
-      setBusy(false)
+      const { data: insertedDivisions, error: divError } = await supabase
+        .from('job_divisions')
+        .insert(cleanDivisions.map((d) => ({ job_id: job.id, ...divisionPayload(d) })))
+        .select()
       if (divError) {
         setError(divError.message)
+        setBusy(false)
         return
       }
+      for (let i = 0; i < insertedDivisions.length; i++) {
+        await inviteTeamMembers(insertedDivisions[i].id, cleanDivisions[i].inviteIds)
+      }
+      setBusy(false)
     } else {
       // Update an existing posting's top-level details.
       const { error: jobError } = await supabase
@@ -175,7 +256,7 @@ export default function OrganizerDashboard() {
         .update({
           title: form.title.trim(),
           description: form.description.trim(),
-          location: form.location.trim(),
+          location: resolvedLocation,
           event_start_date: form.eventStartDate,
           event_end_date: form.eventEndDate,
         })
@@ -194,32 +275,22 @@ export default function OrganizerDashboard() {
       const editedDivisions = cleanDivisions.filter((d) => d.id && !lockedDivisionIds.has(d.id))
 
       if (newDivisions.length > 0) {
-        const { error: insError } = await supabase.from('job_divisions').insert(
-          newDivisions.map((d) => ({
-            job_id: editingJobId,
-            skill: d.skill,
-            quantity: Number(d.quantity) || 1,
-            budget_amount: d.budgetAmount ? Number(d.budgetAmount) : null,
-            budget_type: d.budgetType,
-          }))
-        )
+        const { data: insertedDivisions, error: insError } = await supabase
+          .from('job_divisions')
+          .insert(newDivisions.map((d) => ({ job_id: editingJobId, ...divisionPayload(d) })))
+          .select()
         if (insError) {
           setError(insError.message)
           setBusy(false)
           return
         }
+        for (let i = 0; i < insertedDivisions.length; i++) {
+          await inviteTeamMembers(insertedDivisions[i].id, newDivisions[i].inviteIds)
+        }
       }
 
       for (const d of editedDivisions) {
-        const { error: updError } = await supabase
-          .from('job_divisions')
-          .update({
-            skill: d.skill,
-            quantity: Number(d.quantity) || 1,
-            budget_amount: d.budgetAmount ? Number(d.budgetAmount) : null,
-            budget_type: d.budgetType,
-          })
-          .eq('id', d.id)
+        const { error: updError } = await supabase.from('job_divisions').update(divisionPayload(d)).eq('id', d.id)
         if (updError) {
           setError(updError.message)
           setBusy(false)
@@ -267,7 +338,27 @@ export default function OrganizerDashboard() {
             <div className="row">
               <div className="field" style={{ flex: 1 }}>
                 <label htmlFor="loc">Location</label>
-                <input id="loc" type="text" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
+                <select id="loc" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}>
+                  <option value="">Select location…</option>
+                  {locationOptions.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                  <option value={OTHER_LOCATION}>Other (type your own)</option>
+                </select>
+                {form.location === OTHER_LOCATION && (
+                  <input
+                    style={{ marginTop: 8 }}
+                    type="text"
+                    placeholder="Type the city/area"
+                    value={form.customLocation}
+                    onChange={(e) => setForm((f) => ({ ...f, customLocation: e.target.value }))}
+                  />
+                )}
+                <p className="helper-text">
+                  Picking from the list (instead of typing) keeps this consistent with what freelancers filter by.
+                </p>
               </div>
             </div>
             <div className="row">
@@ -276,6 +367,7 @@ export default function OrganizerDashboard() {
                 <input
                   id="startDate"
                   type="date"
+                  min={editingJobId ? undefined : todayISO()}
                   value={form.eventStartDate}
                   onChange={(e) =>
                     setForm((f) => ({
@@ -327,6 +419,7 @@ export default function OrganizerDashboard() {
                               {s}
                             </option>
                           ))}
+                          <option value={OTHER_SKILL}>Other (type your own)</option>
                         </select>
                         <input
                           style={{ flex: 1 }}
@@ -338,7 +431,17 @@ export default function OrganizerDashboard() {
                           onChange={(e) => updateDivision(i, { quantity: e.target.value })}
                         />
                       </div>
-                      <div className="row">
+                      {d.skill === OTHER_SKILL && (
+                        <input
+                          style={{ marginBottom: 8 }}
+                          type="text"
+                          placeholder="Type the role you need"
+                          value={d.customSkill}
+                          disabled={locked}
+                          onChange={(e) => updateDivision(i, { customSkill: e.target.value })}
+                        />
+                      )}
+                      <div className="row" style={{ marginBottom: 8 }}>
                         <input
                           style={{ flex: 1 }}
                           type="number"
@@ -364,6 +467,51 @@ export default function OrganizerDashboard() {
                           </button>
                         )}
                       </div>
+
+                      <div className="field" style={{ marginBottom: locked ? 0 : 8 }}>
+                        <label style={{ fontSize: 12 }}>Fee covers</label>
+                        <select
+                          value={d.feeType}
+                          disabled={locked}
+                          onChange={(e) => updateDivision(i, { feeType: e.target.value })}
+                        >
+                          <option value="all_in">All-in (no separate reimbursement)</option>
+                          <option value="plus_transport">+ Transport reimbursed separately</option>
+                        </select>
+                        {d.feeType === 'plus_transport' && (
+                          <input
+                            style={{ marginTop: 8 }}
+                            type="number"
+                            min="0"
+                            placeholder="Max transport reimbursement (optional — leave blank for actual cost)"
+                            value={d.transportMax}
+                            disabled={locked}
+                            onChange={(e) => updateDivision(i, { transportMax: e.target.value })}
+                          />
+                        )}
+                        <p className="helper-text">This shows on the job post so applicants know upfront.</p>
+                      </div>
+
+                      {!d.id && teamMembers.length > 0 && (
+                        <div className="field" style={{ marginBottom: 0 }}>
+                          <label style={{ fontSize: 12 }}>Invite from your team (optional)</label>
+                          <div className="chip-row">
+                            {teamMembers.map((t) => (
+                              <span
+                                key={t.id}
+                                className={`chip chip-toggle ${d.inviteIds.includes(t.id) ? 'active' : ''}`}
+                                onClick={() => toggleInvite(i, t.id)}
+                              >
+                                {t.name}
+                              </span>
+                            ))}
+                          </div>
+                          <p className="helper-text">
+                            They'll be asked to confirm before they're booked into this role — it doesn't skip the
+                            rest of the quantity if you need more people than you invite.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -390,44 +538,46 @@ export default function OrganizerDashboard() {
           </form>
         )}
 
-        <div className="stack">
-          {loadingPostings && <p className="subtitle">Loading your postings…</p>}
-          {!loadingPostings && postings.length === 0 && (
-            <div className="empty-state">You haven't posted any jobs yet.</div>
-          )}
-          {postings.map((job) => (
-            <div key={job.id} className="card">
-              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Link to={`/organizer/jobs/${job.id}/applicants`} style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
-                  <h2>{job.title}</h2>
-                  <p className="subtitle">
-                    {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
-                  </p>
+        {!showForm && (
+          <div className="stack">
+            {loadingPostings && <p className="subtitle">Loading your postings…</p>}
+            {!loadingPostings && postings.length === 0 && (
+              <div className="empty-state">You haven't posted any jobs yet.</div>
+            )}
+            {postings.map((job) => (
+              <div key={job.id} className="card">
+                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Link to={`/organizer/jobs/${job.id}/applicants`} style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
+                    <h2>{job.title}</h2>
+                    <p className="subtitle">
+                      {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                    </p>
+                  </Link>
+                  <div className="stack" style={{ alignItems: 'flex-end', gap: 6, width: 'auto' }}>
+                    <span className="chip chip-outline">{job.status}</span>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ padding: '4px 10px', fontSize: 12 }}
+                      onClick={() => startEdit(job)}
+                    >
+                      Edit
+                    </button>
+                  </div>
+                </div>
+                <Link to={`/organizer/jobs/${job.id}/applicants`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div className="chip-row" style={{ marginTop: 10 }}>
+                    {job.job_divisions.map((d) => (
+                      <span key={d.id} className="chip">
+                        {d.skill} {d.filled_count}/{d.quantity}
+                      </span>
+                    ))}
+                  </div>
                 </Link>
-                <div className="stack" style={{ alignItems: 'flex-end', gap: 6, width: 'auto' }}>
-                  <span className="chip chip-outline">{job.status}</span>
-                  <button
-                    type="button"
-                    className="btn btn-outline"
-                    style={{ padding: '4px 10px', fontSize: 12 }}
-                    onClick={() => startEdit(job)}
-                  >
-                    Edit
-                  </button>
-                </div>
               </div>
-              <Link to={`/organizer/jobs/${job.id}/applicants`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                <div className="chip-row" style={{ marginTop: 10 }}>
-                  {job.job_divisions.map((d) => (
-                    <span key={d.id} className="chip">
-                      {d.skill} {d.filled_count}/{d.quantity}
-                    </span>
-                  ))}
-                </div>
-              </Link>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
       <OrganizerTabbar />
     </div>

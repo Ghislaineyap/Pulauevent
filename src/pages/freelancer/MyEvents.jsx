@@ -20,22 +20,18 @@ export default function MyEvents() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: apps, error: appsError }, { data: matches, error: matchesError }, { data: myEndorsements }] = await Promise.all([
+    const [{ data: apps, error: appsError }, { data: myEndorsements }] = await Promise.all([
       supabase
         .from('applications')
         .select(
           'id, status, job_divisions(id, skill, budget_amount, budget_type, job_id, job_postings(id, title, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name)))'
         )
         .eq('freelancer_id', user.id),
-      supabase.from('matches').select('id, source, source_id').eq('freelancer_id', user.id).eq('source', 'application'),
       supabase.from('skill_endorsements').select('freelancer_id, skill').eq('endorser_id', user.id),
     ])
     if (appsError) console.error(appsError)
-    if (matchesError) console.error(matchesError)
-    const matchByApplicationId = new Map((matches || []).map((m) => [m.source_id, m.id]))
     const clean = (apps || [])
       .filter((a) => a.job_divisions?.job_postings)
-      .map((a) => ({ ...a, matchId: matchByApplicationId.get(a.id) || null }))
       .sort((a, b) => (a.status === b.status ? 0 : a.status === 'accepted' ? -1 : b.status === 'accepted' ? 1 : 0))
     setEvents(clean)
     setEndorsed(new Set((myEndorsements || []).map((e) => `${e.freelancer_id}:${e.skill}`)))
@@ -124,9 +120,9 @@ export default function MyEvents() {
                     </span>
                   )}
                 </div>
-                {a.matchId && (
-                  <Link to={`/chat/${a.matchId}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
-                    💬 Open chat
+                {a.status === 'accepted' && (
+                  <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
+                    💬 Open event chat
                   </Link>
                 )}
 

@@ -20,6 +20,8 @@ export default function FreelancerProfileDetail() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState(null)
+  const [inTeam, setInTeam] = useState(false)
+  const [teamBusy, setTeamBusy] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -33,7 +35,27 @@ export default function FreelancerProfileDetail() {
         setFreelancer(data)
         setLoading(false)
       })
-  }, [freelancerId])
+    supabase
+      .from('team_members')
+      .select('id')
+      .eq('organizer_id', user.id)
+      .eq('freelancer_id', freelancerId)
+      .maybeSingle()
+      .then(({ data }) => setInTeam(Boolean(data)))
+  }, [freelancerId, user.id])
+
+  async function addToTeam() {
+    setTeamBusy(true)
+    const { error: teamError } = await supabase
+      .from('team_members')
+      .upsert({ organizer_id: user.id, freelancer_id: freelancerId, source: 'manual' }, { onConflict: 'organizer_id,freelancer_id', ignoreDuplicates: true })
+    setTeamBusy(false)
+    if (teamError) {
+      console.error(teamError)
+      return
+    }
+    setInTeam(true)
+  }
 
   async function act(status) {
     setBusy(true)
@@ -99,6 +121,17 @@ export default function FreelancerProfileDetail() {
             {freelancer.experience_band && ` · ${experienceBandLabel(freelancer.experience_band)} experience`}
           </p>
           {freelancer.pitch && <p>{freelancer.pitch}</p>}
+          <button
+            className="btn btn-outline"
+            disabled={inTeam || teamBusy}
+            onClick={addToTeam}
+            style={{ marginTop: 4 }}
+          >
+            {inTeam ? '✓ In your team' : teamBusy ? 'Adding…' : '+ Add to my team'}
+          </button>
+          <p className="helper-text" style={{ margin: 0 }}>
+            Team members can be invited directly into a division next time you post a job.
+          </p>
         </div>
 
         <RatingsSummary freelancerId={freelancer.id} />

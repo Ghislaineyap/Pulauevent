@@ -7,7 +7,9 @@ export function applicationStatusLabel(status) {
     case 'accepted':
       return 'Confirmed'
     case 'declined':
-      return 'Not selected this time'
+      return 'Not selected'
+    case 'invited':
+      return 'Invited — respond in Connect'
     default:
       return status
   }
@@ -16,5 +18,5 @@ export function applicationStatusLabel(status) {
 // Which chip style to pair the label with, so accepted reads as a positive
 // (filled/active chip) and the other two stay neutral outline chips.
 export function applicationStatusChipClass(status) {
-  return status === 'accepted' ? 'chip' : 'chip chip-outline'
+  return status === 'accepted' || status === 'invited' ? 'chip' : 'chip chip-outline'
 }

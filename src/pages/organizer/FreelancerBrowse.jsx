@@ -53,7 +53,14 @@ export default function FreelancerBrowse() {
       if (filters.genders.length && !filters.genders.includes(f.gender)) return false
       if (filters.locations.length && !(f.locations || []).some((l) => filters.locations.includes(l))) return false
       if (filters.experienceBands.length && !filters.experienceBands.includes(f.experience_band)) return false
-      if (filters.skills.length && !(f.skills || []).some((s) => filters.skills.includes(s))) return false
+      if (filters.skills.length) {
+        const wantsOther = filters.skills.includes('Other')
+        const curatedWanted = filters.skills.filter((s) => s !== 'Other')
+        const skills = f.skills || []
+        const matchesCurated = curatedWanted.length > 0 && skills.some((s) => curatedWanted.includes(s))
+        const matchesOther = wantsOther && skills.some((s) => s.startsWith('Other: '))
+        if (!matchesCurated && !matchesOther) return false
+      }
       return true
     })
   }, [rawFreelancers, filters])
@@ -161,6 +168,12 @@ export default function FreelancerBrowse() {
                       {s}
                     </span>
                   ))}
+                  <span
+                    className={`chip chip-toggle ${filters.skills.includes('Other') ? 'active' : ''}`}
+                    onClick={() => toggleFilter('skills', 'Other')}
+                  >
+                    Other
+                  </span>
                 </div>
               </div>
             )}

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
-import { Topbar } from '../../components/Layout'
+import { Topbar, OrganizerTabbar } from '../../components/Layout'
 
 export default function OrganizerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
@@ -73,6 +73,7 @@ export default function OrganizerOnboarding() {
           </button>
         </form>
       </div>
+      <OrganizerTabbar />
     </div>
   )
 }
