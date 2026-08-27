@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
+import { formatEventDates } from '../../lib/date'
 
 const emptyDivision = () => ({ skill: '', quantity: 1, budgetAmount: '', budgetType: 'flat' })
-const emptyForm = () => ({ title: '', description: '', location: '', eventDate: '' })
+const emptyForm = () => ({ title: '', description: '', location: '', eventStartDate: '', eventEndDate: '' })
 
 export default function OrganizerDashboard() {
   const { user } = useAuth()
@@ -34,7 +35,7 @@ export default function OrganizerDashboard() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_date, status, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)'
+        'id, title, description, location, event_start_date, event_end_date, status, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)'
       )
       .eq('organizer_id', user.id)
       .order('created_at', { ascending: false })
@@ -74,7 +75,8 @@ export default function OrganizerDashboard() {
       title: job.title,
       description: job.description || '',
       location: job.location,
-      eventDate: job.event_date,
+      eventStartDate: job.event_start_date,
+      eventEndDate: job.event_end_date,
     })
     setDivisions(
       job.job_divisions.map((d) => ({
@@ -115,8 +117,12 @@ export default function OrganizerDashboard() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.title.trim() || !form.location.trim() || !form.eventDate) {
-      setError('Title, location and event date are required.')
+    if (!form.title.trim() || !form.location.trim() || !form.eventStartDate || !form.eventEndDate) {
+      setError('Title, location, and start/end dates are required.')
+      return
+    }
+    if (form.eventEndDate < form.eventStartDate) {
+      setError('End date can\'t be before the start date.')
       return
     }
     const cleanDivisions = divisions.filter((d) => d.skill)
@@ -136,7 +142,8 @@ export default function OrganizerDashboard() {
           title: form.title.trim(),
           description: form.description.trim(),
           location: form.location.trim(),
-          event_date: form.eventDate,
+          event_start_date: form.eventStartDate,
+          event_end_date: form.eventEndDate,
         })
         .select()
         .single()
@@ -169,7 +176,8 @@ export default function OrganizerDashboard() {
           title: form.title.trim(),
           description: form.description.trim(),
           location: form.location.trim(),
-          event_date: form.eventDate,
+          event_start_date: form.eventStartDate,
+          event_end_date: form.eventEndDate,
         })
         .eq('id', editingJobId)
 
@@ -237,7 +245,7 @@ export default function OrganizerDashboard() {
 
   return (
     <div className="app-shell">
-      <Topbar title="Your postings" />
+      <Topbar title="Your posts" />
       <div className="page">
         {!showForm && (
           <button className="btn btn-primary btn-block" onClick={startCreate}>
@@ -261,11 +269,38 @@ export default function OrganizerDashboard() {
                 <label htmlFor="loc">Location</label>
                 <input id="loc" type="text" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
               </div>
+            </div>
+            <div className="row">
               <div className="field" style={{ flex: 1 }}>
-                <label htmlFor="date">Event date</label>
-                <input id="date" type="date" value={form.eventDate} onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))} />
+                <label htmlFor="startDate">Start date</label>
+                <input
+                  id="startDate"
+                  type="date"
+                  value={form.eventStartDate}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      eventStartDate: e.target.value,
+                      // keep the range valid as the user picks — bump end date forward with it
+                      eventEndDate: f.eventEndDate && f.eventEndDate < e.target.value ? e.target.value : f.eventEndDate,
+                    }))
+                  }
+                />
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="endDate">End date</label>
+                <input
+                  id="endDate"
+                  type="date"
+                  min={form.eventStartDate || undefined}
+                  value={form.eventEndDate}
+                  onChange={(e) => setForm((f) => ({ ...f, eventEndDate: e.target.value }))}
+                />
               </div>
             </div>
+            <p className="helper-text" style={{ marginTop: -8 }}>
+              Multi-day event? Just set an end date later than the start date.
+            </p>
 
             <div className="field">
               <label>Divisions — who do you need, and how many?</label>
@@ -366,7 +401,7 @@ export default function OrganizerDashboard() {
                 <Link to={`/organizer/jobs/${job.id}/applicants`} style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}>
                   <h2>{job.title}</h2>
                   <p className="subtitle">
-                    {job.location} · {job.event_date}
+                    {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
                   </p>
                 </Link>
                 <div className="stack" style={{ alignItems: 'flex-end', gap: 6, width: 'auto' }}>

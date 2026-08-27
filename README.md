@@ -1,11 +1,7 @@
-# Vendor Connect
+# Pulau Event
 
-Event-services freelancers, and the organizers who hire them — swipe, apply, match.
+Event-services freelancers, and the organizers who hire them — browse, apply, connect.
 Built with React + Vite, Supabase (database, auth), deployed on Netlify.
-
-**Status: v1 core flow.** Profiles, job postings with divisions, browse/apply/match on
-both paths. Photo uploads, in-app chat, and push-style notifications are intentionally
-not in this pass — see "What's next" below.
 
 ## 1. Create your Supabase project
 
@@ -47,9 +43,10 @@ Two roles, two paths to a match:
 - **Path A — job-post driven.** An organizer posts a job with one or more divisions
   (e.g. 1 Runner, 2 Stage Managers, 3 LOs, each with its own budget). Freelancers
   browse open postings, open one, and apply to a specific division.
-- **Path B — profile-browse driven.** An organizer browses freelancer profiles
-  directly (filterable by location) and swipes/likes one. The freelancer sees it as
-  a pending like in their Activity tab and accepts or declines.
+- **Path B — profile-browse driven (Discover).** An organizer browses freelancer
+  profiles directly (filterable by gender, location, experience, and skill) and
+  shortlists one. The freelancer sees it as pending interest in their Connect tab
+  and accepts or declines.
 
 Either path converging on an "accepted" status triggers a Postgres trigger
 (`supabase/schema.sql`) that creates a row in `matches` automatically — the client
@@ -72,17 +69,51 @@ frontend, not the database — see the comment above the RLS policies in
   division can only be edited or removed while it has zero applicants (once someone's
   applied, that division locks to keep things consistent for them).
 - **Real photo uploads.** Freelancers can upload a real photo (Supabase Storage,
-  auto-resized/compressed client-side to 640px JPEG) — the preset avatar
-  (`src/lib/avatars.js`) is now just the fallback shown when no photo is set.
-- **In-app chat.** Matched pairs get a real chat thread (`messages` table + Supabase
-  Realtime for live delivery) via the "Open chat" button on a match — no more
+  auto-resized/compressed client-side to 640px JPEG) — a simple fallback avatar is
+  shown when no photo is set.
+- **In-app chat.** Connected pairs get a real chat thread (`messages` table +
+  Supabase Realtime for live delivery) via the "Open chat" button — no more
   "coming soon" placeholder.
+- **"Connections", not "matches".** All user-facing copy was reworded away from
+  dating-app language ("matched" → "connected", "Your matches" → "Your
+  connections", "Swipe, apply, match" → "Browse, apply, connect"). This is a
+  professional marketplace, and the copy now says so.
+- **Multi-day job postings.** `job_postings` now has `event_start_date` +
+  `event_end_date` instead of a single date — organizers pick a range, and a
+  single-day event just has the same start and end date.
+- **Gender field + simplified avatar.** Freelancers pick Male / Female / Prefer
+  not to say. The old 8-emoji avatar picker is gone — the fallback avatar (shown
+  when there's no real photo) is now just 3 simple options tied directly to
+  gender, no separate picker needed.
+- **Years of experience as a band**, not an exact number (0–1 / 2–5 / 6–10 / 10+)
+  — easier to pick, and easier to filter on.
+- **Multi-select filters on Browse.** Organizers can filter freelancers by any
+  combination of gender, location, experience band, and skill.
+- **Bumble-style browse cards.** The browse card is now a compact preview (photo,
+  name, location, one-line pitch) — tapping it opens a full profile page with
+  everything else (full skills, rate, work history) before deciding to like or
+  pass.
+
+- **Branded as Pulau Event**, with a new visual identity: sky-blue + sunset-orange
+  palette, Poppins throughout (replacing the old navy/coral scheme and system font).
+- **Big photos, up to 3 per freelancer.** The old single small avatar is gone —
+  freelancers upload up to 3 real photos (`freelancer_profiles.photo_urls`), shown
+  as a large hero photo on the Discover card and a swipeable gallery on the full
+  profile page. Still falls back to a simple gender-colored silhouette if they skip it.
+- **No more hearts.** "Like/Pass" is now "Shortlist/Skip" (Discover), and
+  "Pass/Accept" is now "Decline/Accept" (reviewing applicants) — plain pill
+  buttons instead of ✕/♥ circles.
+- **Navigation renamed and reordered, Profile first.** Organizer: Profile · Post ·
+  Discover · Connect. Freelancer: Profile · Job · Connect.
+- **Job feed location filter, automatic and adjustable.** Defaults to the
+  freelancer's own saved location(s), shown as toggleable chips so they can add
+  more cities or clear the filter entirely.
 
 ## What's next (deliberately out of v1)
 
 - **Real push notifications.** "Notified" today means a badge that appears next time
   they open the app — a phone push notification needs a native app or web push setup.
 - **True location/radius search.** Location is currently free-typed strings matched
-  with a simple text filter, not GPS-distance search.
+  as exact chips, not GPS-distance search.
 - **Ratings/reviews**, read receipts / typing indicators in chat, and swipe-gesture
   (drag) interactions instead of tap buttons are also not in this pass.

@@ -19,11 +19,11 @@ export default function Chat() {
   const loadMatch = useCallback(async () => {
     const { data, error: matchError } = await supabase
       .from('matches')
-      .select('id, organizer_id, freelancer_id, organizer_profiles(org_name), freelancer_profiles(name, avatar_key, photo_url)')
+      .select('id, organizer_id, freelancer_id, organizer_profiles(org_name), freelancer_profiles(name, avatar_key, photo_urls)')
       .eq('id', matchId)
       .single()
     if (matchError) {
-      setError("Couldn't load this chat — the match may not exist, or isn't yours.")
+      setError("Couldn't load this chat — the connection may not exist, or isn't yours.")
       setLoading(false)
       return
     }
@@ -106,7 +106,11 @@ export default function Chat() {
 
   const counterpart =
     role === 'organizer'
-      ? { name: match.freelancer_profiles.name, avatarKey: match.freelancer_profiles.avatar_key, photoUrl: match.freelancer_profiles.photo_url }
+      ? {
+          name: match.freelancer_profiles.name,
+          avatarKey: match.freelancer_profiles.avatar_key,
+          photoUrl: (match.freelancer_profiles.photo_urls || [])[0],
+        }
       : { name: match.organizer_profiles.org_name, avatarKey: null, photoUrl: null }
 
   return (
@@ -130,7 +134,7 @@ export default function Chat() {
         <div className="chat-thread">
           {messages.length === 0 && (
             <p className="subtitle" style={{ textAlign: 'center', marginTop: 24 }}>
-              You matched — say hello! Once you've settled the details, you're welcome to move to WhatsApp or
+              You're connected — say hello! Once you've settled the details, you're welcome to move to WhatsApp or
               wherever's easiest.
             </p>
           )}

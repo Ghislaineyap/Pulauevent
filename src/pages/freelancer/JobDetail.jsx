@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
+import { formatEventDates } from '../../lib/date'
 
 export default function JobDetail() {
   const { jobId } = useParams()
@@ -18,7 +19,7 @@ export default function JobDetail() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)'
+        'id, title, description, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)'
       )
       .eq('id', jobId)
       .single()
@@ -61,7 +62,7 @@ export default function JobDetail() {
           <h1>{job.title}</h1>
           <p className="subtitle">
             {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} · 📍 {job.location} ·{' '}
-            {job.event_date}
+            {formatEventDates(job.event_start_date, job.event_end_date)}
           </p>
           {job.description && <p>{job.description}</p>}
         </div>

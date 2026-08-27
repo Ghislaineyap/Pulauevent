@@ -2,7 +2,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
-import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { PhotoFrame } from '../../components/PhotoFrame'
+import { formatEventDates } from '../../lib/date'
+import { experienceBandLabel } from '../../lib/experience'
 
 export default function ApplicantReview() {
   const { jobId } = useParams()
@@ -17,7 +19,7 @@ export default function ApplicantReview() {
     setLoading(true)
     const { data, error } = await supabase
       .from('job_postings')
-      .select('id, title, location, event_date, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)')
+      .select('id, title, location, event_start_date, event_end_date, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type)')
       .eq('id', jobId)
       .single()
     if (error) console.error(error)
@@ -34,7 +36,7 @@ export default function ApplicantReview() {
     }
     const { data, error } = await supabase
       .from('applications')
-      .select('id, status, freelancer_profiles(id, name, locations, avatar_key, photo_url, pitch, rate_amount, rate_type, skills, years_experience, work_history)')
+      .select('id, status, freelancer_profiles(id, name, gender, locations, avatar_key, photo_urls, pitch, rate_amount, rate_type, skills, experience_band, work_history)')
       .eq('division_id', activeDivisionId)
       .eq('status', 'pending')
     if (error) console.error(error)
@@ -70,8 +72,11 @@ export default function ApplicantReview() {
       <Topbar title={job.title} />
       <div className="page">
         <Link to="/organizer/dashboard" className="subtitle">
-          ← Back to postings
+          ← Back to posts
         </Link>
+        <p className="subtitle">
+          📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+        </p>
 
         <div className="chip-row">
           {divisions.map((d) => (
@@ -87,9 +92,9 @@ export default function ApplicantReview() {
 
         {justMatched && (
           <div className="match-banner">
-            <div style={{ fontSize: 30 }}>🎉 It's a match!</div>
+            <div style={{ fontSize: 30 }}>🎉 You're connected!</div>
             <p style={{ marginTop: 8 }}>
-              You and <strong>{justMatched.name}</strong> can now chat in the Activity tab.
+              You and <strong>{justMatched.name}</strong> can now chat in the Connect tab.
             </p>
             <button className="btn btn-outline" style={{ marginTop: 12, background: 'white' }} onClick={() => setJustMatched(null)}>
               Keep reviewing
@@ -123,31 +128,37 @@ function ApplicantCard({ app, onPass, onLike }) {
   const f = app.freelancer_profiles
   return (
     <div className="swipe-card">
-      <ProfileAvatar avatarKey={f.avatar_key} photoUrl={f.photo_url} />
-      <h2 style={{ textAlign: 'center' }}>{f.name}</h2>
-      <p className="subtitle" style={{ textAlign: 'center' }}>
-        📍 {(f.locations || []).join(', ')} {f.years_experience != null && `· ${f.years_experience} yrs experience`}
-      </p>
-      {f.pitch && <p style={{ textAlign: 'center' }}>{f.pitch}</p>}
-      <div className="chip-row" style={{ justifyContent: 'center' }}>
-        {(f.skills || []).map((s) => (
-          <span key={s} className="chip chip-outline">
-            {s}
-          </span>
-        ))}
+      <PhotoFrame photoUrl={(f.photo_urls || [])[0]} gender={f.gender} dotCount={(f.photo_urls || []).length}>
+        <div className="photo-scrim">
+          <h2>{f.name}</h2>
+          <p>
+            📍 {(f.locations || []).join(', ')}
+            {f.experience_band && ` · ${experienceBandLabel(f.experience_band)} experience`}
+          </p>
+        </div>
+      </PhotoFrame>
+      <div className="photo-card-body">
+        {f.pitch && <p style={{ margin: 0, fontSize: 14 }}>{f.pitch}</p>}
+        <div className="chip-row">
+          {(f.skills || []).map((s) => (
+            <span key={s} className="chip chip-outline">
+              {s}
+            </span>
+          ))}
+        </div>
+        {f.rate_amount && (
+          <p className="subtitle">
+            Rate: Rp {Number(f.rate_amount).toLocaleString('id-ID')} / {f.rate_type}
+          </p>
+        )}
+        {f.work_history && <p className="subtitle">{f.work_history}</p>}
       </div>
-      {f.rate_amount && (
-        <p className="subtitle" style={{ textAlign: 'center' }}>
-          Rate: Rp {Number(f.rate_amount).toLocaleString('id-ID')} / {f.rate_type}
-        </p>
-      )}
-      {f.work_history && <p className="subtitle">{f.work_history}</p>}
-      <div className="swipe-actions">
-        <button className="swipe-btn pass" onClick={onPass} aria-label="Pass">
-          ✕
+      <div className="swipe-actions" style={{ padding: '0 16px 16px' }}>
+        <button className="btn btn-outline" onClick={onPass}>
+          Decline
         </button>
-        <button className="swipe-btn like" onClick={onLike} aria-label="Accept">
-          ♥
+        <button className="btn btn-primary" onClick={onLike}>
+          Accept
         </button>
       </div>
     </div>

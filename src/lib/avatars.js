@@ -1,17 +1,16 @@
-// Preset avatars — v1 has no photo upload (see README), so every freelancer
-// picks one of these instead of uploading a real photo. Each is just a
-// gradient + emoji, rendered entirely in CSS/JS, no image files to host.
+// Fallback avatar shown when a freelancer hasn't uploaded a real photo.
+// Simplified from an 8-emoji picker down to 3 options tied directly to the
+// gender field on their profile (see gender.js) — no separate picker UI
+// needed, the right one is chosen automatically when they set their gender.
 export const AVATARS = [
-  { key: 'avatar-1', emoji: '🎬', gradient: 'linear-gradient(135deg, #FF6B6B, #C0392B)' },
-  { key: 'avatar-2', emoji: '🎤', gradient: 'linear-gradient(135deg, #6C5CE7, #341F97)' },
-  { key: 'avatar-3', emoji: '📸', gradient: 'linear-gradient(135deg, #00B894, #00636B)' },
-  { key: 'avatar-4', emoji: '💡', gradient: 'linear-gradient(135deg, #FDCB6E, #E67E22)' },
-  { key: 'avatar-5', emoji: '🎧', gradient: 'linear-gradient(135deg, #0984E3, #1B3B6F)' },
-  { key: 'avatar-6', emoji: '🌸', gradient: 'linear-gradient(135deg, #FD79A8, #A6336B)' },
-  { key: 'avatar-7', emoji: '🍽️', gradient: 'linear-gradient(135deg, #55E6C1, #12756D)' },
-  { key: 'avatar-8', emoji: '🛡️', gradient: 'linear-gradient(135deg, #576574, #222F3E)' },
+  { key: 'male', emoji: '🧔', gradient: 'linear-gradient(135deg, #0984E3, #1B3B6F)' },
+  { key: 'female', emoji: '👩', gradient: 'linear-gradient(135deg, #FD79A8, #A6336B)' },
+  { key: 'prefer_not_to_say', emoji: '🧑', gradient: 'linear-gradient(135deg, #576574, #222F3E)' },
 ]
 
+// Falls back to the neutral avatar (not AVATARS[0]) for anything unrecognized
+// — e.g. profiles created before this change, which had emoji-picker keys
+// like "avatar-3" that no longer mean anything.
 export function avatarFor(key) {
-  return AVATARS.find((a) => a.key === key) || AVATARS[0]
+  return AVATARS.find((a) => a.key === key) || AVATARS[2]
 }

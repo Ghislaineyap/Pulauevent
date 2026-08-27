@@ -46,7 +46,7 @@ export default function OrganizerOnboarding() {
     <div className="app-shell">
       <Topbar title={isOnboarded ? 'Edit your organizer profile' : 'Set up your organizer profile'} />
       <div className="page">
-        <p className="subtitle">Freelancers see this once you match. Until then, you can choose to stay anonymous.</p>
+        <p className="subtitle">Freelancers see this once you connect. Until then, you can choose to stay anonymous.</p>
         <form className="card stack" onSubmit={handleSubmit}>
           <div className="field">
             <label htmlFor="orgName">Your name or organization</label>
@@ -60,11 +60,11 @@ export default function OrganizerOnboarding() {
                 onChange={(e) => setHideName(e.target.checked)}
                 style={{ marginRight: 8 }}
               />
-              Keep my name hidden from freelancers until we match
+              Keep my name hidden from freelancers until we connect
             </label>
             <p className="helper-text">
-              Before a match, freelancers see you as "Event Organizer." Once matched, your real name is revealed to
-              them.
+              Before you connect, freelancers see you as "Event Organizer." Once connected, your real name is
+              revealed to them.
             </p>
           </div>
           {error && <p className="error-text">{error}</p>}

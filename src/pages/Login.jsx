@@ -93,7 +93,7 @@ export default function Login() {
           {mode === 'signup' ? 'Already have an account?' : "Don't have an account yet?"}{' '}
           <button
             className="link"
-            style={{ background: 'none', border: 'none', color: 'var(--coral)', cursor: 'pointer', fontWeight: 700 }}
+            style={{ background: 'none', border: 'none', color: 'var(--sunset-dark)', cursor: 'pointer', fontWeight: 700 }}
             onClick={() => setMode(mode === 'signup' ? 'signin' : 'signup')}
             type="button"
           >

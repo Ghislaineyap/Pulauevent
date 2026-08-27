@@ -40,7 +40,7 @@ export default function FreelancerNotifications() {
 
   return (
     <div className="app-shell">
-      <Topbar title="Activity" />
+      <Topbar title="Connect" />
       <div className="page">
         {loading && <p className="subtitle">Loading…</p>}
 
@@ -65,14 +65,14 @@ export default function FreelancerNotifications() {
           ))}
         </div>
 
-        <h2>Your matches</h2>
-        {!loading && matches.length === 0 && <p className="subtitle">No matches yet — apply to jobs or wait for interest.</p>}
+        <h2>Your connections</h2>
+        {!loading && matches.length === 0 && <p className="subtitle">No connections yet — apply to jobs or wait for interest.</p>}
         <div className="stack">
           {matches.map((m) => (
             <div key={m.id} className="card">
               <strong>{m.organizer_profiles.org_name}</strong>
               <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                Matched via {m.source === 'application' ? 'your job application' : 'their like'}
+                Connected via {m.source === 'application' ? 'your job application' : 'their interest'}
               </p>
               <Link to={`/chat/${m.id}`} className="btn btn-primary btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
                 💬 Open chat

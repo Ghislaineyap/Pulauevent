@@ -1,17 +1,18 @@
 :root {
-  --navy: #2f3c7e;
-  --navy-dark: #232c61;
-  --coral: #f96167;
-  --coral-dark: #d94a50;
-  --gold: #f9e795;
-  --ink: #1f2333;
-  --muted: #6b7280;
-  --bg: #f7f7fa;
+  --primary: #2f6fed;
+  --primary-dark: #1b4fc0;
+  --sunset: #ff7a33;
+  --sunset-dark: #e85f1a;
+  --mint: #16c79a;
+  --ink: #101425;
+  --muted: #57607a;
+  --bg: #ffffff;
+  --cloud: #eef3ff;
   --card: #ffffff;
-  --border: #e7e7ef;
-  --success: #1e9e8b;
-  --danger: #d94a50;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --border: #dfe6f7;
+  --success: #16c79a;
+  --danger: #e5484d;
+  font-family: 'Poppins', -apple-system, system-ui, sans-serif;
 }
 
 * {
@@ -26,7 +27,7 @@ body,
 
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--cloud);
   color: var(--ink);
 }
 
@@ -49,12 +50,12 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
-  background: var(--navy);
+  background: var(--primary);
   color: white;
 }
 
 .topbar .brand {
-  font-weight: 700;
+  font-weight: 600;
   font-size: 17px;
   letter-spacing: 0.2px;
 }
@@ -62,7 +63,7 @@ a {
 .topbar button.link {
   background: none;
   border: none;
-  color: #d8dcf5;
+  color: #dbe6ff;
   font-size: 13px;
   cursor: pointer;
 }
@@ -160,16 +161,25 @@ textarea {
 }
 
 .btn-primary {
-  background: var(--coral);
+  background: var(--primary);
   color: white;
 }
 .btn-primary:hover {
-  background: var(--coral-dark);
+  background: var(--primary-dark);
+}
+
+.btn-accent {
+  background: var(--sunset);
+  color: white;
+}
+.btn-accent:hover {
+  background: var(--sunset-dark);
 }
 
 .btn-secondary {
-  background: var(--navy);
+  background: rgba(255, 255, 255, 0.14);
   color: white;
+  border: 1px solid rgba(255, 255, 255, 0.32);
 }
 
 .btn-outline {
@@ -194,7 +204,7 @@ textarea {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
-  background: var(--navy);
+  background: var(--primary);
   color: white;
 }
 
@@ -209,7 +219,7 @@ textarea {
   user-select: none;
 }
 .chip-toggle.active {
-  background: var(--coral);
+  background: var(--primary);
   color: white;
 }
 .chip-toggle:not(.active) {
@@ -236,76 +246,122 @@ textarea {
   object-fit: cover;
 }
 
-.avatar-picker {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-.avatar-picker button {
-  border: 2px solid transparent;
-  border-radius: 50%;
-  padding: 0;
-  background: none;
-  cursor: pointer;
-}
-.avatar-picker button.selected {
-  border-color: var(--coral);
-}
-
 .swipe-stack {
   position: relative;
-  height: 460px;
 }
 
 .swipe-card {
-  position: absolute;
-  inset: 0;
   background: var(--card);
-  border-radius: 18px;
+  border-radius: 20px;
   border: 1px solid var(--border);
-  box-shadow: 0 8px 24px rgba(30, 30, 60, 0.12);
-  padding: 20px;
+  box-shadow: 0 16px 34px -20px rgba(16, 20, 37, 0.35);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 10px;
   touch-action: pan-y;
   user-select: none;
 }
 
-.swipe-card .avatar {
-  width: 84px;
-  height: 84px;
-  font-size: 38px;
-  align-self: center;
-}
-
 .swipe-actions {
   display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-top: 10px;
+  gap: 10px;
+  margin-top: 4px;
+}
+.swipe-actions .btn {
+  flex: 1;
 }
 
-.swipe-btn {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  font-size: 22px;
-  cursor: pointer;
+/* Big photo hero — used on the Discover card and the profile detail page.
+   Falls back to a gradient + neutral silhouette when there's no real photo. */
+.photo-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
 }
-.swipe-btn.pass {
-  background: white;
-  border: 1px solid var(--border);
-  color: var(--danger);
+
+.photo-frame svg.silhouette {
+  width: 42%;
+  height: 42%;
+  opacity: 0.9;
 }
-.swipe-btn.like {
-  background: var(--coral);
-  color: white;
+
+.photo-dots {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+}
+.photo-dots span {
+  width: 16px;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.45);
+}
+.photo-dots span.on {
+  background: #fff;
+}
+
+.photo-scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 34px 16px 14px;
+  background: linear-gradient(to top, rgba(16, 20, 37, 0.82), transparent);
+  color: #fff;
+  text-align: left;
+}
+.photo-scrim h2 {
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+}
+.photo-scrim p {
+  font-size: 11.5px;
+  color: #e7ecfc;
+  margin: 3px 0 0;
+}
+
+.photo-card-body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gallery-thumbs {
+  display: flex;
+  gap: 8px;
+}
+.gallery-thumbs .thumb {
+  flex: 1;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  cursor: pointer;
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gallery-thumbs .thumb.active {
+  border-color: var(--primary);
+}
+.gallery-thumbs svg {
+  width: 40%;
+  height: 40%;
+  opacity: 0.9;
 }
 
 .empty-state {
@@ -316,7 +372,7 @@ textarea {
 }
 
 .badge {
-  background: var(--coral);
+  background: var(--sunset);
   color: white;
   border-radius: 999px;
   min-width: 18px;
@@ -348,14 +404,14 @@ textarea {
 
 .chat-bubble.mine {
   align-self: flex-end;
-  background: var(--coral);
+  background: var(--primary);
   color: white;
   border-bottom-right-radius: 4px;
 }
 
 .chat-bubble.theirs {
   align-self: flex-start;
-  background: white;
+  background: var(--cloud);
   border: 1px solid var(--border);
   color: var(--ink);
   border-bottom-left-radius: 4px;
@@ -385,7 +441,7 @@ textarea {
   position: relative;
 }
 .tabbar a.active {
-  color: var(--coral);
+  color: var(--sunset-dark);
 }
 .tabbar .tab-icon {
   display: block;
@@ -403,7 +459,7 @@ textarea {
 }
 
 .match-banner {
-  background: linear-gradient(135deg, var(--navy), var(--navy-dark));
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   color: white;
   border-radius: 18px;
   padding: 28px 20px;
@@ -437,4 +493,38 @@ textarea {
   text-align: center;
   gap: 18px;
   padding: 40px 24px;
+}
+
+.landing-hero {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 22px;
+  padding: 40px 28px;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255, 122, 51, 0.5), transparent 50%),
+    linear-gradient(165deg, var(--primary), var(--primary-dark));
+  color: #fff;
+}
+
+.landing-hero .spot-mark {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 34%, var(--sunset), var(--sunset-dark) 72%);
+  box-shadow: 0 0 0 10px rgba(255, 122, 51, 0.2);
+}
+
+.landing-hero h1 {
+  color: #fff;
+  font-size: 28px;
+}
+
+.landing-hero p.subtitle {
+  color: #dce6ff;
+  max-width: 280px;
+  margin: 0 auto;
 }

@@ -13,7 +13,7 @@ export default function OrganizerNotifications() {
   useEffect(() => {
     supabase
       .from('matches')
-      .select('id, source, created_at, freelancer_profiles(name, locations, avatar_key, photo_url, pitch, skills)')
+      .select('id, source, created_at, freelancer_profiles(name, locations, avatar_key, photo_urls, pitch, skills)')
       .eq('organizer_id', user.id)
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
@@ -25,22 +25,22 @@ export default function OrganizerNotifications() {
 
   return (
     <div className="app-shell">
-      <Topbar title="Activity" />
+      <Topbar title="Connect" />
       <div className="page">
-        <h2>Your matches</h2>
+        <h2>Your connections</h2>
         {loading && <p className="subtitle">Loading…</p>}
-        {!loading && matches.length === 0 && <p className="subtitle">No matches yet — post a job or browse freelancers.</p>}
+        {!loading && matches.length === 0 && <p className="subtitle">No connections yet — post a job or browse freelancers.</p>}
         <div className="stack">
           {matches.map((m) => {
             const f = m.freelancer_profiles
             return (
               <div key={m.id} className="card stack">
                 <div className="row" style={{ alignItems: 'center' }}>
-                  <ProfileAvatar avatarKey={f.avatar_key} photoUrl={f.photo_url} />
+                  <ProfileAvatar avatarKey={f.avatar_key} photoUrl={(f.photo_urls || [])[0]} />
                   <div>
                     <strong>{f.name}</strong>
                     <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                      📍 {(f.locations || []).join(', ')} · Matched via {m.source === 'application' ? 'their application' : 'your like'}
+                      📍 {(f.locations || []).join(', ')} · Connected via {m.source === 'application' ? 'their application' : 'your interest'}
                     </p>
                   </div>
                 </div>

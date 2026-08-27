@@ -16,14 +16,14 @@ export default function Landing() {
   }, [loading, user, role, isOnboarded, navigate])
 
   return (
-    <div className="center-page">
+    <div className="app-shell landing-hero">
+      <div className="spot-mark" />
       <div>
-        <div style={{ fontSize: 40 }}>🤝</div>
-        <h1 style={{ marginTop: 10 }}>Vendor Connect</h1>
-        <p className="subtitle">Event-services freelancers, and the organizers who hire them. Swipe, apply, match.</p>
+        <h1>Pulau Event</h1>
+        <p className="subtitle">Event-services freelancers, and the organizers who hire them. Browse, apply, connect.</p>
       </div>
       <div className="stack" style={{ width: '100%', maxWidth: 320 }}>
-        <button className="btn btn-primary btn-block" onClick={() => navigate('/login?role=freelancer')}>
+        <button className="btn btn-accent btn-block" onClick={() => navigate('/login?role=freelancer')}>
           I'm a Freelancer
         </button>
         <button className="btn btn-secondary btn-block" onClick={() => navigate('/login?role=organizer')}>

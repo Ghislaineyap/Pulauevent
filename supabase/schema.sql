@@ -37,15 +37,16 @@ create table if not exists public.profiles (
 create table if not exists public.freelancer_profiles (
   id uuid primary key references public.profiles(id) on delete cascade,
   name text not null,
+  gender text check (gender in ('male', 'female', 'prefer_not_to_say')),
   locations text[] not null default '{}', -- freelancer can cover more than one city/area; no extra cost to organizers either way
-  avatar_key text not null default 'avatar-1', -- preset avatar id, see src/lib/avatars.js — fallback when no photo is uploaded
-  photo_url text, -- public URL in the "avatars" storage bucket; null means "use the preset avatar instead"
+  avatar_key text not null default 'prefer_not_to_say', -- see src/lib/avatars.js — mirrors gender, fallback when no photo is uploaded
+  photo_urls text[] not null default '{}', -- up to 3 public URLs in the "avatars" storage bucket; empty means "use the preset avatar instead"
   pitch text,
   rate_amount numeric,
   rate_type text check (rate_type in ('hourly', 'daily')),
   skills text[] not null default '{}',
   work_history text,
-  years_experience integer,
+  experience_band text check (experience_band in ('0-1', '2-5', '6-10', '10+')),
   updated_at timestamptz not null default now()
 );
 
@@ -66,8 +67,10 @@ create table if not exists public.job_postings (
   title text not null,
   description text,
   location text not null,
-  event_date date not null,
+  event_start_date date not null,
+  event_end_date date not null,
   status text not null default 'open' check (status in ('open', 'closed')),
+  constraint job_postings_date_range check (event_end_date >= event_start_date),
   created_at timestamptz not null default now()
 );
 

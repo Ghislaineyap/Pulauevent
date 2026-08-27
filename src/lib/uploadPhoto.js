@@ -21,16 +21,19 @@ async function compressImage(file) {
   })
 }
 
-// Uploads to "{userId}/photo.jpg" in the public "avatars" bucket — storage
-// RLS policies (see schema.sql) only let a user write inside their own
-// folder. Returns a cache-busted public URL so a replaced photo shows
-// immediately instead of the browser serving the old cached image.
-export async function uploadProfilePhoto(userId, file) {
+export const MAX_PHOTOS = 3
+
+// Uploads to "{userId}/photo-{slot}.jpg" in the public "avatars" bucket —
+// storage RLS policies (see schema.sql) only let a user write inside their
+// own folder. Freelancers get up to MAX_PHOTOS slots (1-indexed). Returns a
+// cache-busted public URL so a replaced photo shows immediately instead of
+// the browser serving the old cached image.
+export async function uploadProfilePhoto(userId, file, slot = 1) {
   if (!file.type.startsWith('image/')) {
     throw new Error('Please choose an image file.')
   }
   const blob = await compressImage(file)
-  const path = `${userId}/photo.jpg`
+  const path = `${userId}/photo-${slot}.jpg`
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, blob, {
     upsert: true,
     contentType: 'image/jpeg',

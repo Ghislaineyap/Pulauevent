@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
-import { AVATARS } from '../../lib/avatars'
-import { uploadProfilePhoto } from '../../lib/uploadPhoto'
+import { uploadProfilePhoto, MAX_PHOTOS } from '../../lib/uploadPhoto'
+import { GENDERS } from '../../lib/gender'
+import { EXPERIENCE_BANDS } from '../../lib/experience'
 import { Topbar } from '../../components/Layout'
-import { ProfileAvatar } from '../../components/ProfileAvatar'
 
 export default function FreelancerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
@@ -13,22 +13,22 @@ export default function FreelancerOnboarding() {
   const [skillOptions, setSkillOptions] = useState([])
   const [form, setForm] = useState({
     name: '',
+    gender: '',
     locations: [],
     locationInput: '',
-    avatarKey: AVATARS[0].key,
-    photoUrl: '',
+    photoUrls: [],
     pitch: '',
     rateAmount: '',
     rateType: 'hourly',
     skills: [],
     otherSkill: '',
     workHistory: '',
-    yearsExperience: '',
+    experienceBand: '',
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [hydrated, setHydrated] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadingPhotoIndex, setUploadingPhotoIndex] = useState(null)
   const [photoError, setPhotoError] = useState('')
 
   // Editing an existing profile: pre-fill the form once from the saved row,
@@ -41,16 +41,16 @@ export default function FreelancerOnboarding() {
     setForm((f) => ({
       ...f,
       name: roleProfile.name || '',
+      gender: roleProfile.gender || '',
       locations: roleProfile.locations || [],
-      avatarKey: roleProfile.avatar_key || AVATARS[0].key,
-      photoUrl: roleProfile.photo_url || '',
+      photoUrls: roleProfile.photo_urls || [],
       pitch: roleProfile.pitch || '',
       rateAmount: roleProfile.rate_amount != null ? String(roleProfile.rate_amount) : '',
       rateType: roleProfile.rate_type || 'hourly',
       skills: presetSkills,
       otherSkill: otherSkills.join(', '),
       workHistory: roleProfile.work_history || '',
-      yearsExperience: roleProfile.years_experience != null ? String(roleProfile.years_experience) : '',
+      experienceBand: roleProfile.experience_band || '',
     }))
     setHydrated(true)
   }, [roleProfile, hydrated])
@@ -80,20 +80,28 @@ export default function FreelancerOnboarding() {
       })
   }, [])
 
-  async function handlePhotoChange(e) {
+  async function handlePhotoChange(e, index) {
     const file = e.target.files?.[0]
     e.target.value = '' // lets the user pick the same file again later if they undo
     if (!file) return
     setPhotoError('')
-    setUploadingPhoto(true)
+    setUploadingPhotoIndex(index)
     try {
-      const url = await uploadProfilePhoto(user.id, file)
-      setForm((f) => ({ ...f, photoUrl: url }))
+      const url = await uploadProfilePhoto(user.id, file, index + 1)
+      setForm((f) => {
+        const next = [...f.photoUrls]
+        next[index] = url
+        return { ...f, photoUrls: next }
+      })
     } catch (err) {
       setPhotoError(err.message || 'Could not upload that photo — try a different one.')
     } finally {
-      setUploadingPhoto(false)
+      setUploadingPhotoIndex(null)
     }
+  }
+
+  function removePhoto(index) {
+    setForm((f) => ({ ...f, photoUrls: f.photoUrls.filter((_, i) => i !== index) }))
   }
 
   function toggleSkill(label) {
@@ -106,8 +114,8 @@ export default function FreelancerOnboarding() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
-    if (!form.name.trim() || form.locations.length === 0) {
-      setError('Name and at least one location are required.')
+    if (!form.name.trim() || !form.gender || form.locations.length === 0) {
+      setError('Name, gender and at least one location are required.')
       return
     }
     const finalSkills = [...form.skills]
@@ -125,15 +133,16 @@ export default function FreelancerOnboarding() {
     const { error: upsertError } = await supabase.from('freelancer_profiles').upsert({
       id: user.id,
       name: form.name.trim(),
+      gender: form.gender,
       locations: form.locations,
-      avatar_key: form.avatarKey,
-      photo_url: form.photoUrl || null,
+      avatar_key: form.gender, // fallback avatar mirrors gender — no separate picker
+      photo_urls: form.photoUrls,
       pitch: form.pitch.trim(),
       rate_amount: form.rateAmount ? Number(form.rateAmount) : null,
       rate_type: form.rateType,
       skills: finalSkills,
       work_history: form.workHistory.trim(),
-      years_experience: form.yearsExperience ? Number(form.yearsExperience) : null,
+      experience_band: form.experienceBand || null,
     })
     setBusy(false)
     if (upsertError) {
@@ -148,56 +157,100 @@ export default function FreelancerOnboarding() {
     <div className="app-shell">
       <Topbar title={isOnboarded ? 'Edit your profile' : 'Build your profile'} />
       <div className="page">
-        <p className="subtitle">This is your CV on Vendor Connect — organizers see this when you apply, or when they browse.</p>
+        <p className="subtitle">This is your CV on Pulau Event — organizers see this when you apply, or when they browse.</p>
         <form className="stack" onSubmit={handleSubmit}>
           <div className="card stack">
             <div className="field">
-              <label>Photo</label>
-              <div className="row" style={{ alignItems: 'center' }}>
-                <ProfileAvatar avatarKey={form.avatarKey} photoUrl={form.photoUrl} size={64} />
-                <div style={{ flex: 1 }}>
-                  <input type="file" accept="image/*" onChange={handlePhotoChange} disabled={uploadingPhoto} />
-                  {form.photoUrl && !uploadingPhoto && (
-                    <div>
-                      <button
-                        type="button"
-                        className="link"
-                        style={{ background: 'none', border: 'none', color: 'var(--coral)', cursor: 'pointer', padding: 0, marginTop: 4 }}
-                        onClick={() => setForm((f) => ({ ...f, photoUrl: '' }))}
-                      >
-                        Remove photo
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {uploadingPhoto && <p className="helper-text">Uploading…</p>}
-              {photoError && <p className="error-text">{photoError}</p>}
-              <p className="helper-text">Optional, but profiles with a real photo get more matches. Skip it and organizers see your avatar instead.</p>
-            </div>
-
-            <div className="field">
-              <label>Backup avatar</label>
-              <div className="avatar-picker">
-                {AVATARS.map((a) => (
-                  <button
-                    type="button"
-                    key={a.key}
-                    className={form.avatarKey === a.key ? 'selected' : ''}
-                    onClick={() => setForm((f) => ({ ...f, avatarKey: a.key }))}
-                  >
-                    <span className="avatar" style={{ background: a.gradient }}>
-                      {a.emoji}
-                    </span>
-                  </button>
+              <label>Photos</label>
+              <div className="chip-row" style={{ gap: 10 }}>
+                {form.photoUrls.map((url, i) => (
+                  <div key={i} style={{ position: 'relative', width: 84, height: 84 }}>
+                    <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(i)}
+                      aria-label="Remove photo"
+                      style={{
+                        position: 'absolute',
+                        top: -6,
+                        right: -6,
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: 'var(--ink)',
+                        color: '#fff',
+                        border: '2px solid #fff',
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        lineHeight: '18px',
+                        padding: 0,
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))}
+                {form.photoUrls.length < MAX_PHOTOS && (
+                  <label
+                    style={{
+                      width: 84,
+                      height: 84,
+                      borderRadius: 12,
+                      border: '1px dashed var(--border)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexDirection: 'column',
+                      gap: 4,
+                      cursor: uploadingPhotoIndex != null ? 'default' : 'pointer',
+                      color: 'var(--muted)',
+                      fontSize: 11,
+                      textAlign: 'center',
+                    }}
+                  >
+                    {uploadingPhotoIndex === form.photoUrls.length ? (
+                      'Uploading…'
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 20, lineHeight: 1 }}>+</span>
+                        Add photo
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      disabled={uploadingPhotoIndex != null}
+                      onChange={(e) => handlePhotoChange(e, form.photoUrls.length)}
+                    />
+                  </label>
+                )}
               </div>
-              <p className="helper-text">Shown if you skip a photo, or while one is uploading.</p>
+              {photoError && <p className="error-text">{photoError}</p>}
+              <p className="helper-text">
+                Optional, but profiles with real photos get more interest — up to {MAX_PHOTOS}. Skip it and organizers
+                see a simple avatar instead.
+              </p>
             </div>
 
             <div className="field">
               <label htmlFor="name">Name</label>
               <input id="name" type="text" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+
+            <div className="field">
+              <label>Gender</label>
+              <div className="chip-row">
+                {GENDERS.map((g) => (
+                  <span
+                    key={g.value}
+                    className={`chip chip-toggle ${form.gender === g.value ? 'active' : ''}`}
+                    onClick={() => setForm((f) => ({ ...f, gender: g.value }))}
+                  >
+                    {g.label}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="field">
@@ -292,13 +345,18 @@ export default function FreelancerOnboarding() {
 
             <div className="field">
               <label htmlFor="years">Years of experience (freelance)</label>
-              <input
+              <select
                 id="years"
-                type="number"
-                min="0"
-                value={form.yearsExperience}
-                onChange={(e) => setForm((f) => ({ ...f, yearsExperience: e.target.value }))}
-              />
+                value={form.experienceBand}
+                onChange={(e) => setForm((f) => ({ ...f, experienceBand: e.target.value }))}
+              >
+                <option value="">Select…</option>
+                {EXPERIENCE_BANDS.map((b) => (
+                  <option key={b.value} value={b.value}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="field">
