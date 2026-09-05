@@ -74,6 +74,8 @@ create table if not exists public.organizer_profiles (
   org_name text not null,
   hide_name boolean not null default false, -- if true, freelancers see "Event Organizer" until matched
   instagram_handle text, -- optional, visible legitimacy signal — not verification
+  location text, -- where they're based, from the same curated `locations` list
+  about text, -- short blurb: what kind of events they run
   updated_at timestamptz not null default now()
 );
 
@@ -109,7 +111,10 @@ create table if not exists public.job_divisions (
   -- up to how much, if capped) — shown on the job post so applicants know
   -- upfront.
   fee_type text not null default 'all_in' check (fee_type in ('all_in', 'plus_transport')),
-  transport_max_amount numeric
+  transport_max_amount numeric,
+  -- Private (team-invite-only) until the organizer explicitly opens this
+  -- role up to public applicants in the Job Feed.
+  open_recruit boolean not null default true
 );
 
 create table if not exists public.applications (

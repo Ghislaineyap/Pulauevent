@@ -1,8 +1,10 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
+
+const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export default function FreelancerNotifications() {
   const { user } = useAuth()
@@ -12,6 +14,7 @@ export default function FreelancerNotifications() {
   const [likeMatches, setLikeMatches] = useState([])
   const [eventTeams, setEventTeams] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showArchived, setShowArchived] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -34,7 +37,7 @@ export default function FreelancerNotifications() {
         .order('created_at', { ascending: false }),
       supabase
         .from('applications')
-        .select('job_divisions(job_id, job_postings(id, title, chat_opened_at, organizer_profiles(org_name, hide_name)))')
+        .select('job_divisions(job_id, job_postings(id, title, event_end_date, chat_opened_at, organizer_profiles(org_name, hide_name)))')
         .eq('freelancer_id', user.id)
         .eq('status', 'accepted'),
     ])
@@ -91,6 +94,11 @@ export default function FreelancerNotifications() {
   }
 
   const pendingCount = pendingLikes.length + invites.length
+
+  // Keep finished events out of the way once they've wrapped up, so the
+  // chat list stays about what's current instead of growing forever.
+  const activeEvents = useMemo(() => eventTeams.filter((j) => !j.event_end_date || j.event_end_date >= todayISO()), [eventTeams])
+  const archivedEvents = useMemo(() => eventTeams.filter((j) => j.event_end_date && j.event_end_date < todayISO()), [eventTeams])
 
   return (
     <div className="app-shell">
@@ -169,11 +177,11 @@ export default function FreelancerNotifications() {
             <p className="helper-text" style={{ margin: '-4px 0 0' }}>
               One group thread per event you're confirmed on — everyone on the team, named after the event.
             </p>
-            {!loading && eventTeams.length === 0 && (
+            {!loading && activeEvents.length === 0 && (
               <p className="subtitle">No confirmed events yet — apply to jobs to get started.</p>
             )}
             <div className="stack">
-              {eventTeams.map((job) => (
+              {activeEvents.map((job) => (
                 <div key={job.id} className="card">
                   <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                     <strong>{job.title}</strong>
@@ -195,6 +203,38 @@ export default function FreelancerNotifications() {
                 </div>
               ))}
             </div>
+
+            {archivedEvents.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-block"
+                  onClick={() => setShowArchived((s) => !s)}
+                >
+                  {showArchived ? 'Hide' : 'Show'} past events ({archivedEvents.length})
+                </button>
+                {showArchived && (
+                  <div className="stack">
+                    {archivedEvents.map((job) => (
+                      <div key={job.id} className="card" style={{ opacity: 0.75 }}>
+                        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                          <strong>{job.title}</strong>
+                          <span className="chip chip-outline">Past event</span>
+                        </div>
+                        <p className="subtitle" style={{ margin: '4px 0 0' }}>
+                          {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
+                        </p>
+                        {job.chat_opened_at && (
+                          <Link to={`/event-chat/${job.id}`} className="btn btn-outline btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
+                            💬 View chat history
+                          </Link>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
 
             <h2>Personal chats</h2>
             <p className="helper-text" style={{ margin: '-4px 0 0' }}>

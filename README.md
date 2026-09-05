@@ -194,6 +194,28 @@ frontend, not the database — see the comment above the RLS policies in
 - **Smoother page transitions + skeleton loading.** Pages fade/rise in
   instead of popping in abruptly; the freelancer profile detail page shows a
   skeleton placeholder instead of a bare "Loading…" while it fetches.
+- **Organizer profile detail: location + About.** Organizers now set where
+  they're based and a short About blurb, alongside Instagram — all three show
+  up in a freelancer's "About the organizer" popup on a job post.
+- **Private-by-default divisions + "Open recruit."** Posting a job no longer
+  makes every role public automatically. An organizer adds team members they
+  already know first; a new "Open recruit" toggle per division decides
+  whether it also appears in the freelancer Job Feed for anyone to apply to.
+  Existing job postings keep working exactly as before (recruiting stayed on)
+  — only new divisions default to private until switched on.
+- **Popups for dense info.** A job's full description, the "About the
+  organizer" card, and each division's fee/transport details moved from
+  always-inline blocks into tap-to-open popups, so the job page reads
+  shorter at a glance.
+- **Past events archived out of Connect.** Once an event's end date has
+  passed, its group chat moves out of the main "Event chats" list into a
+  collapsed "Show past events" section — on both the freelancer and
+  organizer side — so the active list doesn't grow forever.
+- **Calendar view for organizers too.** My Event now has the same List /
+  Calendar toggle freelancers have, showing all of an organizer's own events
+  on a month grid.
+- **Organizer tab order changed.** Now Profile · My Event · Discover · Post ·
+  Connect (My Event moved up, next to Profile).
 
 ## On the roadmap
 

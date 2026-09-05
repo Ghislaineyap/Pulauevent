@@ -45,14 +45,14 @@ export function OrganizerTabbar() {
       <NavLink to="/organizer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconUser className="tab-icon" />Profile
       </NavLink>
-      <NavLink to="/organizer/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconClipboard className="tab-icon" />Post
+      <NavLink to="/organizer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconCalendar className="tab-icon" />My Event
       </NavLink>
       <NavLink to="/organizer/browse" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconSearch className="tab-icon" />Discover
       </NavLink>
-      <NavLink to="/organizer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconCalendar className="tab-icon" />My Event
+      <NavLink to="/organizer/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconClipboard className="tab-icon" />Post
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconChat className="tab-icon" />Connect

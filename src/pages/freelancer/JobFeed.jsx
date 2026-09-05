@@ -20,12 +20,18 @@ export default function JobFeed() {
       const { data, error } = await supabase
         .from('job_postings')
         .select(
-          'id, title, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count)'
+          'id, title, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count, open_recruit)'
         )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
       if (error) console.error(error)
-      setRawJobs(data || [])
+      // Only divisions the organizer has opened to public recruiting belong
+      // in the feed — a team-invite-only division stays private. A job with
+      // no recruiting divisions at all shouldn't appear here either.
+      const recruiting = (data || [])
+        .map((j) => ({ ...j, job_divisions: j.job_divisions.filter((d) => d.open_recruit) }))
+        .filter((j) => j.job_divisions.length > 0)
+      setRawJobs(recruiting)
       setLoading(false)
     }
     load()
