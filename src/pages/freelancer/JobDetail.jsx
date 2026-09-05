@@ -3,8 +3,14 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
+import { Modal } from '../../components/Modal'
 import { formatEventDates, datesOverlap } from '../../lib/date'
 import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/applicationStatus'
+
+function feeSummary(d) {
+  if (d.fee_type !== 'plus_transport') return 'All-in rate'
+  return d.transport_max_amount ? `+ Transport, up to Rp ${Number(d.transport_max_amount).toLocaleString('id-ID')}` : '+ Transport reimbursed'
+}
 
 export default function JobDetail() {
   const { jobId } = useParams()
@@ -17,17 +23,21 @@ export default function JobDetail() {
   const [applying, setApplying] = useState(null)
   const [conflictDivisionId, setConflictDivisionId] = useState(null)
   const [error, setError] = useState('')
+  const [showDetails, setShowDetails] = useState(false)
+  const [showOrganizer, setShowOrganizer] = useState(false)
+  const [feePopupDivisionId, setFeePopupDivisionId] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, hide_name, instagram_handle), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount)'
+        'id, title, description, location, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, hide_name, instagram_handle, location, about), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
       )
       .eq('id', jobId)
       .single()
     if (error) console.error(error)
+    if (data) data.job_divisions = data.job_divisions.filter((d) => d.open_recruit)
     setJob(data)
 
     const { data: apps } = await supabase.from('applications').select('division_id, status').eq('freelancer_id', user.id)
@@ -89,6 +99,8 @@ export default function JobDetail() {
   if (loading) return <div className="center-page">Loading…</div>
   if (!job) return <div className="center-page">Job not found.</div>
 
+  const feePopupDivision = feePopupDivisionId && job.job_divisions.find((d) => d.id === feePopupDivisionId)
+
   return (
     <div className="app-shell">
       <Topbar title="Job details" />
@@ -102,31 +114,76 @@ export default function JobDetail() {
           <p className="subtitle">
             📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
           </p>
-          {job.description && <p>{job.description}</p>}
+          {job.description && (
+            <button type="button" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '6px 12px', fontSize: 12 }} onClick={() => setShowDetails(true)}>
+              View event details
+            </button>
+          )}
+          <button
+            type="button"
+            className="subtitle"
+            style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600 }}
+            onClick={() => setShowOrganizer(true)}
+          >
+            {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} — About the organizer →
+          </button>
         </div>
 
-        <div className="card stack" style={{ gap: 6 }}>
-          <strong style={{ fontSize: 13 }}>About the organizer</strong>
-          <p style={{ margin: 0 }}>{job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}</p>
-          <p className="subtitle" style={{ margin: 0 }}>
-            {organizerStats ? `Posted ${organizerStats.jobCount} event${organizerStats.jobCount === 1 ? '' : 's'} on Pulau Event` : 'Loading history…'}
-          </p>
-          {job.organizer_profiles.instagram_handle ? (
-            <a
-              href={`https://instagram.com/${job.organizer_profiles.instagram_handle.replace(/^@/, '')}`}
-              target="_blank"
-              rel="noreferrer"
-              className="subtitle"
-              style={{ color: 'var(--primary-dark)', fontWeight: 600 }}
-            >
-              📷 @{job.organizer_profiles.instagram_handle.replace(/^@/, '')}
-            </a>
-          ) : (
-            <p className="helper-text" style={{ margin: 0 }}>No social profile linked yet.</p>
-          )}
-        </div>
+        {showDetails && (
+          <Modal title={job.title} onClose={() => setShowDetails(false)}>
+            <p className="subtitle" style={{ marginBottom: 10 }}>
+              📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+            </p>
+            <p style={{ whiteSpace: 'pre-wrap' }}>{job.description}</p>
+          </Modal>
+        )}
+
+        {showOrganizer && (
+          <Modal title="About the organizer" onClose={() => setShowOrganizer(false)}>
+            <div className="stack">
+              <p style={{ margin: 0, fontWeight: 600 }}>
+                {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
+              </p>
+              {job.organizer_profiles.location && <p className="subtitle" style={{ margin: 0 }}>📍 Based in {job.organizer_profiles.location}</p>}
+              <p className="subtitle" style={{ margin: 0 }}>
+                {organizerStats ? `Posted ${organizerStats.jobCount} event${organizerStats.jobCount === 1 ? '' : 's'} on Pulau Event` : 'Loading history…'}
+              </p>
+              {job.organizer_profiles.about && <p style={{ margin: 0 }}>{job.organizer_profiles.about}</p>}
+              {job.organizer_profiles.instagram_handle ? (
+                <a
+                  href={`https://instagram.com/${job.organizer_profiles.instagram_handle.replace(/^@/, '')}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="subtitle"
+                  style={{ color: 'var(--primary-dark)', fontWeight: 600 }}
+                >
+                  📷 @{job.organizer_profiles.instagram_handle.replace(/^@/, '')}
+                </a>
+              ) : (
+                <p className="helper-text" style={{ margin: 0 }}>No social profile linked yet.</p>
+              )}
+            </div>
+          </Modal>
+        )}
+
+        {feePopupDivision && (
+          <Modal title={`${feePopupDivision.skill} — fee details`} onClose={() => setFeePopupDivisionId(null)}>
+            <p style={{ margin: 0 }}>
+              {feePopupDivision.budget_amount &&
+                `Rp ${Number(feePopupDivision.budget_amount).toLocaleString('id-ID')} ${feePopupDivision.budget_type === 'flat' ? 'flat' : `/ ${feePopupDivision.budget_type}`}`}
+            </p>
+            <p className="subtitle" style={{ marginTop: 8 }}>
+              {feePopupDivision.fee_type === 'plus_transport'
+                ? feePopupDivision.transport_max_amount
+                  ? `Transport is reimbursed separately, up to Rp ${Number(feePopupDivision.transport_max_amount).toLocaleString('id-ID')}.`
+                  : 'Transport is reimbursed separately (actual cost).'
+                : 'This rate is all-in — no separate transport reimbursement.'}
+            </p>
+          </Modal>
+        )}
 
         <h2>Divisions</h2>
+        {job.job_divisions.length === 0 && <p className="subtitle">No public roles open on this event right now.</p>}
         <div className="stack">
           {job.job_divisions.map((d) => {
             const mine = myApplications.find((a) => a.division_id === d.id)
@@ -141,13 +198,14 @@ export default function JobDetail() {
                       {d.filled_count}/{d.quantity} filled
                       {d.budget_amount && ` · Rp ${Number(d.budget_amount).toLocaleString('id-ID')} ${d.budget_type === 'flat' ? 'flat' : `/ ${d.budget_type}`}`}
                     </p>
-                    <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                      {d.fee_type === 'plus_transport'
-                        ? d.transport_max_amount
-                          ? `+ Transport reimbursed, up to Rp ${Number(d.transport_max_amount).toLocaleString('id-ID')}`
-                          : '+ Transport reimbursed separately'
-                        : 'All-in rate — no separate reimbursement'}
-                    </p>
+                    <button
+                      type="button"
+                      className="subtitle"
+                      style={{ background: 'none', border: 'none', padding: 0, margin: '2px 0 0', cursor: 'pointer', color: 'var(--primary-dark)', textAlign: 'left' }}
+                      onClick={() => setFeePopupDivisionId(d.id)}
+                    >
+                      ⓘ {feeSummary(d)}
+                    </button>
                   </div>
                   {mine ? (
                     <span className={applicationStatusChipClass(mine.status)}>{applicationStatusLabel(mine.status)}</span>

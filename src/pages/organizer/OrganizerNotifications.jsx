@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
 
+const todayISO = () => new Date().toISOString().slice(0, 10)
+
 export default function OrganizerNotifications() {
   const { user } = useAuth()
   const [likeMatches, setLikeMatches] = useState([])
   const [eventTeams, setEventTeams] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -23,7 +26,7 @@ export default function OrganizerNotifications() {
           .order('created_at', { ascending: false }),
         supabase
           .from('job_postings')
-          .select('id, title, chat_opened_at, job_divisions(id)')
+          .select('id, title, event_end_date, chat_opened_at, job_divisions(id)')
           .eq('organizer_id', user.id),
       ])
       if (matchError) console.error(matchError)
@@ -50,6 +53,7 @@ export default function OrganizerNotifications() {
         [...teamCountByJob.entries()].map(([id, count]) => ({
           id,
           title: jobById.get(id)?.title,
+          eventEndDate: jobById.get(id)?.event_end_date,
           chatOpened: Boolean(jobById.get(id)?.chat_opened_at),
           memberCount: count + 1,
         }))
@@ -58,6 +62,11 @@ export default function OrganizerNotifications() {
     }
     load()
   }, [user.id])
+
+  // Keep finished events out of the way once they've wrapped up, so this
+  // list stays about what's current instead of growing forever.
+  const activeEvents = useMemo(() => eventTeams.filter((j) => !j.eventEndDate || j.eventEndDate >= todayISO()), [eventTeams])
+  const archivedEvents = useMemo(() => eventTeams.filter((j) => j.eventEndDate && j.eventEndDate < todayISO()), [eventTeams])
 
   return (
     <div className="app-shell">
@@ -69,11 +78,11 @@ export default function OrganizerNotifications() {
         <p className="helper-text" style={{ margin: '-4px 0 0' }}>
           One group thread per event, for everyone confirmed on it — named after the event, not a person.
         </p>
-        {!loading && eventTeams.length === 0 && (
+        {!loading && activeEvents.length === 0 && (
           <p className="subtitle">No confirmed team yet — accept an applicant or invite someone.</p>
         )}
         <div className="stack">
-          {eventTeams.map((job) => (
+          {activeEvents.map((job) => (
             <div key={job.id} className="card stack">
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <strong>{job.title}</strong>
@@ -91,6 +100,31 @@ export default function OrganizerNotifications() {
             </div>
           ))}
         </div>
+
+        {archivedEvents.length > 0 && (
+          <>
+            <button type="button" className="btn btn-outline btn-block" onClick={() => setShowArchived((s) => !s)}>
+              {showArchived ? 'Hide' : 'Show'} past events ({archivedEvents.length})
+            </button>
+            {showArchived && (
+              <div className="stack">
+                {archivedEvents.map((job) => (
+                  <div key={job.id} className="card stack" style={{ opacity: 0.75 }}>
+                    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <strong>{job.title}</strong>
+                      <span className="chip chip-outline">Past event</span>
+                    </div>
+                    {job.chatOpened && (
+                      <Link to={`/event-chat/${job.id}`} className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
+                        💬 View chat history
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
 
         <h2>Personal chats</h2>
         <p className="helper-text" style={{ margin: '-4px 0 0' }}>

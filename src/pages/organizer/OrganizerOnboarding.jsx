@@ -10,6 +10,9 @@ export default function OrganizerOnboarding() {
   const [orgName, setOrgName] = useState('')
   const [hideName, setHideName] = useState(true)
   const [instagramHandle, setInstagramHandle] = useState('')
+  const [location, setLocation] = useState('')
+  const [about, setAbout] = useState('')
+  const [locationOptions, setLocationOptions] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -19,8 +22,21 @@ export default function OrganizerOnboarding() {
     setOrgName(roleProfile.org_name || '')
     setHideName(Boolean(roleProfile.hide_name))
     setInstagramHandle(roleProfile.instagram_handle || '')
+    setLocation(roleProfile.location || '')
+    setAbout(roleProfile.about || '')
     setHydrated(true)
   }, [roleProfile, hydrated])
+
+  useEffect(() => {
+    supabase
+      .from('locations')
+      .select('label')
+      .order('sort_order')
+      .then(({ data, error: locError }) => {
+        if (locError) console.error(locError)
+        setLocationOptions((data || []).map((l) => l.label))
+      })
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -35,6 +51,8 @@ export default function OrganizerOnboarding() {
       org_name: orgName.trim(),
       hide_name: hideName,
       instagram_handle: instagramHandle.trim().replace(/^@/, '') || null,
+      location: location || null,
+      about: about.trim() || null,
     })
     setBusy(false)
     if (upsertError) {
@@ -70,6 +88,26 @@ export default function OrganizerOnboarding() {
               revealed to them.
             </p>
           </div>
+          <div className="field">
+            <label htmlFor="orgLocation">Based in</label>
+            <select id="orgLocation" value={location} onChange={(e) => setLocation(e.target.value)}>
+              <option value="">Select location…</option>
+              {locationOptions.map((loc) => (
+                <option key={loc} value={loc}>
+                  {loc}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="about">About (optional)</label>
+            <textarea
+              id="about"
+              placeholder="What kind of events do you run? e.g. corporate conferences and weddings across Java"
+              value={about}
+              onChange={(e) => setAbout(e.target.value)}
+            />
+          </div>
           <div className="field" style={{ marginBottom: 0 }}>
             <label htmlFor="instagram">Instagram (optional)</label>
             <input
@@ -80,8 +118,8 @@ export default function OrganizerOnboarding() {
               onChange={(e) => setInstagramHandle(e.target.value)}
             />
             <p className="helper-text">
-              Shown on your job posts so freelancers can look you up before applying — helps them trust you're
-              legit.
+              Location, About and Instagram all show up in a freelancer's "About the organizer" popup on your job
+              posts — helps them trust you're legit before applying.
             </p>
           </div>
           {error && <p className="error-text">{error}</p>}

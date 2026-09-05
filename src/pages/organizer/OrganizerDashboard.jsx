@@ -17,6 +17,10 @@ const emptyDivision = () => ({
   feeType: 'all_in',
   transportMax: '',
   inviteIds: [],
+  // Private by default — an organizer adds the team members they already
+  // know first, then deliberately opts this role into the public Job Feed
+  // once they know how many spots (if any) are still open.
+  openRecruit: false,
 })
 const emptyForm = () => ({ title: '', description: '', location: '', customLocation: '', eventStartDate: '', eventEndDate: '' })
 const todayISO = () => new Date().toISOString().slice(0, 10)
@@ -64,7 +68,7 @@ export default function OrganizerDashboard() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_start_date, event_end_date, status, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount)'
+        'id, title, description, location, event_start_date, event_end_date, status, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
       )
       .eq('organizer_id', user.id)
       .order('created_at', { ascending: false })
@@ -137,6 +141,7 @@ export default function OrganizerDashboard() {
           feeType: d.fee_type || 'all_in',
           transportMax: d.transport_max_amount != null ? String(d.transport_max_amount) : '',
           inviteIds: [],
+          openRecruit: Boolean(d.open_recruit),
         }
       })
     )
@@ -175,6 +180,7 @@ export default function OrganizerDashboard() {
       budget_type: d.budgetType,
       fee_type: d.feeType,
       transport_max_amount: d.feeType === 'plus_transport' && d.transportMax ? Number(d.transportMax) : null,
+      open_recruit: Boolean(d.openRecruit),
     }
   }
 
@@ -492,8 +498,8 @@ export default function OrganizerDashboard() {
                         <p className="helper-text">This shows on the job post so applicants know upfront.</p>
                       </div>
 
-                      {!d.id && teamMembers.length > 0 && (
-                        <div className="field" style={{ marginBottom: 0 }}>
+                      {!locked && teamMembers.length > 0 && (
+                        <div className="field" style={{ marginBottom: 8 }}>
                           <label style={{ fontSize: 12 }}>Invite from your team (optional)</label>
                           <div className="chip-row">
                             {teamMembers.map((t) => (
@@ -512,6 +518,22 @@ export default function OrganizerDashboard() {
                           </p>
                         </div>
                       )}
+
+                      <div className="field" style={{ marginBottom: 0, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 600 }}>
+                          <input
+                            type="checkbox"
+                            checked={d.openRecruit}
+                            onChange={(e) => updateDivision(i, { openRecruit: e.target.checked })}
+                          />
+                          Open recruit — post this role to the public Job Feed
+                        </label>
+                        <p className="helper-text">
+                          {d.openRecruit
+                            ? 'Anyone can apply for spots not already filled by a team invite.'
+                            : "Off = private. Only people you've invited above can fill this role — it won't show up in freelancers' Job Feed."}
+                        </p>
+                      </div>
                     </div>
                   )
                 })}
@@ -568,8 +590,8 @@ export default function OrganizerDashboard() {
                 <Link to={`/organizer/jobs/${job.id}/applicants`} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div className="chip-row" style={{ marginTop: 10 }}>
                     {job.job_divisions.map((d) => (
-                      <span key={d.id} className="chip">
-                        {d.skill} {d.filled_count}/{d.quantity}
+                      <span key={d.id} className={`chip ${d.open_recruit ? '' : 'chip-outline'}`}>
+                        {d.skill} {d.filled_count}/{d.quantity}{!d.open_recruit && ' · Private'}
                       </span>
                     ))}
                   </div>

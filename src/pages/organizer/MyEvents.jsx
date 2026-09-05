@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { formatEventDates } from '../../lib/date'
+import { EventCalendar } from '../../components/EventCalendar'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -16,6 +17,7 @@ export default function MyEvents() {
   const [jobs, setJobs] = useState([])
   const [ratedKeys, setRatedKeys] = useState(new Set())
   const [loading, setLoading] = useState(true)
+  const [view, setView] = useState('list') // 'list' | 'calendar'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -97,10 +99,22 @@ export default function MyEvents() {
     <div className="app-shell">
       <Topbar title="My Event" />
       <div className="page">
+        <div className="segmented">
+          <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
+            List
+          </button>
+          <button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>
+            Calendar
+          </button>
+        </div>
+
+        {view === 'calendar' && <EventCalendar events={jobs} />}
+
         {loading && <p className="subtitle">Loading…</p>}
-        {!loading && jobs.length === 0 && (
+        {view === 'list' && !loading && jobs.length === 0 && (
           <div className="empty-state">No events yet — post a job from the Post tab to get started.</div>
         )}
+        {view === 'list' && (
         <div className="stack">
           {jobs.map((job) => {
             const isPast = job.event_end_date < todayISO()
@@ -167,6 +181,7 @@ export default function MyEvents() {
             )
           })}
         </div>
+        )}
       </div>
       <OrganizerTabbar />
     </div>
