@@ -229,20 +229,21 @@ frontend, not the database — see the comment above the RLS policies in
   the same photo-upload pipeline as freelancer photos) — it shows at the top
   of the "About the organizer" popup on a job post, when their name isn't
   hidden.
-- **Post and My Event, cleanly split, each tracking one thing.** Post is
-  where a job posting itself gets created and edited: name, details,
+- **Post and My Event, cleanly split by what each tracks.** My Event owns
+  the event itself, start to finish: "+ Create a new event" (name, details,
   location + a free-text "Detailed location" for the venue/address, dates,
-  and each division's role + headcount — nothing else. My Event is a clean,
-  at-a-glance list of your events (name, location, dates) with a single
-  "Manage event" button per card that opens everything about running it:
-  per-division "Select team" (assign your own team members, or remove one
-  — a person already assigned to one division of an event can't also be
-  assigned to another division of the same event) and "Open recruit" (sets
-  the budget/fee for whatever's left unfilled and decides whether it's
-  posted publicly), the event chat toggle, "Manage applicants," and
-  post-event ratings. Removing a confirmed team member frees their slot
-  automatically — it can be filled again right away, by someone else on
-  your team or publicly.
+  and each division's role + headcount), and a clean per-event card with a
+  single "Manage event" button that opens everything about running it —
+  Edit (the same details, editable any time), per-division "Select team"
+  (assign your own people, or remove one — a person already assigned to
+  one division of an event can't also be assigned to another division of
+  the same event; removing a confirmed member frees their slot
+  automatically so it can be filled again right away), "Manage applicants,"
+  the event chat toggle, and post-event ratings. Post is just for
+  recruiting: per division, "Recruiting settings" sets the budget/fee terms
+  and decides whether that role's unfilled spots are posted publicly to the
+  Job Feed — a division shows an "Open recruit" note only once it actually
+  is; nothing's shown for a private one.
 - **New-applicant badge.** A count of pending applicants shows on the My
   Event tab and inside each event's "Manage event" popup, so an organizer
   notices new interest without opening every posting.
