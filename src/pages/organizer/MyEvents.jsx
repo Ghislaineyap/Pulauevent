@@ -11,15 +11,15 @@ import { Modal } from '../../components/Modal'
 
 const OTHER_SKILL = '__other__'
 const OTHER_LOCATION = '__other__'
-const emptyDivision = () => ({ skill: '', customSkill: '', quantity: 1 })
+const emptyDivision = () => ({ skill: '', customSkill: '', quantity: 1, jobdesk: '' })
 const emptyForm = () => ({ title: '', description: '', location: '', customLocation: '', locationDetail: '', eventStartDate: '', eventEndDate: '' })
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
 // "My Event" — create an event here, and run it here: crew (per-division
-// "Select team"), event details (editable any time from "Manage event"),
-// the team chat, "Manage applicants," and post-event ratings. Recruiting
-// publicly is Post's job — that's where "Open recruit" and its budget/fee
-// live, kept separate so each tab tracks one thing.
+// "Select team"), recruiting settings (per-division "Recruiting" — budget,
+// fee, and the Open Recruit toggle), event details (editable any time from
+// "Manage event"), the team chat, and post-event ratings. Post is just the
+// read-only, notification-driven board of whatever's currently open here.
 export default function MyEvents() {
   const { user } = useAuth()
   const [jobs, setJobs] = useState([])
@@ -31,7 +31,7 @@ export default function MyEvents() {
   const [view, setView] = useState('list') // 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
 
-  // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } }
+  // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId } }
   const [manageModal, setManageModal] = useState(null)
 
   const load = useCallback(async () => {
@@ -40,7 +40,7 @@ export default function MyEvents() {
       supabase
         .from('job_postings')
         .select(
-          'id, title, description, location, location_detail, event_start_date, event_end_date, status, chat_opened_at, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
+          'id, title, description, location, location_detail, event_start_date, event_end_date, status, chat_opened_at, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit, jobdesk)'
         )
         .eq('organizer_id', user.id)
         .order('created_at', { ascending: false }),
@@ -52,20 +52,17 @@ export default function MyEvents() {
     const divisionIds = (jobRows || []).flatMap((j) => j.job_divisions.map((d) => d.id))
     const teamByDivision = new Map()
     const confirmedByJob = new Map()
-    const pendingCountByJob = new Map()
     if (divisionIds.length > 0) {
+      // Only accepted/invited here — pending (public) applicants are tracked
+      // and notified on in Post, not in My Event.
       const { data: apps, error: appsError } = await supabase
         .from('applications')
         .select('id, status, division_id, job_divisions(job_id), freelancer_profiles(id, name)')
         .in('division_id', divisionIds)
-        .in('status', ['accepted', 'invited', 'pending'])
+        .in('status', ['accepted', 'invited'])
       if (appsError) console.error(appsError)
       ;(apps || []).forEach((a) => {
         const jobId = a.job_divisions.job_id
-        if (a.status === 'pending') {
-          pendingCountByJob.set(jobId, (pendingCountByJob.get(jobId) || 0) + 1)
-          return
-        }
         const entry = teamByDivision.get(a.division_id) || { accepted: [], invited: [] }
         const person = { appId: a.id, freelancerId: a.freelancer_profiles.id, name: a.freelancer_profiles.name }
         if (a.status === 'accepted') {
@@ -85,7 +82,6 @@ export default function MyEvents() {
         ...j,
         job_divisions: j.job_divisions.map((d) => ({ ...d, team: teamByDivision.get(d.id) || { accepted: [], invited: [] } })),
         confirmedTeam: confirmedByJob.get(j.id) || [],
-        pendingApplicantCount: pendingCountByJob.get(j.id) || 0,
       }))
     )
     setLoading(false)
@@ -169,6 +165,16 @@ export default function MyEvents() {
     load()
   }
 
+  async function saveRecruit(divisionId, payload) {
+    const { error } = await supabase.from('job_divisions').update(payload).eq('id', divisionId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    setManageModal((m) => (m ? { ...m, sub: null } : m))
+    load()
+  }
+
   async function submitRating(jobId, freelancerId, rating, recommendation) {
     const { error } = await supabase.from('ratings').insert({
       job_id: jobId,
@@ -185,14 +191,16 @@ export default function MyEvents() {
     return true
   }
 
-  const totalPending = jobs.reduce((n, j) => n + (j.pendingApplicantCount || 0), 0)
   const manageJob = manageModal && jobs.find((j) => j.id === manageModal.jobId)
   const manageDivision =
-    manageJob && manageModal.sub?.type === 'team' ? manageJob.job_divisions.find((d) => d.id === manageModal.sub.divisionId) : null
+    manageJob && (manageModal.sub?.type === 'team' || manageModal.sub?.type === 'recruit')
+      ? manageJob.job_divisions.find((d) => d.id === manageModal.sub.divisionId)
+      : null
 
   let manageTitle = manageJob?.title
   if (manageModal?.sub?.type === 'edit') manageTitle = `Edit — ${manageJob.title}`
   if (manageModal?.sub?.type === 'team' && manageDivision) manageTitle = `Select team — ${manageDivision.skill}`
+  if (manageModal?.sub?.type === 'recruit' && manageDivision) manageTitle = `Recruiting — ${manageDivision.skill}`
 
   return (
     <div className="app-shell">
@@ -240,15 +248,12 @@ export default function MyEvents() {
               <div className="stack">
                 {jobs.map((job) => (
                   <div key={job.id} className="card stack">
-                    <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <h2 style={{ margin: 0 }}>{job.title}</h2>
-                        <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                          📍 {job.location}
-                          {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
-                        </p>
-                      </div>
-                      {job.pendingApplicantCount > 0 && <span className="badge">{job.pendingApplicantCount}</span>}
+                    <div>
+                      <h2 style={{ margin: 0 }}>{job.title}</h2>
+                      <p className="subtitle" style={{ margin: '4px 0 0' }}>
+                        📍 {job.location}
+                        {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                      </p>
                     </div>
                     <button type="button" className="btn btn-primary btn-block" onClick={() => setManageModal({ jobId: job.id, sub: null })}>
                       Manage event
@@ -269,6 +274,7 @@ export default function MyEvents() {
               ratedKeys={ratedKeys}
               onEdit={() => setManageModal((m) => ({ ...m, sub: { type: 'edit' } }))}
               onOpenTeam={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'team', divisionId } }))}
+              onOpenRecruit={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'recruit', divisionId } }))}
               onToggleChat={toggleEventChat}
               onSubmitRating={submitRating}
             />
@@ -319,15 +325,29 @@ export default function MyEvents() {
               />
             </div>
           )}
+
+          {manageModal.sub?.type === 'recruit' && manageDivision && (
+            <div className="stack">
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
+                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
+              >
+                ← Back
+              </button>
+              <RecruitForm key={manageDivision.id} division={manageDivision} onSave={(payload) => saveRecruit(manageDivision.id, payload)} />
+            </div>
+          )}
         </Modal>
       )}
 
-      <OrganizerTabbar pendingCount={totalPending} />
+      <OrganizerTabbar />
     </div>
   )
 }
 
-function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onToggleChat, onSubmitRating }) {
+function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onToggleChat, onSubmitRating }) {
   const isPast = job.event_end_date < todayISO()
   const toRate = isPast ? job.confirmedTeam.filter((f) => !ratedKeys.has(`${job.id}:${f.id}`)) : []
 
@@ -347,23 +367,28 @@ function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onToggleChat, onS
         {job.job_divisions.map((d) => (
           <div key={d.id} className="card" style={{ padding: 10 }}>
             <strong>{d.skill}</strong>
+            {d.jobdesk && (
+              <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                {d.jobdesk}
+              </p>
+            )}
             <p className="subtitle" style={{ margin: '4px 0 8px' }}>
               {d.filled_count}/{d.quantity} filled
               {d.team.accepted.length > 0 && ` · ${d.team.accepted.map((p) => p.name).join(', ')}`}
               {d.team.invited.length > 0 && ` · ${d.team.invited.length} invited (pending)`}
-              {d.open_recruit && ' · Open to public (see Post)'}
+              {d.open_recruit && ' · Open recruit'}
             </p>
-            <button type="button" className="btn btn-outline btn-block" style={{ padding: '6px 10px', fontSize: 12 }} onClick={() => onOpenTeam(d.id)}>
-              Select team
-            </button>
+            <div className="row">
+              <button type="button" className="btn btn-outline" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onClick={() => onOpenTeam(d.id)}>
+                Select team
+              </button>
+              <button type="button" className="btn btn-outline" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onClick={() => onOpenRecruit(d.id)}>
+                Recruiting
+              </button>
+            </div>
           </div>
         ))}
       </div>
-
-      <Link to={`/organizer/jobs/${job.id}/applicants`} className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
-        Manage applicants
-        {job.pendingApplicantCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{job.pendingApplicantCount}</span>}
-      </Link>
 
       {job.confirmedTeam.length > 0 && (
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
@@ -455,10 +480,84 @@ function TeamSelectView({ job, division, teamMembers, onAdd, onRemove, onWithdra
   )
 }
 
+function RecruitForm({ division, onSave }) {
+  const [budgetAmount, setBudgetAmount] = useState(division.budget_amount != null ? String(division.budget_amount) : '')
+  const [budgetType, setBudgetType] = useState(division.budget_type || 'flat')
+  const [feeType, setFeeType] = useState(division.fee_type || 'all_in')
+  const [transportMax, setTransportMax] = useState(division.transport_max_amount != null ? String(division.transport_max_amount) : '')
+  const [openRecruit, setOpenRecruit] = useState(Boolean(division.open_recruit))
+  const [busy, setBusy] = useState(false)
+
+  const remaining = Math.max(division.quantity - division.filled_count, 0)
+
+  async function submit() {
+    setBusy(true)
+    await onSave({
+      budget_amount: budgetAmount ? Number(budgetAmount) : null,
+      budget_type: budgetType,
+      fee_type: feeType,
+      transport_max_amount: feeType === 'plus_transport' && transportMax ? Number(transportMax) : null,
+      open_recruit: openRecruit,
+    })
+    setBusy(false)
+  }
+
+  return (
+    <div className="stack">
+      <p className="subtitle" style={{ margin: 0 }}>
+        {remaining > 0
+          ? `${remaining} of ${division.quantity} spot${division.quantity === 1 ? '' : 's'} not yet filled by your team.`
+          : 'Every spot in this role is already filled.'}
+      </p>
+      <div className="row">
+        <input
+          style={{ flex: 1 }}
+          type="number"
+          min="0"
+          placeholder="Budget (IDR)"
+          value={budgetAmount}
+          onChange={(e) => setBudgetAmount(e.target.value)}
+        />
+        <select style={{ flex: 1 }} value={budgetType} onChange={(e) => setBudgetType(e.target.value)}>
+          <option value="flat">flat total</option>
+          <option value="hourly">per hour</option>
+          <option value="daily">per day</option>
+        </select>
+      </div>
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label style={{ fontSize: 12 }}>Fee covers</label>
+        <select value={feeType} onChange={(e) => setFeeType(e.target.value)}>
+          <option value="all_in">All-in (no separate reimbursement)</option>
+          <option value="plus_transport">+ Transport reimbursed separately</option>
+        </select>
+        {feeType === 'plus_transport' && (
+          <input
+            style={{ marginTop: 8 }}
+            type="number"
+            min="0"
+            placeholder="Max transport reimbursement (optional)"
+            value={transportMax}
+            onChange={(e) => setTransportMax(e.target.value)}
+          />
+        )}
+      </div>
+      <Switch checked={openRecruit} onChange={setOpenRecruit} label="Open recruit" />
+      <p className="helper-text" style={{ margin: 0 }}>
+        On: the {remaining} remaining spot{remaining === 1 ? '' : 's'} show up on the Post tab for anyone to apply.
+        Off: only people invited from "Select team" can fill this role.
+      </p>
+      <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={submit}>
+        {busy ? 'Saving…' : 'Save'}
+      </button>
+    </div>
+  )
+}
+
 // Shared by "+ Create a new event" (top-level, job === null) and "Manage
 // event → Edit" (job === the existing event). Only the basics live here —
-// name, details, location, dates, and each division's role + headcount.
-// Budget/fee/recruiting are Post's job, not this form's.
+// name, details, location, dates, and each division's role, headcount, and
+// jobdesk. Budget/fee/Open Recruit live in "Manage event → Recruiting", not
+// this form.
 function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, onCancel, bare = false }) {
   const isEdit = Boolean(job)
   const [form, setForm] = useState(() =>
@@ -478,7 +577,13 @@ function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, o
     job
       ? job.job_divisions.map((d) => {
           const knownSkill = skillOptions.includes(d.skill)
-          return { id: d.id, skill: knownSkill ? d.skill : OTHER_SKILL, customSkill: knownSkill ? '' : d.skill, quantity: d.quantity }
+          return {
+            id: d.id,
+            skill: knownSkill ? d.skill : OTHER_SKILL,
+            customSkill: knownSkill ? '' : d.skill,
+            quantity: d.quantity,
+            jobdesk: d.jobdesk || '',
+          }
         })
       : [emptyDivision()]
   )
@@ -516,6 +621,7 @@ function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, o
     return {
       skill: d.skill === OTHER_SKILL ? d.customSkill.trim() : d.skill,
       quantity: Number(d.quantity) || 1,
+      jobdesk: d.jobdesk.trim() || null,
     }
   }
 
@@ -596,8 +702,9 @@ function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, o
       }
 
       for (const d of editedDivisions) {
-        // Only skill/quantity are touched here — budget, fee, and open-recruit
-        // are all managed from Post, so saving this form never overwrites them.
+        // Only skill/quantity/jobdesk are touched here — budget, fee, and
+        // open-recruit are managed from "Recruiting", so saving this form
+        // never overwrites them.
         const { error: updError } = await supabase.from('job_divisions').update(divisionPayload(d)).eq('id', d.id)
         if (updError) {
           setFormError(updError.message)
@@ -698,8 +805,8 @@ function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, o
         <label style={{ display: 'flex', alignItems: 'center' }}>
           Divisions — who do you need, and how many?
           <InfoButton title="Divisions">
-            Just the role and headcount for now. Use "Select team" (in Manage event) to assign your own people, and
-            head to Post when you want a role open to public recruiting.
+            Role, headcount, and what the job actually involves. Use "Select team" (in Manage event) to assign your
+            own people, and "Recruiting" (also in Manage event) when you want a role open to public applicants.
           </InfoButton>
         </label>
         <div className="stack">
@@ -752,6 +859,13 @@ function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, o
                     onChange={(e) => updateDivision(i, { customSkill: e.target.value })}
                   />
                 )}
+                <textarea
+                  style={{ marginTop: 8 }}
+                  placeholder="Jobdesk — what will they actually do? (optional, but helps people understand the role)"
+                  value={d.jobdesk}
+                  disabled={locked}
+                  onChange={(e) => updateDivision(i, { jobdesk: e.target.value })}
+                />
               </div>
             )
           })}

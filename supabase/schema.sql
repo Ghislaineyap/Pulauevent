@@ -72,7 +72,7 @@ create table if not exists public.freelancer_profiles (
 create table if not exists public.organizer_profiles (
   id uuid primary key references public.profiles(id) on delete cascade,
   org_name text not null,
-  hide_name boolean not null default false, -- if true, freelancers see "Event Organizer" until matched
+  hide_name boolean not null default false, -- unused: organizer identity is never hidden from freelancers (kept only for backward compatibility, no longer read or written by the app)
   instagram_handle text, -- optional, visible legitimacy signal — not verification
   location text, -- where they're based, from the same curated `locations` list
   about text, -- short blurb: what kind of events they run
@@ -106,6 +106,9 @@ create table if not exists public.job_divisions (
   job_id uuid not null references public.job_postings(id) on delete cascade,
   skill text not null,
   quantity integer not null default 1,
+  -- What someone in this role actually does — shown to applicants so they
+  -- understand the job before applying, not just the role title.
+  jobdesk text,
   budget_amount numeric,
   budget_type text check (budget_type in ('hourly', 'daily', 'flat')),
   filled_count integer not null default 0,

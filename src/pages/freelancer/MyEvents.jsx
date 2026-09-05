@@ -6,11 +6,15 @@ import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { formatEventDates } from '../../lib/date'
 import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/applicationStatus'
 import { EventCalendar } from '../../components/EventCalendar'
+import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
 
-// "My Event" — every job this freelancer has applied to, so they can see at a
-// glance whether each one is still pending, confirmed, or didn't work out
-// this time. Confirmed events also surface teammates from the same job so
-// people who actually worked together can endorse each other's skills.
+// "My Event" — every job this freelancer has applied to or been invited to,
+// so they can see at a glance whether each one needs a response, is still
+// pending, confirmed, or didn't work out this time. A direct invite from an
+// organizer shows the jobdesk and fee right here so they can decide and
+// respond without hunting elsewhere. Confirmed events also surface
+// teammates from the same job so people who actually worked together can
+// endorse each other's skills.
 export default function MyEvents() {
   const { user } = useAuth()
   const [events, setEvents] = useState([])
@@ -18,7 +22,9 @@ export default function MyEvents() {
   const [endorsed, setEndorsed] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState(null)
+  const [respondingId, setRespondingId] = useState(null)
   const [view, setView] = useState('list') // 'list' | 'calendar'
+  const [aboutOrganizer, setAboutOrganizer] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -26,15 +32,17 @@ export default function MyEvents() {
       supabase
         .from('applications')
         .select(
-          'id, status, job_divisions(id, skill, budget_amount, budget_type, job_id, job_postings(id, title, location, location_detail, event_start_date, event_end_date, chat_opened_at, organizer_profiles(org_name, hide_name)))'
+          'id, status, job_divisions(id, skill, jobdesk, budget_amount, budget_type, fee_type, transport_max_amount, job_id, job_postings(id, title, location, location_detail, event_start_date, event_end_date, chat_opened_at, organizer_profiles(org_name, location, about, instagram_handle, logo_url)))'
         )
         .eq('freelancer_id', user.id),
       supabase.from('skill_endorsements').select('freelancer_id, skill').eq('endorser_id', user.id),
     ])
     if (appsError) console.error(appsError)
+    // Invited (needs a response) first, then confirmed, then the rest.
+    const rank = { invited: 0, accepted: 1 }
     const clean = (apps || [])
       .filter((a) => a.job_divisions?.job_postings)
-      .sort((a, b) => (a.status === b.status ? 0 : a.status === 'accepted' ? -1 : b.status === 'accepted' ? 1 : 0))
+      .sort((a, b) => (rank[a.status] ?? 2) - (rank[b.status] ?? 2))
     setEvents(clean)
     setEndorsed(new Set((myEndorsements || []).map((e) => `${e.freelancer_id}:${e.skill}`)))
 
@@ -96,6 +104,19 @@ export default function MyEvents() {
     setEndorsed((s) => new Set(s).add(key))
   }
 
+  async function respondInvite(applicationId, status) {
+    setRespondingId(applicationId)
+    const { error } = await supabase.from('applications').update({ status }).eq('id', applicationId)
+    setRespondingId(null)
+    if (error) {
+      console.error(error)
+      return
+    }
+    load()
+  }
+
+  const invitedCount = events.filter((a) => a.status === 'invited').length
+
   return (
     <div className="app-shell">
       <Topbar title="My Event" />
@@ -113,7 +134,7 @@ export default function MyEvents() {
 
         {loading && <p className="subtitle">Loading…</p>}
         {view === 'list' && !loading && events.length === 0 && (
-          <div className="empty-state">No applications yet — jobs you apply to will show up here.</div>
+          <div className="empty-state">Nothing here yet — jobs you apply to, or get invited to, will show up here.</div>
         )}
         {view === 'list' && (
         <div className="stack">
@@ -126,15 +147,27 @@ export default function MyEvents() {
                 <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <h2 style={{ margin: 0 }}>{job.title}</h2>
-                    <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                      {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} · 📍{' '}
-                      {job.location}
+                    <button
+                      type="button"
+                      className="subtitle"
+                      style={{ background: 'none', border: 'none', padding: 0, margin: '4px 0 0', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
+                      onClick={() => setAboutOrganizer(job.organizer_profiles)}
+                    >
+                      {job.organizer_profiles.org_name}
+                    </button>
+                    <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                      📍 {job.location}
                       {a.status === 'accepted' && job.location_detail && ` — ${job.location_detail}`} ·{' '}
                       {formatEventDates(job.event_start_date, job.event_end_date)}
                     </p>
                   </div>
                   <span className={applicationStatusChipClass(a.status)}>{applicationStatusLabel(a.status)}</span>
                 </div>
+                {div.jobdesk && (
+                  <p className="subtitle" style={{ margin: 0 }}>
+                    {div.jobdesk}
+                  </p>
+                )}
                 <div className="chip-row">
                   <span className="chip chip-outline">Role: {div.skill}</span>
                   {div.budget_amount && (
@@ -143,7 +176,34 @@ export default function MyEvents() {
                       {div.budget_type === 'flat' ? 'flat' : `/ ${div.budget_type}`}
                     </span>
                   )}
+                  {div.fee_type === 'plus_transport' && (
+                    <span className="chip chip-outline">
+                      + Transport{div.transport_max_amount ? `, up to Rp ${Number(div.transport_max_amount).toLocaleString('id-ID')}` : ' reimbursed'}
+                    </span>
+                  )}
                 </div>
+                {a.status === 'invited' && (
+                  <div className="row">
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ flex: 1 }}
+                      disabled={respondingId === a.id}
+                      onClick={() => respondInvite(a.id, 'declined')}
+                    >
+                      Decline
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ flex: 1 }}
+                      disabled={respondingId === a.id}
+                      onClick={() => respondInvite(a.id, 'accepted')}
+                    >
+                      {respondingId === a.id ? 'Saving…' : 'Accept'}
+                    </button>
+                  </div>
+                )}
                 {a.status === 'accepted' && job.chat_opened_at && (
                   <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
                     💬 Open event chat
@@ -186,7 +246,10 @@ export default function MyEvents() {
         </div>
         )}
       </div>
-      <FreelancerTabbar />
+
+      {aboutOrganizer && <OrganizerAboutModal organizer={aboutOrganizer} onClose={() => setAboutOrganizer(null)} />}
+
+      <FreelancerTabbar myEventCount={invitedCount} />
     </div>
   )
 }

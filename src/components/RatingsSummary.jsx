@@ -27,7 +27,7 @@ export function RatingsSummary({ freelancerId, emptyText }) {
       const [{ data: ratingRows }, { data: endorsementRows }] = await Promise.all([
         supabase
           .from('ratings')
-          .select('rating, recommendation, created_at, organizer_profiles(org_name, hide_name)')
+          .select('rating, recommendation, created_at, organizer_profiles(org_name)')
           .eq('freelancer_id', freelancerId)
           .order('created_at', { ascending: false }),
         supabase.from('skill_endorsements').select('skill').eq('freelancer_id', freelancerId),
@@ -71,7 +71,7 @@ export function RatingsSummary({ freelancerId, emptyText }) {
                 <div key={i} style={{ borderLeft: '3px solid var(--border)', paddingLeft: 10 }}>
                   <p style={{ margin: 0, fontSize: 14 }}>"{r.recommendation}"</p>
                   <p className="subtitle" style={{ margin: '4px 0 0', fontSize: 12 }}>
-                    — {r.organizer_profiles.hide_name ? 'Event Organizer' : r.organizer_profiles.org_name}
+                    — {r.organizer_profiles.org_name}
                   </p>
                 </div>
               ))}

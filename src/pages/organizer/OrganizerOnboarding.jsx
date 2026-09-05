@@ -10,7 +10,6 @@ export default function OrganizerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [orgName, setOrgName] = useState('')
-  const [hideName, setHideName] = useState(true)
   const [instagramHandle, setInstagramHandle] = useState('')
   const [location, setLocation] = useState('')
   const [about, setAbout] = useState('')
@@ -25,7 +24,6 @@ export default function OrganizerOnboarding() {
   useEffect(() => {
     if (hydrated || !roleProfile) return
     setOrgName(roleProfile.org_name || '')
-    setHideName(Boolean(roleProfile.hide_name))
     setInstagramHandle(roleProfile.instagram_handle || '')
     setLocation(roleProfile.location || '')
     setAbout(roleProfile.about || '')
@@ -71,7 +69,6 @@ export default function OrganizerOnboarding() {
     const { error: upsertError } = await supabase.from('organizer_profiles').upsert({
       id: user.id,
       org_name: orgName.trim(),
-      hide_name: hideName,
       instagram_handle: instagramHandle.trim().replace(/^@/, '') || null,
       location: location || null,
       about: about.trim() || null,
@@ -136,21 +133,6 @@ export default function OrganizerOnboarding() {
           <div className="field">
             <label htmlFor="orgName">Your name or organization</label>
             <input id="orgName" type="text" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
-          </div>
-          <div className="field">
-            <label style={{ display: 'flex', alignItems: 'center' }}>
-              <input
-                type="checkbox"
-                checked={hideName}
-                onChange={(e) => setHideName(e.target.checked)}
-                style={{ marginRight: 8 }}
-              />
-              Keep my name hidden until connected
-              <InfoButton title="Hiding your name">
-                Before you connect with a freelancer, they see you as "Event Organizer" instead of your real name.
-                Once connected, your real name is revealed to them.
-              </InfoButton>
-            </label>
           </div>
           <div className="field">
             <label htmlFor="orgLocation">Based in</label>

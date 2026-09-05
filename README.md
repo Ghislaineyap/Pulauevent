@@ -52,11 +52,10 @@ Either path converging on an "accepted" status triggers a Postgres trigger
 (`supabase/schema.sql`) that creates a row in `matches` automatically — the client
 never inserts matches directly, which keeps that logic in one trustworthy place.
 
-If an organizer chose to stay anonymous during onboarding, their real name is hidden
-from freelancers (shown as "Event Organizer") until a match exists, at which point the
-frontend reveals it. **Known v1 simplification:** this hiding is enforced by the
-frontend, not the database — see the comment above the RLS policies in
-`supabase/schema.sql` for the honest caveat and how to harden it later.
+An organizer's real name/org name is always visible to freelancers, everywhere — there's
+no anonymity option. (An earlier version let organizers hide their name until connected;
+that's been removed, since the marketplace works better when everyone can see who
+they'd actually be working with before deciding.)
 
 ## What's shipped since v1
 
@@ -230,23 +229,32 @@ frontend, not the database — see the comment above the RLS policies in
   of the "About the organizer" popup on a job post, when their name isn't
   hidden.
 - **Post and My Event, cleanly split by what each tracks.** My Event owns
-  the event itself, start to finish: "+ Create a new event" (name, details,
-  location + a free-text "Detailed location" for the venue/address, dates,
-  and each division's role + headcount), and a clean per-event card with a
-  single "Manage event" button that opens everything about running it —
-  Edit (the same details, editable any time), per-division "Select team"
-  (assign your own people, or remove one — a person already assigned to
-  one division of an event can't also be assigned to another division of
-  the same event; removing a confirmed member frees their slot
-  automatically so it can be filled again right away), "Manage applicants,"
-  the event chat toggle, and post-event ratings. Post is just for
-  recruiting: per division, "Recruiting settings" sets the budget/fee terms
-  and decides whether that role's unfilled spots are posted publicly to the
-  Job Feed — a division shows an "Open recruit" note only once it actually
-  is; nothing's shown for a private one.
-- **New-applicant badge.** A count of pending applicants shows on the My
-  Event tab and inside each event's "Manage event" popup, so an organizer
-  notices new interest without opening every posting.
+  the event itself, start to finish, including all recruiting decisions:
+  "+ Create a new event" (name, details, location + a free-text "Detailed
+  location" for the venue/address, dates, and each division's role,
+  headcount, and jobdesk), and a clean per-event card with a single
+  "Manage event" button that opens everything about running it — Edit (the
+  same details, editable any time), per-division "Select team" (assign
+  your own people, or remove one — a person already assigned to one
+  division of an event can't also be assigned to another division of the
+  same event; removing a confirmed member frees their slot automatically
+  so it can be filled again right away), per-division "Recruiting" (sets
+  the budget/fee terms and the "Open Recruit" toggle that decides whether
+  that role's unfilled spots are posted publicly), the event chat toggle,
+  and post-event ratings. Post is purely a read-only, notification-driven
+  board: it lists only the divisions currently open to public recruiting
+  (private ones don't appear at all, not even as a tag) with a live
+  filled-count, and tapping one goes straight to "Manage applicants" for
+  that role.
+- **Jobdesk per division.** Adding a role to an event now also takes a
+  short free-text jobdesk — what the person will actually do — shown to
+  applicants alongside the role title, headcount, and fee details so they
+  understand the job before applying.
+- **New-applicant badge, on Post.** A count of pending (public) applicants
+  shows on the Post tab itself, both as an overall tab badge and per
+  division — the only place a pending applicant can come from is a public,
+  open-recruit division, so the notification lives where the recruiting
+  board lives.
 - **Compact, clickable applicant cards.** Reviewing applicants is a smaller
   card now — no rate shown (they've already agreed to your stated rate) —
   and tapping it opens their full profile before you decide.
@@ -261,6 +269,20 @@ frontend, not the database — see the comment above the RLS policies in
   freelancer's profile from "My team chat" (or anywhere else once you're
   already connected) drops the Skip/Shortlist row entirely — those only
   make sense pre-connection, from Discover.
+- **Job invites live in My Event now, with the jobdesk and fee right there.**
+  A freelancer invited by an organizer sees it as an actionable card in My
+  Event (sorted to the top, needs-a-response first) — jobdesk, role, and
+  fee/transport terms all shown, plus a "View organizer" link to their full
+  profile, so Accept/Decline is an informed decision made in one place
+  instead of a bare "Invited — respond in Connect" chip. Connect's "Chat"
+  tab is personal-only now: "Interested in you" (a plain accept-to-chat
+  request, with the same organizer-profile check available before
+  deciding) and personal 1:1 threads.
+- **Organizer identity is never hidden.** Removed the "keep my name hidden
+  until connected" option entirely — a freelancer always sees the real
+  organizer name (and can check their full profile: location, about, logo,
+  Instagram) before responding to an invite, a chat request, or an
+  application.
 
 ## On the roadmap
 

@@ -20,7 +20,7 @@ export default function JobFeed() {
       const { data, error } = await supabase
         .from('job_postings')
         .select(
-          'id, title, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count, open_recruit)'
+          'id, title, location, event_start_date, event_end_date, organizer_profiles(org_name), job_divisions(id, skill, quantity, filled_count, open_recruit)'
         )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
@@ -109,7 +109,7 @@ export default function JobFeed() {
               <Link key={job.id} to={`/freelancer/jobs/${job.id}`} className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <h2>{job.title}</h2>
                 <p className="subtitle">
-                  {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} · 📍{' '}
+                  {job.organizer_profiles.org_name} · 📍{' '}
                   {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
                 </p>
                 <div className="chip-row" style={{ marginTop: 8 }}>
