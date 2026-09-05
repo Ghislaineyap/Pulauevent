@@ -158,6 +158,48 @@ frontend, not the database — see the comment above the RLS policies in
   named after the event, reachable from "My Event" and Connect. This replaces
   the 1:1 chat for job-based connections; a Discover-sourced ("like")
   connection still gets its own 1:1 chat since there's no job attached to it.
+- **Tighter typography.** Headings, body text, buttons and chips all sized
+  down a notch — the app was reading oversized, especially on chat and card
+  text.
+- **Event chats vs personal chats, clearly split.** Connect is now Chats /
+  Requests (freelancer side) with a segmented switch, and within Chats,
+  "Event chats" (the group thread per confirmed event, showing how many
+  people are in it) are visually separate from "Personal chats" (1:1,
+  Discover-sourced). "Interested in you" moved into its own Requests tab
+  instead of sharing a feed with chats.
+- **Event Manager: the organizer opens the event chat.** A job's group chat
+  no longer appears automatically — from "My Event", the organizer presses
+  "Start event chat for this team" once they're confident on the lineup
+  (giving them room to swap someone out first, e.g. after a cancellation).
+  Enforced in the database too (RLS), not just hidden in the UI.
+- **Instagram/social handle on both profile types.** An optional, visible way
+  to sanity-check who you're dealing with — shown on a job post (organizer)
+  and on a freelancer's full profile. Not verification, just a real,
+  checkable signal in the meantime.
+- **"About the organizer" on a job post.** Freelancers now see more than a
+  name before applying — how many events that organizer has posted, plus
+  their Instagram if they added one.
+- **Freelancer profile decluttered.** Skills are now added from a dropdown
+  (with chosen ones shown as removable chips) instead of one long always-on
+  chip grid; locations moved into a popup so the main form doesn't grow with
+  every city added.
+- **Calendar view + double-booking warning.** A freelancer's "My Event" tab
+  has a List/Calendar toggle showing booked dates on a month grid. Applying
+  to a job that overlaps an already-confirmed event now shows a warning
+  first (not a hard block) — they can still apply if they can cover both.
+- **No more re-meeting a connection in Discover.** Once a freelancer is
+  connected to an organizer — via a Discover shortlist or a job-application
+  acceptance — they no longer show up again in that organizer's Discover
+  feed.
+- **Smoother page transitions + skeleton loading.** Pages fade/rise in
+  instead of popping in abruptly; the freelancer profile detail page shows a
+  skeleton placeholder instead of a bare "Loading…" while it fetches.
+
+## On the roadmap
+
+- **Identity/legitimacy verification.** The Instagram handle above is a
+  stopgap — a real verification system (ID check, business verification, or
+  similar) is planned but not yet built.
 
 ## What's next (deliberately out of v1)
 

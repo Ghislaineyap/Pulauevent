@@ -1,0 +1,526 @@
+<title>Horizon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #ffffff;
+    --cloud: #eef3ff;
+    --ink: #101425;
+    --ink-soft: #57607a;
+    --primary: #2f6fed;
+    --primary-dark: #1b4fc0;
+    --sunset: #ff7a33;
+    --sunset-dark: #e85f1a;
+    --mint: #16c79a;
+    --card: #ffffff;
+    --border: #dfe6f7;
+    --shadow: 16, 20, 37;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Poppins', -apple-system, sans-serif;
+  }
+
+  body { padding: 56px 24px 90px; }
+
+  h1, h2, h3, .display {
+    font-family: 'Poppins', -apple-system, sans-serif;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  a { color: inherit; }
+
+  /* ---------------------------------------------------------------- */
+  /* Intro / rationale                                                */
+  /* ---------------------------------------------------------------- */
+  .intro { max-width: 780px; margin: 0 auto 40px; }
+
+  .eyebrow {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--sunset-dark);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .eyebrow::before { content: ''; width: 22px; height: 2px; background: var(--sunset); }
+
+  .intro h1 {
+    font-size: clamp(34px, 5.2vw, 50px);
+    font-weight: 600;
+    line-height: 1.06;
+    margin-top: 14px;
+    letter-spacing: -0.01em;
+  }
+
+  .intro h1 em { font-style: italic; color: var(--primary); }
+
+  .intro p.lede {
+    font-size: 16.5px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    max-width: 64ch;
+    margin-top: 16px;
+  }
+
+  .changelog {
+    max-width: 780px;
+    margin: 0 auto 56px;
+    background: var(--cloud);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 22px;
+  }
+
+  .changelog .tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary-dark);
+  }
+
+  .changelog ul { margin: 10px 0 0; padding-left: 18px; }
+  .changelog li { font-size: 13.5px; line-height: 1.7; color: var(--ink); }
+  .changelog li b { color: var(--ink); }
+
+  /* ---------------------------------------------------------------- */
+  /* Palette + type specimen                                          */
+  /* ---------------------------------------------------------------- */
+  .system {
+    max-width: 980px;
+    margin: 0 auto 84px;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 44px;
+    align-items: start;
+  }
+
+  .system-block h2 {
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Poppins', sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  .swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+  .swatch {
+    border-radius: 12px;
+    padding: 16px 14px 12px;
+    min-height: 84px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .swatch .name { font-size: 12px; font-weight: 700; }
+  .swatch .hex { font-size: 11px; opacity: 0.75; font-variant-numeric: tabular-nums; }
+
+  .type-sample {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px 26px;
+    box-shadow: 0 20px 40px -30px rgba(var(--shadow), 0.4);
+  }
+
+  .type-sample .headline { font-family: 'Poppins', sans-serif; font-size: 30px; font-weight: 600; line-height: 1.1; color: var(--primary-dark); }
+  .type-sample .sub { font-size: 12px; color: var(--ink-soft); margin-top: 4px; letter-spacing: 0.02em; }
+  .type-sample .body-copy {
+    font-size: 14px; line-height: 1.6; color: var(--ink-soft);
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Phone gallery                                                     */
+  /* ---------------------------------------------------------------- */
+  .gallery-head { max-width: 980px; margin: 0 auto 34px; }
+  .gallery-head h2 {
+    font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft);
+  }
+
+  .gallery {
+    display: flex; flex-wrap: wrap; justify-content: center;
+    gap: 40px 32px; max-width: 1440px; margin: 0 auto;
+  }
+
+  figure.screen { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  figcaption { font-size: 12.5px; font-weight: 700; color: var(--ink-soft); letter-spacing: 0.03em; }
+
+  .phone {
+    width: 296px; border-radius: 46px; background: var(--ink); padding: 12px;
+    box-shadow: 0 40px 60px -24px rgba(var(--shadow), 0.35), 0 12px 24px -10px rgba(var(--shadow), 0.25);
+  }
+
+  .phone-screen {
+    position: relative; width: 100%; height: 620px; background: var(--bg);
+    border-radius: 36px; overflow: hidden; display: flex; flex-direction: column; font-size: 14px;
+  }
+
+  .notch {
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 118px; height: 22px; background: var(--ink); border-radius: 0 0 14px 14px; z-index: 5;
+  }
+
+  /* shared app chrome */
+  .topbar {
+    background: var(--primary); color: #fff; padding: 32px 18px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar .brand { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 16px; }
+  .topbar .signout { font-size: 11px; color: #d7e2ff; }
+
+  .app-page { flex: 1; overflow: hidden; padding: 16px 16px 0; display: flex; flex-direction: column; gap: 12px; }
+
+  .tabbar { display: flex; border-top: 1px solid var(--border); background: var(--card); padding: 8px 6px 14px; }
+  .tabbar .tab { flex: 1; text-align: center; font-size: 10px; font-weight: 700; color: var(--ink-soft); }
+  .tabbar .tab.active { color: var(--sunset-dark); }
+  .tabbar .tab .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin: 0 auto 5px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: none; border-radius: 12px; padding: 11px 16px;
+    font-family: 'Poppins', sans-serif; font-size: 13px; font-weight: 700;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-accent { background: var(--sunset); color: #fff; }
+  .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--ink); }
+
+  .chip {
+    display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; border: 1px solid var(--border); color: var(--ink-soft); background: #fff;
+  }
+  .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .avatar-sm {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    background: linear-gradient(150deg, var(--primary), var(--primary-dark));
+  }
+  .avatar-sm svg { width: 56%; height: 56%; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
+  .subtitle { color: var(--ink-soft); font-size: 12.5px; line-height: 1.5; margin: 0; }
+
+  /* ---- Landing screen ---- */
+  .landing-hero {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; gap: 16px; padding: 0 26px; color: #fff;
+    background:
+      radial-gradient(circle at 50% 12%, rgba(255,122,51,0.55), transparent 50%),
+      linear-gradient(165deg, var(--primary), var(--primary-dark));
+  }
+  .spot-mark {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, var(--sunset), var(--sunset-dark) 72%);
+    box-shadow: 0 0 0 8px rgba(255,122,51,0.22);
+  }
+  .landing-hero h1 { font-size: 26px; font-weight: 600; color: #fff; }
+  .landing-hero p { font-size: 12.5px; color: #dce6ff; max-width: 220px; line-height: 1.5; }
+  .landing-actions { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+
+  /* ---- Discover screen ---- */
+  .filter-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 14px; font-size: 12.5px; font-weight: 700;
+  }
+  .filter-toggle .count { background: var(--sunset); color: #fff; font-size: 10px; padding: 1px 7px; border-radius: 999px; }
+  .filter-toggle .chevron { color: var(--ink-soft); font-size: 11px; }
+  .filter-hint { font-size: 10.5px; color: var(--ink-soft); text-align: center; margin: -4px 0 0; }
+
+  .photo-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 22px;
+    overflow: hidden; box-shadow: 0 18px 34px -20px rgba(var(--shadow), 0.4);
+    display: flex; flex-direction: column; flex: 1;
+  }
+
+  .photo-frame {
+    position: relative; width: 100%; aspect-ratio: 4 / 5;
+    background: linear-gradient(155deg, var(--primary), var(--primary-dark));
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .photo-frame svg.silhouette { width: 42%; height: 42%; opacity: 0.9; }
+  .photo-dots { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 5px; }
+  .photo-dots span { width: 16px; height: 3px; border-radius: 3px; background: rgba(255,255,255,0.4); }
+  .photo-dots span.on { background: #fff; }
+  .photo-scrim {
+    position: absolute; left: 0; right: 0; bottom: 0; padding: 34px 16px 14px;
+    background: linear-gradient(to top, rgba(16,20,37,0.82), transparent);
+    color: #fff; text-align: left;
+  }
+  .photo-scrim h3 { font-size: 17px; font-weight: 600; }
+  .photo-scrim p { font-size: 11.5px; color: #e7ecfc; margin: 3px 0 0; }
+
+  .photo-card-body { padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .view-profile { font-size: 11.5px; font-weight: 700; color: var(--primary-dark); }
+  .swipe-actions { display: flex; gap: 10px; margin-top: 2px; }
+  .swipe-actions .btn { flex: 1; }
+
+  /* ---- Profile detail screen ---- */
+  .back-link { font-size: 11.5px; font-weight: 700; color: var(--ink-soft); }
+
+  .gallery-main { position: relative; width: 100%; aspect-ratio: 4/5; border-radius: 18px; overflow: hidden; }
+  .gallery-thumbs { display: flex; gap: 8px; }
+  .gallery-thumbs .thumb {
+    flex: 1; aspect-ratio: 1; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+    border: 2px solid transparent;
+  }
+  .gallery-thumbs .thumb.active { border-color: var(--primary); }
+  .gallery-thumbs svg { width: 40%; height: 40%; opacity: 0.9; }
+
+  .profile-name { text-align: center; margin-top: 2px; }
+  .profile-name h2 { font-size: 19px; font-weight: 600; }
+
+  .field-label {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft);
+  }
+
+  /* ---- Job feed (freelancer) screen ---- */
+  .job-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; }
+  .job-card h3 { font-size: 15px; font-weight: 600; }
+  .job-card .chip-row { margin-top: 8px; }
+
+  /* ---- Chat screen ---- */
+  .chat-header { background: var(--primary); color: #fff; padding: 32px 16px 12px; display: flex; align-items: center; gap: 10px; }
+  .chat-header .name { font-weight: 700; font-size: 13.5px; }
+  .chat-thread { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+  .bubble { max-width: 78%; padding: 9px 13px; border-radius: 16px; font-size: 12.5px; line-height: 1.4; }
+  .bubble.theirs { align-self: flex-start; background: var(--cloud); border-bottom-left-radius: 4px; }
+  .bubble.mine { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+  .chat-input { display: flex; gap: 8px; padding: 10px 14px 16px; border-top: 1px solid var(--border); background: var(--card); }
+  .chat-input .field { flex: 1; border: 1px solid var(--border); border-radius: 999px; padding: 9px 14px; font-size: 12px; color: var(--ink-soft); background: #fff; }
+  .chat-input .send { width: 34px; height: 34px; border-radius: 50%; background: var(--sunset); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  @media (max-width: 720px) {
+    .system { grid-template-columns: 1fr; gap: 32px; }
+  }
+</style>
+
+<!-- ============================================================== -->
+<!-- Intro                                                            -->
+<!-- ============================================================== -->
+<section class="intro">
+  <div class="eyebrow">Design concept · v3</div>
+  <h1>Pulau Event,<br><em>brighter and simpler.</em></h1>
+  <p class="lede">
+    Now wearing the real brand name. Type is simplified to one clean typeface instead of a display/body
+    pairing, and the sky-blue + sunset-orange palette from v2 turns out to fit "Pulau" (island) nicely on
+    its own — blue for sky and sea, orange for the sunset over the water — without adding anything new.
+  </p>
+</section>
+
+<div class="changelog">
+  <div class="tag">What changed since v2</div>
+  <ul>
+    <li><b>Branded as Pulau Event</b> — the wordmark and product name are no longer a placeholder.</li>
+    <li><b>One simple typeface</b> — Poppins throughout, replacing the Fraunces/Work Sans pairing.</li>
+    <li><b>Job feed gets a location filter</b> — defaults to the freelancer's own saved location(s), shown as active chips they can adjust or add to. Automatic <em>and</em> adjustable, not one or the other.</li>
+  </ul>
+</div>
+
+<!-- ============================================================== -->
+<!-- Palette + type system                                           -->
+<!-- ============================================================== -->
+<section class="system">
+  <div class="system-block">
+    <h2>Palette</h2>
+    <div class="swatches">
+      <div class="swatch" style="background:var(--primary); color:#fff;"><span class="name">Skyline</span><span class="hex">#2F6FED</span></div>
+      <div class="swatch" style="background:var(--sunset); color:#fff;"><span class="name">Sunset</span><span class="hex">#FF7A33</span></div>
+      <div class="swatch" style="background:var(--mint); color:#fff;"><span class="name">Mint</span><span class="hex">#16C79A</span></div>
+      <div class="swatch" style="background:var(--cloud); color:var(--ink); border:1px solid var(--border);"><span class="name">Cloud</span><span class="hex">#EEF3FF</span></div>
+      <div class="swatch" style="background:var(--bg); color:var(--ink); border:1px solid var(--border);"><span class="name">Paper</span><span class="hex">#FFFFFF</span></div>
+      <div class="swatch" style="background:var(--ink); color:#fff;"><span class="name">Ink</span><span class="hex">#101425</span></div>
+    </div>
+  </div>
+  <div class="system-block">
+    <h2>Type</h2>
+    <div class="type-sample">
+      <div class="headline">Book your event crew</div>
+      <div class="sub">Poppins 600 · headings</div>
+      <div class="body-copy">Poppins 400/500 also carries every label, button and paragraph — one simple, friendly typeface instead of a display/body pairing, per your note.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================== -->
+<!-- Phone gallery                                                    -->
+<!-- ============================================================== -->
+<div class="gallery-head"><h2>Key screens</h2></div>
+
+<div class="gallery">
+
+  <!-- Landing -->
+  <figure class="screen">
+    <div class="phone"><div class="phone-screen"><div class="notch"></div>
+      <div class="landing-hero">
+        <div class="spot-mark"></div>
+        <h1>Pulau Event</h1>
+        <p>Event-services freelancers, and the organizers who hire them. Browse, apply, connect.</p>
+        <div class="landing-actions">
+          <button class="btn btn-accent" style="width:100%; padding:13px;">I'm a Freelancer</button>
+          <button class="btn" style="width:100%; padding:13px; background:rgba(255,255,255,0.14); color:#fff; border:1px solid rgba(255,255,255,0.32);">I'm an Event Organizer</button>
+        </div>
+      </div>
+    </div></div>
+    <figcaption>Landing</figcaption>
+  </figure>
+
+  <!-- Discover (organizer) -->
+  <figure class="screen">
+    <div class="phone"><div class="phone-screen"><div class="notch"></div>
+      <div class="topbar"><span class="brand">Discover</span><span class="signout">Sign out</span></div>
+      <div class="app-page">
+        <div class="filter-toggle"><span>Filters</span><span class="chevron">▾</span></div>
+        <p class="filter-hint">Collapsed by default — taps open gender, location, experience &amp; skill chips</p>
+        <div class="photo-card">
+          <div class="photo-frame">
+            <div class="photo-dots"><span class="on"></span><span></span><span></span></div>
+            <svg class="silhouette" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.4"><circle cx="12" cy="8.2" r="4"/><path d="M4 20.2c0-4.6 3.6-7.2 8-7.2s8 2.6 8 7.2"/></svg>
+            <div class="photo-scrim">
+              <h3>Nadia Putri</h3>
+              <p>📍 Makassar · 2–5 years experience</p>
+            </div>
+          </div>
+          <div class="photo-card-body">
+            <p style="font-size:12.5px; margin:0;">Stage manager for 50+ weddings &amp; corporate events</p>
+            <div class="chip-row">
+              <span class="chip">Stage Manager</span><span class="chip">Logistics</span><span class="chip">+2 more</span>
+            </div>
+            <span class="view-profile">View full profile →</span>
+            <div class="swipe-actions">
+              <button class="btn btn-outline">Skip</button>
+              <button class="btn btn-primary">Shortlist</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Profile</div>
+        <div class="tab"><div class="dot"></div>Post</div>
+        <div class="tab active"><div class="dot"></div>Discover</div>
+        <div class="tab"><div class="dot"></div>Connect</div>
+      </div>
+    </div></div>
+    <figcaption>Discover — big photo, collapsed filters</figcaption>
+  </figure>
+
+  <!-- Profile detail -->
+  <figure class="screen">
+    <div class="phone"><div class="phone-screen"><div class="notch"></div>
+      <div class="topbar"><span class="brand">Freelancer profile</span><span class="signout">Sign out</span></div>
+      <div class="app-page">
+        <span class="back-link">← Back to discover</span>
+        <div class="gallery-main" style="background:linear-gradient(155deg, var(--sunset), var(--sunset-dark)); display:flex; align-items:center; justify-content:center;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2" style="width:38%; height:38%; opacity:.9;"><circle cx="12" cy="8.2" r="4"/><path d="M4 20.2c0-4.6 3.6-7.2 8-7.2s8 2.6 8 7.2"/></svg>
+        </div>
+        <div class="gallery-thumbs">
+          <div class="thumb active" style="background:linear-gradient(155deg, var(--sunset), var(--sunset-dark));">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><circle cx="12" cy="8.2" r="4"/><path d="M4 20.2c0-4.6 3.6-7.2 8-7.2s8 2.6 8 7.2"/></svg>
+          </div>
+          <div class="thumb" style="background:linear-gradient(155deg, var(--primary), var(--primary-dark));">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><circle cx="12" cy="8.2" r="4"/><path d="M4 20.2c0-4.6 3.6-7.2 8-7.2s8 2.6 8 7.2"/></svg>
+          </div>
+          <div class="thumb" style="background:linear-gradient(155deg, var(--mint), #0e8f6f);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6"><circle cx="12" cy="8.2" r="4"/><path d="M4 20.2c0-4.6 3.6-7.2 8-7.2s8 2.6 8 7.2"/></svg>
+          </div>
+        </div>
+        <div class="profile-name">
+          <h2>Damar Aditya</h2>
+          <p class="subtitle">📍 Jakarta, Bandung · 6–10 years experience</p>
+        </div>
+        <div>
+          <span class="field-label">Skills</span>
+          <div class="chip-row" style="margin-top:8px;">
+            <span class="chip">MC</span><span class="chip">Talent Coordinator</span><span class="chip">Liaison Officer</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; padding:0 16px 20px;">
+        <button class="btn btn-outline" style="flex:1;">Skip</button>
+        <button class="btn btn-primary" style="flex:1;">Shortlist</button>
+      </div>
+    </div></div>
+    <figcaption>Profile — up to 3 photos</figcaption>
+  </figure>
+
+  <!-- Job feed (freelancer) -->
+  <figure class="screen">
+    <div class="phone"><div class="phone-screen"><div class="notch"></div>
+      <div class="topbar"><span class="brand">Open jobs</span><span class="signout">Sign out</span></div>
+      <div class="app-page">
+        <div class="filter-toggle"><span>Location</span><span class="chevron">▾</span></div>
+        <div class="chip-row">
+          <span class="chip on">Jakarta</span>
+          <span class="chip on">Bandung</span>
+          <span class="chip">Makassar</span>
+          <span class="chip">Surabaya</span>
+        </div>
+        <p class="filter-hint">Pre-selected from your saved locations — tap to add more or narrow down</p>
+        <div class="job-card">
+          <h3>Corporate Gala — 2 day setup</h3>
+          <p class="subtitle">Diag Events Co · 📍 Jakarta · 12–13 Sep 2026</p>
+          <div class="chip-row"><span class="chip on">Stage Manager · 1 spot</span></div>
+        </div>
+        <div class="job-card">
+          <h3>Wedding — Riverside</h3>
+          <p class="subtitle">Studio Merah · 📍 Bandung · 3 Oct 2026</p>
+          <div class="chip-row"><span class="chip">MC · 1 spot</span><span class="chip">Usher · 3 spots</span></div>
+        </div>
+        <div class="job-card">
+          <h3>Product Launch</h3>
+          <p class="subtitle">Kilo Brand Co · 📍 Jakarta · 20 Sep 2026</p>
+          <div class="chip-row"><span class="chip">Photographer · 2 spots</span></div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="dot"></div>Profile</div>
+        <div class="tab active"><div class="dot"></div>Job</div>
+        <div class="tab"><div class="dot"></div>Connect</div>
+      </div>
+    </div></div>
+    <figcaption>Job feed — auto + adjustable location filter</figcaption>
+  </figure>
+
+  <!-- Chat -->
+  <figure class="screen">
+    <div class="phone"><div class="phone-screen"><div class="notch"></div>
+      <div class="chat-header">
+        <div class="avatar-sm" style="background:linear-gradient(150deg, var(--mint), #0e8f6f);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8"><circle cx="12" cy="8.2" r="4"/><path d="M4 20.2c0-4.6 3.6-7.2 8-7.2s8 2.6 8 7.2"/></svg>
+        </div>
+        <span class="name">Diag Events Co</span>
+      </div>
+      <div class="chat-thread">
+        <div class="bubble theirs">Hi! Excited about the wedding gig, looking forward to it.</div>
+        <div class="bubble mine">Great, thanks for accepting! Call time is 8am, I'll send the venue address.</div>
+        <div class="bubble theirs">Perfect, see you then 🎤</div>
+      </div>
+      <div class="chat-input">
+        <div class="field">Type a message…</div>
+        <div class="send"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M14 6l6 6-6 6"/></svg></div>
+      </div>
+    </div></div>
+    <figcaption>Chat</figcaption>
+  </figure>
+
+</div>

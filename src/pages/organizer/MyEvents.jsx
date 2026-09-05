@@ -22,7 +22,9 @@ export default function MyEvents() {
     const [{ data: jobRows, error: jobsError }, { data: myRatings }] = await Promise.all([
       supabase
         .from('job_postings')
-        .select('id, title, location, event_start_date, event_end_date, status, job_divisions(id, skill, quantity, filled_count)')
+        .select(
+          'id, title, location, event_start_date, event_end_date, status, chat_opened_at, job_divisions(id, skill, quantity, filled_count)'
+        )
         .eq('organizer_id', user.id)
         .order('created_at', { ascending: false }),
       supabase.from('ratings').select('job_id, freelancer_id').eq('organizer_id', user.id),
@@ -65,6 +67,15 @@ export default function MyEvents() {
   useEffect(() => {
     load()
   }, [load])
+
+  async function openEventChat(jobId) {
+    const { error } = await supabase.from('job_postings').update({ chat_opened_at: new Date().toISOString() }).eq('id', jobId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    setJobs((js) => js.map((j) => (j.id === jobId ? { ...j, chat_opened_at: new Date().toISOString() } : j)))
+  }
 
   async function submitRating(jobId, freelancerId, rating, recommendation) {
     const { error } = await supabase.from('ratings').insert({
@@ -121,6 +132,27 @@ export default function MyEvents() {
                 <Link to={`/organizer/jobs/${job.id}/applicants`} className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
                   Manage applicants
                 </Link>
+
+                {job.confirmedTeam.length > 0 && (
+                  <div className="stack" style={{ gap: 6 }}>
+                    {job.chat_opened_at ? (
+                      <Link to={`/event-chat/${job.id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
+                        💬 Open event chat · {job.confirmedTeam.length + 1} people
+                      </Link>
+                    ) : (
+                      <>
+                        <button type="button" className="btn btn-accent btn-block" onClick={() => openEventChat(job.id)}>
+                          Start event chat for this team
+                        </button>
+                        <p className="helper-text" style={{ margin: 0, textAlign: 'center' }}>
+                          Opens a group chat for you + {job.confirmedTeam.length} confirmed{' '}
+                          {job.confirmedTeam.length === 1 ? 'person' : 'people'}. Wait until you're sure — this also
+                          gives you room to swap someone out first if a cancellation comes up.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {isPast && job.confirmedTeam.length > 0 && (
                   <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 10 }}>

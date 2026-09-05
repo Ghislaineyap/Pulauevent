@@ -12,3 +12,15 @@ export function formatEventDates(startDate, endDate) {
   if (!endDate || endDate === startDate) return formatDate(startDate)
   return `${formatDate(startDate)} – ${formatDate(endDate)}`
 }
+
+// Do two inclusive date ranges (ISO 'YYYY-MM-DD' strings) overlap at all —
+// used to warn a freelancer they're already booked on an overlapping date
+// before they apply to a second job on the same day(s).
+export function datesOverlap(aStart, aEnd, bStart, bEnd) {
+  if (!aStart || !bStart) return false
+  const aFrom = aStart
+  const aTo = aEnd || aStart
+  const bFrom = bStart
+  const bTo = bEnd || bStart
+  return aFrom <= bTo && bFrom <= aTo
+}

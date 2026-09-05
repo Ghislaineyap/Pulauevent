@@ -65,6 +65,7 @@ create table if not exists public.freelancer_profiles (
   skills text[] not null default '{}',
   work_history text,
   experience_band text check (experience_band in ('0-1', '2-5', '6-10', '10+')),
+  instagram_handle text, -- optional, visible legitimacy signal — not verification
   updated_at timestamptz not null default now()
 );
 
@@ -72,6 +73,7 @@ create table if not exists public.organizer_profiles (
   id uuid primary key references public.profiles(id) on delete cascade,
   org_name text not null,
   hide_name boolean not null default false, -- if true, freelancers see "Event Organizer" until matched
+  instagram_handle text, -- optional, visible legitimacy signal — not verification
   updated_at timestamptz not null default now()
 );
 
@@ -89,6 +91,9 @@ create table if not exists public.job_postings (
   event_end_date date not null,
   status text not null default 'open' check (status in ('open', 'closed')),
   constraint job_postings_date_range check (event_end_date >= event_start_date),
+  -- Group event chat only appears once the organizer explicitly opens it
+  -- (an "Event Manager" control) — not automatically on first acceptance.
+  chat_opened_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -412,13 +417,24 @@ create index if not exists job_chat_messages_job_id_created_at_idx on public.job
 
 alter table public.job_chat_messages enable row level security;
 
+-- Reading/sending is gated on chat_opened_at — the organizer's "Event
+-- Manager" control — not just on being organizer/accepted-team. This keeps
+-- the chat from appearing before the organizer has actually locked in the
+-- team (giving room for a last-minute swap first).
 create policy "job team members can read the event chat" on public.job_chat_messages
   for select using (
-    exists (select 1 from public.job_postings jp where jp.id = job_id and jp.organizer_id = auth.uid())
+    exists (
+      select 1 from public.job_postings jp
+      where jp.id = job_chat_messages.job_id and jp.organizer_id = auth.uid() and jp.chat_opened_at is not null
+    )
     or exists (
       select 1 from public.applications a
       join public.job_divisions jd on jd.id = a.division_id
-      where jd.job_id = job_chat_messages.job_id and a.freelancer_id = auth.uid() and a.status = 'accepted'
+      join public.job_postings jp on jp.id = jd.job_id
+      where jd.job_id = job_chat_messages.job_id
+        and a.freelancer_id = auth.uid()
+        and a.status = 'accepted'
+        and jp.chat_opened_at is not null
     )
   );
 
@@ -426,11 +442,18 @@ create policy "job team members can send an event chat message" on public.job_ch
   for insert with check (
     auth.uid() = sender_id
     and (
-      exists (select 1 from public.job_postings jp where jp.id = job_id and jp.organizer_id = auth.uid())
+      exists (
+        select 1 from public.job_postings jp
+        where jp.id = job_chat_messages.job_id and jp.organizer_id = auth.uid() and jp.chat_opened_at is not null
+      )
       or exists (
         select 1 from public.applications a
         join public.job_divisions jd on jd.id = a.division_id
-        where jd.job_id = job_chat_messages.job_id and a.freelancer_id = auth.uid() and a.status = 'accepted'
+        join public.job_postings jp on jp.id = jd.job_id
+        where jd.job_id = job_chat_messages.job_id
+          and a.freelancer_id = auth.uid()
+          and a.status = 'accepted'
+          and jp.chat_opened_at is not null
       )
     )
   );

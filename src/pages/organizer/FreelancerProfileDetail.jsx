@@ -72,7 +72,20 @@ export default function FreelancerProfileDetail() {
     setDone(status)
   }
 
-  if (loading) return <div className="center-page">Loading…</div>
+  if (loading) {
+    return (
+      <div className="app-shell">
+        <Topbar title="Freelancer profile" />
+        <div className="page">
+          <div className="skeleton" style={{ aspectRatio: '4 / 5', borderRadius: 18 }} />
+          <div className="skeleton" style={{ height: 20, width: '60%', margin: '0 auto', borderRadius: 6 }} />
+          <div className="skeleton" style={{ height: 14, width: '40%', margin: '0 auto', borderRadius: 6 }} />
+          <div className="skeleton" style={{ height: 90, borderRadius: 14 }} />
+        </div>
+        <OrganizerTabbar />
+      </div>
+    )
+  }
   if (!freelancer) {
     return (
       <div className="center-page">
@@ -121,6 +134,17 @@ export default function FreelancerProfileDetail() {
             {freelancer.experience_band && ` · ${experienceBandLabel(freelancer.experience_band)} experience`}
           </p>
           {freelancer.pitch && <p>{freelancer.pitch}</p>}
+          {freelancer.instagram_handle && (
+            <a
+              href={`https://instagram.com/${freelancer.instagram_handle.replace(/^@/, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              className="subtitle"
+              style={{ color: 'var(--primary-dark)', fontWeight: 600 }}
+            >
+              📷 @{freelancer.instagram_handle.replace(/^@/, '')}
+            </a>
+          )}
           <button
             className="btn btn-outline"
             disabled={inTeam || teamBusy}
