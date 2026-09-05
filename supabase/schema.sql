@@ -76,6 +76,7 @@ create table if not exists public.organizer_profiles (
   instagram_handle text, -- optional, visible legitimacy signal — not verification
   location text, -- where they're based, from the same curated `locations` list
   about text, -- short blurb: what kind of events they run
+  logo_url text, -- public URL in the "avatars" storage bucket, same pattern as freelancer photos
   updated_at timestamptz not null default now()
 );
 

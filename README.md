@@ -216,6 +216,23 @@ frontend, not the database — see the comment above the RLS policies in
   on a month grid.
 - **Organizer tab order changed.** Now Profile · My Event · Discover · Post ·
   Connect (My Event moved up, next to Profile).
+- **Job creation moved into "My Event."** "Post" is now a read-only Job Board
+  — a quick-glance list of what's live and what's filled, with "+ Post a new
+  job" and each posting's "Edit" both deep-linking into "My Event," where the
+  actual create/edit form now lives alongside staffing, chat, and ratings.
+- **Declutter pass: toggles + info popups instead of paragraphs.** Two new
+  reusable pieces — a small pill `Switch` and an "ⓘ" `InfoButton` that opens
+  a popup with the explanation — replaced several always-visible helper-text
+  blocks (name-hiding, Instagram, fee-covers, team invites, open recruit) so
+  the job form and event cards read shorter at a glance.
+- **Event chat is a real on/off toggle now.** Previously a one-way "Start
+  event chat for this team" button; an organizer can now flip it back off
+  any time too (e.g. after a last-minute cancellation), still enforced via
+  the same `chat_opened_at`-gated RLS policies.
+- **Organizer logo.** Organizers can upload a logo on their profile (reusing
+  the same photo-upload pipeline as freelancer photos) — it shows at the top
+  of the "About the organizer" popup on a job post, when their name isn't
+  hidden.
 
 ## On the roadmap
 

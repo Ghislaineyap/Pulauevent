@@ -32,7 +32,7 @@ export default function JobDetail() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, hide_name, instagram_handle, location, about), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
+        'id, title, description, location, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, hide_name, instagram_handle, location, about, logo_url), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
       )
       .eq('id', jobId)
       .single()
@@ -141,6 +141,13 @@ export default function JobDetail() {
         {showOrganizer && (
           <Modal title="About the organizer" onClose={() => setShowOrganizer(false)}>
             <div className="stack">
+              {job.organizer_profiles.logo_url && !job.organizer_profiles.hide_name && (
+                <img
+                  src={job.organizer_profiles.logo_url}
+                  alt=""
+                  style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover' }}
+                />
+              )}
               <p style={{ margin: 0, fontWeight: 600 }}>
                 {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
               </p>
