@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthProvider'
 import { Guard } from './components/Guard'
 
@@ -15,6 +15,7 @@ import FreelancerMyEvents from './pages/freelancer/MyEvents'
 import FreelancerNotifications from './pages/freelancer/FreelancerNotifications'
 
 import OrganizerOnboarding from './pages/organizer/OrganizerOnboarding'
+import OrganizerDashboard from './pages/organizer/OrganizerDashboard'
 import ApplicantReview from './pages/organizer/ApplicantReview'
 import FreelancerBrowse from './pages/organizer/FreelancerBrowse'
 import FreelancerProfileDetail from './pages/organizer/FreelancerProfileDetail'
@@ -95,8 +96,14 @@ export default function App() {
               </Guard>
             }
           />
-          {/* Post was folded into My Event — redirect anyone with an old link/bookmark. */}
-          <Route path="/organizer/dashboard" element={<Navigate to="/organizer/my-events" replace />} />
+          <Route
+            path="/organizer/dashboard"
+            element={
+              <Guard role="organizer">
+                <OrganizerDashboard />
+              </Guard>
+            }
+          />
           <Route
             path="/organizer/jobs/:jobId/applicants"
             element={

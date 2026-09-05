@@ -40,9 +40,10 @@ export function FreelancerTabbar({ pendingCount = 0 }) {
 }
 
 // pendingCount: applicants waiting on a decision, across every posting —
-// surfaced here (instead of a separate Post tab, which is gone — creating
-// and managing postings all lives in My Event now) so an organizer notices
-// new interest without opening each event.
+// shown on My Event (where staffing/recruiting happens) so an organizer
+// notices new interest without opening each event. Post is its own tab
+// again — it's just for creating/editing the posting itself, tracked
+// separately from My Event's operational view.
 export function OrganizerTabbar({ pendingCount = 0 }) {
   return (
     <nav className="tabbar">
@@ -58,6 +59,9 @@ export function OrganizerTabbar({ pendingCount = 0 }) {
       </NavLink>
       <NavLink to="/organizer/browse" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconSearch className="tab-icon" />Discover
+      </NavLink>
+      <NavLink to="/organizer/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconClipboard className="tab-icon" />Post
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconChat className="tab-icon" />Connect
