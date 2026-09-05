@@ -25,7 +25,7 @@ export default function EventChat() {
   const load = useCallback(async () => {
     const { data: jobRow, error: jobError } = await supabase
       .from('job_postings')
-      .select('id, title, organizer_id, organizer_profiles(org_name)')
+      .select('id, title, organizer_id, chat_opened_at, organizer_profiles(org_name)')
       .eq('id', jobId)
       .single()
     if (jobError || !jobRow) {
@@ -47,6 +47,11 @@ export default function EventChat() {
       ;(teamApps || []).forEach((a) => names.set(a.freelancer_profiles.id, a.freelancer_profiles.name))
     }
     setNamesById(names)
+
+    if (!jobRow.chat_opened_at) {
+      setLoading(false)
+      return
+    }
 
     const { data: msgRows, error: msgError } = await supabase
       .from('job_chat_messages')
@@ -128,10 +133,23 @@ export default function EventChat() {
         >
           ←
         </button>
-        <span className="brand">{job.title}</span>
+        <div className="stack" style={{ gap: 0 }}>
+          <span className="brand">{job.title}</span>
+          {job.chat_opened_at && (
+            <span style={{ fontSize: 11, color: '#dbe6ff' }}>{namesById.size} in this chat</span>
+          )}
+        </div>
       </div>
 
       <div className="page" style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: 16 }}>
+        {!job.chat_opened_at && (
+          <div className="empty-state">
+            This event's group chat hasn't been started by the organizer yet — check back once your team is
+            confirmed.
+          </div>
+        )}
+        {job.chat_opened_at && (
+        <>
         <div className="chat-thread">
           {messages.length === 0 && (
             <p className="subtitle" style={{ textAlign: 'center', marginTop: 24 }}>
@@ -165,6 +183,8 @@ export default function EventChat() {
             Send
           </button>
         </form>
+        </>
+        )}
       </div>
     </div>
   )

@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { formatEventDates } from '../../lib/date'
 import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/applicationStatus'
+import { EventCalendar } from '../../components/EventCalendar'
 
 // "My Event" — every job this freelancer has applied to, so they can see at a
 // glance whether each one is still pending, confirmed, or didn't work out
@@ -17,6 +18,7 @@ export default function MyEvents() {
   const [endorsed, setEndorsed] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState(null)
+  const [view, setView] = useState('list') // 'list' | 'calendar'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -24,7 +26,7 @@ export default function MyEvents() {
       supabase
         .from('applications')
         .select(
-          'id, status, job_divisions(id, skill, budget_amount, budget_type, job_id, job_postings(id, title, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name)))'
+          'id, status, job_divisions(id, skill, budget_amount, budget_type, job_id, job_postings(id, title, location, event_start_date, event_end_date, chat_opened_at, organizer_profiles(org_name, hide_name)))'
         )
         .eq('freelancer_id', user.id),
       supabase.from('skill_endorsements').select('freelancer_id, skill').eq('endorser_id', user.id),
@@ -69,6 +71,14 @@ export default function MyEvents() {
     load()
   }, [load])
 
+  const confirmedEvents = useMemo(
+    () =>
+      events
+        .filter((a) => a.status === 'accepted')
+        .map((a) => ({ id: a.job_divisions.job_postings.id, title: a.job_divisions.job_postings.title, ...a.job_divisions.job_postings })),
+    [events]
+  )
+
   async function endorse(freelancerId, skill) {
     const key = `${freelancerId}:${skill}`
     if (endorsed.has(key)) return
@@ -90,10 +100,22 @@ export default function MyEvents() {
     <div className="app-shell">
       <Topbar title="My Event" />
       <div className="page">
+        <div className="segmented">
+          <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
+            List
+          </button>
+          <button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>
+            Calendar
+          </button>
+        </div>
+
+        {view === 'calendar' && <EventCalendar events={confirmedEvents} />}
+
         {loading && <p className="subtitle">Loading…</p>}
-        {!loading && events.length === 0 && (
+        {view === 'list' && !loading && events.length === 0 && (
           <div className="empty-state">No applications yet — jobs you apply to will show up here.</div>
         )}
+        {view === 'list' && (
         <div className="stack">
           {events.map((a) => {
             const div = a.job_divisions
@@ -120,10 +142,13 @@ export default function MyEvents() {
                     </span>
                   )}
                 </div>
-                {a.status === 'accepted' && (
+                {a.status === 'accepted' && job.chat_opened_at && (
                   <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
                     💬 Open event chat
                   </Link>
+                )}
+                {a.status === 'accepted' && !job.chat_opened_at && (
+                  <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
                 )}
 
                 {a.status === 'accepted' && teammates.length > 0 && (
@@ -157,6 +182,7 @@ export default function MyEvents() {
             )
           })}
         </div>
+        )}
       </div>
       <FreelancerTabbar />
     </div>

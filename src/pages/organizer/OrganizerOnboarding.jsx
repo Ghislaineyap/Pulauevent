@@ -9,6 +9,7 @@ export default function OrganizerOnboarding() {
   const navigate = useNavigate()
   const [orgName, setOrgName] = useState('')
   const [hideName, setHideName] = useState(true)
+  const [instagramHandle, setInstagramHandle] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -17,6 +18,7 @@ export default function OrganizerOnboarding() {
     if (hydrated || !roleProfile) return
     setOrgName(roleProfile.org_name || '')
     setHideName(Boolean(roleProfile.hide_name))
+    setInstagramHandle(roleProfile.instagram_handle || '')
     setHydrated(true)
   }, [roleProfile, hydrated])
 
@@ -32,6 +34,7 @@ export default function OrganizerOnboarding() {
       id: user.id,
       org_name: orgName.trim(),
       hide_name: hideName,
+      instagram_handle: instagramHandle.trim().replace(/^@/, '') || null,
     })
     setBusy(false)
     if (upsertError) {
@@ -65,6 +68,20 @@ export default function OrganizerOnboarding() {
             <p className="helper-text">
               Before you connect, freelancers see you as "Event Organizer." Once connected, your real name is
               revealed to them.
+            </p>
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label htmlFor="instagram">Instagram (optional)</label>
+            <input
+              id="instagram"
+              type="text"
+              placeholder="@yourorganization"
+              value={instagramHandle}
+              onChange={(e) => setInstagramHandle(e.target.value)}
+            />
+            <p className="helper-text">
+              Shown on your job posts so freelancers can look you up before applying — helps them trust you're
+              legit.
             </p>
           </div>
           {error && <p className="error-text">{error}</p>}

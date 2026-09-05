@@ -21,8 +21,15 @@ export default function FreelancerBrowse() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const { data: likes } = await supabase.from('likes').select('freelancer_id').eq('organizer_id', user.id)
-    const acted = new Set((likes || []).map((l) => l.freelancer_id))
+    // Exclude anyone already acted on via Discover (liked/skipped) AND anyone
+    // already connected through any path — a job-application acceptance
+    // creates a `matches` row too, with no `likes` row involved, so both
+    // need checking or a connected freelancer would confusingly reappear here.
+    const [{ data: likes }, { data: matches }] = await Promise.all([
+      supabase.from('likes').select('freelancer_id').eq('organizer_id', user.id),
+      supabase.from('matches').select('freelancer_id').eq('organizer_id', user.id),
+    ])
+    const acted = new Set([...(likes || []).map((l) => l.freelancer_id), ...(matches || []).map((m) => m.freelancer_id)])
 
     const { data, error } = await supabase.from('freelancer_profiles').select('*')
     if (error) console.error(error)

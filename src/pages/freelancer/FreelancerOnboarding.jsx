@@ -7,6 +7,7 @@ import { GENDERS } from '../../lib/gender'
 import { EXPERIENCE_BANDS } from '../../lib/experience'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { RatingsSummary } from '../../components/RatingsSummary'
+import { Modal } from '../../components/Modal'
 
 export default function FreelancerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
@@ -26,12 +27,14 @@ export default function FreelancerOnboarding() {
     otherSkill: '',
     workHistory: '',
     experienceBand: '',
+    instagramHandle: '',
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const [uploadingPhotoIndex, setUploadingPhotoIndex] = useState(null)
   const [photoError, setPhotoError] = useState('')
+  const [showLocationModal, setShowLocationModal] = useState(false)
 
   // Editing an existing profile: pre-fill the form once from the saved row,
   // so revisiting this page doesn't wipe out what's already there. Only
@@ -53,6 +56,7 @@ export default function FreelancerOnboarding() {
       otherSkill: otherSkills.join(', '),
       workHistory: roleProfile.work_history || '',
       experienceBand: roleProfile.experience_band || '',
+      instagramHandle: roleProfile.instagram_handle || '',
     }))
     setHydrated(true)
   }, [roleProfile, hydrated])
@@ -153,6 +157,7 @@ export default function FreelancerOnboarding() {
       skills: finalSkills,
       work_history: form.workHistory.trim(),
       experience_band: form.experienceBand || null,
+      instagram_handle: form.instagramHandle.trim().replace(/^@/, '') || null,
     })
     setBusy(false)
     if (upsertError) {
@@ -266,65 +271,88 @@ export default function FreelancerOnboarding() {
 
             <div className="field">
               <label htmlFor="location">Location(s)</label>
-              {form.locations.length > 0 && (
-                <div className="chip-row" style={{ marginBottom: 8 }}>
-                  {form.locations.map((loc) => (
-                    <span key={loc} className="chip chip-toggle active" onClick={() => removeLocation(loc)}>
-                      {loc} ×
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="row">
-                <select
-                  id="location"
-                  value=""
-                  onChange={(e) => {
-                    const value = e.target.value
-                    if (!value) return
-                    setForm((f) =>
-                      f.locations.some((l) => l.toLowerCase() === value.toLowerCase())
-                        ? f
-                        : { ...f, locations: [...f.locations, value] }
-                    )
-                  }}
-                >
-                  <option value="">Add a location…</option>
-                  {locationOptions
-                    .filter((loc) => !form.locations.includes(loc))
-                    .map((loc) => (
-                      <option key={loc} value={loc}>
-                        {loc}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="row" style={{ marginTop: 8 }}>
-                <input
-                  type="text"
-                  placeholder="Not listed? Type your own"
-                  value={form.locationInput}
-                  onChange={(e) => setForm((f) => ({ ...f, locationInput: e.target.value }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      addLocation()
-                    }
-                  }}
-                />
-                <button type="button" className="btn btn-outline" onClick={addLocation}>
-                  Add
-                </button>
-              </div>
-              <p className="helper-text">
-                Picking from the list keeps this consistent with how organizers filter and search — use "type your
-                own" only if your city/area isn't listed. You can add more than one — tap a chip to remove it.
-              </p>
-              <p className="helper-text">
+              <button
+                type="button"
+                id="location"
+                className="btn btn-outline btn-block"
+                style={{ justifyContent: 'space-between' }}
+                onClick={() => setShowLocationModal(true)}
+              >
+                <span>
+                  {form.locations.length === 0
+                    ? 'Add locations you cover…'
+                    : form.locations.length <= 2
+                      ? form.locations.join(', ')
+                      : `${form.locations.slice(0, 2).join(', ')} +${form.locations.length - 2} more`}
+                </span>
+                <span style={{ color: 'var(--muted)', fontWeight: 400 }}>Edit</span>
+              </button>
+              <p className="helper-text" style={{ margin: 0 }}>
                 💡 Covering multiple locations doesn't cost organizers anything extra — your rate stays the same
                 wherever you're booked.
               </p>
             </div>
+
+            {showLocationModal && (
+              <Modal title="Your locations" onClose={() => setShowLocationModal(false)}>
+                <div className="stack">
+                  {form.locations.length > 0 && (
+                    <div className="chip-row">
+                      {form.locations.map((loc) => (
+                        <span key={loc} className="chip chip-toggle active" onClick={() => removeLocation(loc)}>
+                          {loc} ×
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const value = e.target.value
+                      if (!value) return
+                      setForm((f) =>
+                        f.locations.some((l) => l.toLowerCase() === value.toLowerCase())
+                          ? f
+                          : { ...f, locations: [...f.locations, value] }
+                      )
+                    }}
+                  >
+                    <option value="">Add a location…</option>
+                    {locationOptions
+                      .filter((loc) => !form.locations.includes(loc))
+                      .map((loc) => (
+                        <option key={loc} value={loc}>
+                          {loc}
+                        </option>
+                      ))}
+                  </select>
+                  <div className="row">
+                    <input
+                      type="text"
+                      placeholder="Not listed? Type your own"
+                      value={form.locationInput}
+                      onChange={(e) => setForm((f) => ({ ...f, locationInput: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          addLocation()
+                        }
+                      }}
+                    />
+                    <button type="button" className="btn btn-outline" onClick={addLocation}>
+                      Add
+                    </button>
+                  </div>
+                  <p className="helper-text" style={{ margin: 0 }}>
+                    Picking from the list keeps this consistent with how organizers filter and search — tap a chip to
+                    remove it.
+                  </p>
+                  <button type="button" className="btn btn-primary btn-block" onClick={() => setShowLocationModal(false)}>
+                    Done
+                  </button>
+                </div>
+              </Modal>
+            )}
 
             <div className="field">
               <label htmlFor="pitch">One-line pitch</label>
@@ -356,18 +384,33 @@ export default function FreelancerOnboarding() {
             </div>
 
             <div className="field">
-              <label>Skills</label>
-              <div className="chip-row">
-                {skillOptions.map((label) => (
-                  <span
-                    key={label}
-                    className={`chip chip-toggle ${form.skills.includes(label) ? 'active' : ''}`}
-                    onClick={() => toggleSkill(label)}
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
+              <label htmlFor="skill">Skills</label>
+              {form.skills.length > 0 && (
+                <div className="chip-row" style={{ marginBottom: 8 }}>
+                  {form.skills.map((label) => (
+                    <span key={label} className="chip chip-toggle active" onClick={() => toggleSkill(label)}>
+                      {label} ×
+                    </span>
+                  ))}
+                </div>
+              )}
+              <select
+                id="skill"
+                value=""
+                onChange={(e) => {
+                  const value = e.target.value
+                  if (value) toggleSkill(value)
+                }}
+              >
+                <option value="">Add a skill…</option>
+                {skillOptions
+                  .filter((label) => !form.skills.includes(label))
+                  .map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
+              </select>
               <input
                 style={{ marginTop: 8 }}
                 type="text"
@@ -375,6 +418,7 @@ export default function FreelancerOnboarding() {
                 value={form.otherSkill}
                 onChange={(e) => setForm((f) => ({ ...f, otherSkill: e.target.value }))}
               />
+              <p className="helper-text">Pick as many as apply — tap a chip above to remove it.</p>
             </div>
 
             <div className="field">
@@ -401,6 +445,18 @@ export default function FreelancerOnboarding() {
                 value={form.workHistory}
                 onChange={(e) => setForm((f) => ({ ...f, workHistory: e.target.value }))}
               />
+            </div>
+
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label htmlFor="instagram">Instagram (optional)</label>
+              <input
+                id="instagram"
+                type="text"
+                placeholder="@yourhandle"
+                value={form.instagramHandle}
+                onChange={(e) => setForm((f) => ({ ...f, instagramHandle: e.target.value }))}
+              />
+              <p className="helper-text">Shown to organizers as an extra, checkable way to know it's really you.</p>
             </div>
           </div>
 
