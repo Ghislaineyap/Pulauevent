@@ -83,7 +83,7 @@ export default function OrganizerOnboarding() {
       return
     }
     await refreshProfile()
-    navigate('/organizer/dashboard')
+    navigate('/organizer/my-events')
   }
 
   return (

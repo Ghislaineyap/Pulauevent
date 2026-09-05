@@ -233,6 +233,29 @@ frontend, not the database — see the comment above the RLS policies in
   the same photo-upload pipeline as freelancer photos) — it shows at the top
   of the "About the organizer" popup on a job post, when their name isn't
   hidden.
+- **Post tab retired — creation, staffing, and recruiting all live in "My
+  Event."** Creating an event now only asks for the basics (name, details,
+  location + a free-text "Detailed location" for the venue/address, dates,
+  and each division's role + headcount). Deciding who fills each division
+  happens afterward, per division, from the event's card: "Select team"
+  assigns your own team members (and lets you remove or withdraw one),
+  "Open recruit" sets the budget/fee for whatever's left unfilled and
+  decides whether it's posted publicly. Removing a confirmed team member
+  frees their slot automatically — it can be filled again right away, by
+  someone else on your team or publicly.
+- **New-applicant badge.** A count of pending applicants shows on the My
+  Event tab and on each event's "Manage applicants" button, so an organizer
+  notices new interest without opening every posting.
+- **Compact, clickable applicant cards.** Reviewing applicants is a smaller
+  card now — no rate shown (they've already agreed to your stated rate) —
+  and tapping it opens their full profile before you decide.
+- **Connect split into real tabs, both sides.** Organizer: "Event chat" (one
+  thread per event) and "My team chat" (1:1s from Discover connections,
+  tap a name to revisit their profile) — each its own segmented tab instead
+  of stacked sections, with a small chat icon on the side instead of a
+  full-width button. Freelancer: "Chat" (personal chats + anything needing a
+  response — invites, interest) and "Event Chat" (event threads only),
+  regrouped the same way for a clearer split.
 
 ## On the roadmap
 

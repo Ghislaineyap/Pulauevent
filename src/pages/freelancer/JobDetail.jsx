@@ -32,7 +32,7 @@ export default function JobDetail() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, hide_name, instagram_handle, location, about, logo_url), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
+        'id, title, description, location, location_detail, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, hide_name, instagram_handle, location, about, logo_url), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
       )
       .eq('id', jobId)
       .single()
@@ -132,7 +132,8 @@ export default function JobDetail() {
         {showDetails && (
           <Modal title={job.title} onClose={() => setShowDetails(false)}>
             <p className="subtitle" style={{ marginBottom: 10 }}>
-              📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+              📍 {job.location}
+              {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
             </p>
             <p style={{ whiteSpace: 'pre-wrap' }}>{job.description}</p>
           </Modal>

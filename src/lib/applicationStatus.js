@@ -10,6 +10,8 @@ export function applicationStatusLabel(status) {
       return 'Not selected'
     case 'invited':
       return 'Invited — respond in Connect'
+    case 'cancelled':
+      return 'Removed from this event'
     default:
       return status
   }

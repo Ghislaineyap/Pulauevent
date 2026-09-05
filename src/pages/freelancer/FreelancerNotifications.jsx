@@ -6,9 +6,12 @@ import { Topbar, FreelancerTabbar } from '../../components/Layout'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// "Chat" is everything 1:1 — personal conversations plus anything needing a
+// yes/no from you (an invite, someone interested in you). "Event Chat" is
+// just the group threads, one per event, kept separate so it's easy to find.
 export default function FreelancerNotifications() {
   const { user } = useAuth()
-  const [tab, setTab] = useState('chats') // 'chats' | 'requests'
+  const [tab, setTab] = useState('chat') // 'chat' | 'event'
   const [pendingLikes, setPendingLikes] = useState([])
   const [invites, setInvites] = useState([])
   const [likeMatches, setLikeMatches] = useState([])
@@ -105,18 +108,18 @@ export default function FreelancerNotifications() {
       <Topbar title="Connect" />
       <div className="page">
         <div className="segmented">
-          <button type="button" className={tab === 'chats' ? 'active' : ''} onClick={() => setTab('chats')}>
-            Chats
-          </button>
-          <button type="button" className={tab === 'requests' ? 'active' : ''} onClick={() => setTab('requests')}>
-            Requests
+          <button type="button" className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}>
+            Chat
             {pendingCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{pendingCount}</span>}
+          </button>
+          <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
+            Event Chat
           </button>
         </div>
 
         {loading && <p className="subtitle">Loading…</p>}
 
-        {tab === 'requests' && (
+        {tab === 'chat' && (
           <>
             {invites.length > 0 && (
               <>
@@ -168,10 +171,26 @@ export default function FreelancerNotifications() {
                 </div>
               ))}
             </div>
+
+            <h2>Personal chats</h2>
+            <p className="helper-text" style={{ margin: '-4px 0 0' }}>
+              1:1 conversations from an organizer's Discover interest — not tied to a specific job.
+            </p>
+            {!loading && likeMatches.length === 0 && <p className="subtitle">No personal chats yet.</p>}
+            <div className="stack">
+              {likeMatches.map((m) => (
+                <div key={m.id} className="card row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>{m.organizer_profiles.org_name}</strong>
+                  <Link to={`/chat/${m.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open chat">
+                    💬
+                  </Link>
+                </div>
+              ))}
+            </div>
           </>
         )}
 
-        {tab === 'chats' && (
+        {tab === 'event' && (
           <>
             <h2>Event chats</h2>
             <p className="helper-text" style={{ margin: '-4px 0 0' }}>
@@ -184,22 +203,21 @@ export default function FreelancerNotifications() {
               {activeEvents.map((job) => (
                 <div key={job.id} className="card">
                   <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong>{job.title}</strong>
-                    {job.chat_opened_at && <span className="chip chip-outline">{job.memberCount} in chat</span>}
+                    <div>
+                      <strong>{job.title}</strong>
+                      <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                        {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
+                        {job.chat_opened_at && ` · ${job.memberCount} in chat`}
+                      </p>
+                    </div>
+                    {job.chat_opened_at ? (
+                      <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open event chat">
+                        💬
+                      </Link>
+                    ) : (
+                      <span className="chip chip-outline" style={{ fontSize: 11 }}>Not started</span>
+                    )}
                   </div>
-                  <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                    {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} · confirmed on
-                    this event
-                  </p>
-                  {job.chat_opened_at ? (
-                    <Link to={`/event-chat/${job.id}`} className="btn btn-primary btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
-                      💬 Open event chat
-                    </Link>
-                  ) : (
-                    <p className="helper-text" style={{ margin: '10px 0 0' }}>
-                      The organizer hasn't started this event's group chat yet.
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
@@ -218,40 +236,26 @@ export default function FreelancerNotifications() {
                     {archivedEvents.map((job) => (
                       <div key={job.id} className="card" style={{ opacity: 0.75 }}>
                         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                          <strong>{job.title}</strong>
-                          <span className="chip chip-outline">Past event</span>
+                          <div>
+                            <strong>{job.title}</strong>
+                            <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                              {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
+                            </p>
+                          </div>
+                          {job.chat_opened_at ? (
+                            <Link to={`/event-chat/${job.id}`} className="chip chip-outline" style={{ textDecoration: 'none' }} aria-label="View chat history">
+                              💬
+                            </Link>
+                          ) : (
+                            <span className="chip chip-outline">Past event</span>
+                          )}
                         </div>
-                        <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                          {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
-                        </p>
-                        {job.chat_opened_at && (
-                          <Link to={`/event-chat/${job.id}`} className="btn btn-outline btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
-                            💬 View chat history
-                          </Link>
-                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </>
             )}
-
-            <h2>Personal chats</h2>
-            <p className="helper-text" style={{ margin: '-4px 0 0' }}>
-              1:1 conversations from an organizer's Discover interest — not tied to a specific job.
-            </p>
-            {!loading && likeMatches.length === 0 && <p className="subtitle">No personal chats yet.</p>}
-            <div className="stack">
-              {likeMatches.map((m) => (
-                <div key={m.id} className="card">
-                  <strong>{m.organizer_profiles.org_name}</strong>
-                  <p className="subtitle" style={{ margin: '4px 0 0' }}>Connected via their interest</p>
-                  <Link to={`/chat/${m.id}`} className="btn btn-primary btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
-                    💬 Open chat
-                  </Link>
-                </div>
-              ))}
-            </div>
           </>
         )}
       </div>

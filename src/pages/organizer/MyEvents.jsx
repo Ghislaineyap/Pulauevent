@@ -7,28 +7,23 @@ import { formatEventDates } from '../../lib/date'
 import { EventCalendar } from '../../components/EventCalendar'
 import { Switch } from '../../components/Switch'
 import { InfoButton } from '../../components/InfoButton'
+import { Modal } from '../../components/Modal'
 
 const OTHER_SKILL = '__other__'
 const OTHER_LOCATION = '__other__'
 
-const emptyDivision = () => ({
-  skill: '',
-  customSkill: '',
-  quantity: 1,
-  budgetAmount: '',
-  budgetType: 'flat',
-  feeType: 'all_in',
-  transportMax: '',
-  inviteIds: [],
-  openRecruit: false,
-})
-const emptyForm = () => ({ title: '', description: '', location: '', customLocation: '', eventStartDate: '', eventEndDate: '' })
+// Creating an event only asks for the basics — who you need and how many.
+// Deciding WHO fills each spot (your own team, or the public) happens
+// afterward, per division, from the event's card — see "Select team" and
+// "Open recruit" below.
+const emptyDivision = () => ({ skill: '', customSkill: '', quantity: 1 })
+const emptyForm = () => ({ title: '', description: '', location: '', customLocation: '', locationDetail: '', eventStartDate: '', eventEndDate: '' })
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
 // "My Event" — everything about an organizer's own events lives here now:
-// creating/editing a posting, checking staffing, opening the team chat, and
-// rating people once an event wraps up. The Post tab is just a read-only
-// board of what's public.
+// creating/editing a posting, assigning team members, opening recruiting,
+// staffing status, the team chat, and post-event ratings. The Post tab is
+// gone — it only ever duplicated what's here.
 export default function MyEvents() {
   const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -49,13 +44,16 @@ export default function MyEvents() {
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const [teamModal, setTeamModal] = useState(null) // { jobId, divisionId }
+  const [recruitModal, setRecruitModal] = useState(null) // { jobId, divisionId }
+
   const load = useCallback(async () => {
     setLoading(true)
     const [{ data: jobRows, error: jobsError }, { data: myRatings }] = await Promise.all([
       supabase
         .from('job_postings')
         .select(
-          'id, title, description, location, event_start_date, event_end_date, status, chat_opened_at, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
+          'id, title, description, location, location_detail, event_start_date, event_end_date, status, chat_opened_at, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
         )
         .eq('organizer_id', user.id)
         .order('created_at', { ascending: false }),
@@ -65,32 +63,42 @@ export default function MyEvents() {
     setRatedKeys(new Set((myRatings || []).map((r) => `${r.job_id}:${r.freelancer_id}`)))
 
     const divisionIds = (jobRows || []).flatMap((j) => j.job_divisions.map((d) => d.id))
-    const namesByDivision = new Map()
+    const teamByDivision = new Map()
     const confirmedByJob = new Map()
+    const pendingCountByJob = new Map()
     if (divisionIds.length > 0) {
       const { data: apps, error: appsError } = await supabase
         .from('applications')
-        .select('division_id, job_divisions(job_id), freelancer_profiles(id, name)')
+        .select('id, status, division_id, job_divisions(job_id), freelancer_profiles(id, name)')
         .in('division_id', divisionIds)
-        .eq('status', 'accepted')
+        .in('status', ['accepted', 'invited', 'pending'])
       if (appsError) console.error(appsError)
       ;(apps || []).forEach((a) => {
-        const list = namesByDivision.get(a.division_id) || []
-        list.push(a.freelancer_profiles.name)
-        namesByDivision.set(a.division_id, list)
-
         const jobId = a.job_divisions.job_id
-        const confirmed = confirmedByJob.get(jobId) || []
-        if (!confirmed.some((p) => p.id === a.freelancer_profiles.id)) confirmed.push(a.freelancer_profiles)
-        confirmedByJob.set(jobId, confirmed)
+        if (a.status === 'pending') {
+          pendingCountByJob.set(jobId, (pendingCountByJob.get(jobId) || 0) + 1)
+          return
+        }
+        const entry = teamByDivision.get(a.division_id) || { accepted: [], invited: [] }
+        const person = { appId: a.id, freelancerId: a.freelancer_profiles.id, name: a.freelancer_profiles.name }
+        if (a.status === 'accepted') {
+          entry.accepted.push(person)
+          const confirmed = confirmedByJob.get(jobId) || []
+          if (!confirmed.some((p) => p.id === person.freelancerId)) confirmed.push({ id: person.freelancerId, name: person.name })
+          confirmedByJob.set(jobId, confirmed)
+        } else {
+          entry.invited.push(person)
+        }
+        teamByDivision.set(a.division_id, entry)
       })
     }
 
     setJobs(
       (jobRows || []).map((j) => ({
         ...j,
-        job_divisions: j.job_divisions.map((d) => ({ ...d, names: namesByDivision.get(d.id) || [] })),
+        job_divisions: j.job_divisions.map((d) => ({ ...d, team: teamByDivision.get(d.id) || { accepted: [], invited: [] } })),
         confirmedTeam: confirmedByJob.get(j.id) || [],
+        pendingApplicantCount: pendingCountByJob.get(j.id) || 0,
       }))
     )
     setLoading(false)
@@ -126,21 +134,6 @@ export default function MyEvents() {
     setDivisions((ds) => ds.map((d, idx) => (idx === i ? { ...d, ...patch } : d)))
   }
 
-  function toggleInvite(i, freelancerId) {
-    setDivisions((ds) =>
-      ds.map((d, idx) =>
-        idx === i
-          ? {
-              ...d,
-              inviteIds: d.inviteIds.includes(freelancerId)
-                ? d.inviteIds.filter((id) => id !== freelancerId)
-                : [...d.inviteIds, freelancerId],
-            }
-          : d
-      )
-    )
-  }
-
   function removeDivisionAt(i) {
     const target = divisions[i]
     if (target.id) setRemovedDivisionIds((ids) => [...ids, target.id])
@@ -165,6 +158,7 @@ export default function MyEvents() {
       description: job.description || '',
       location: knownLocation ? job.location : OTHER_LOCATION,
       customLocation: knownLocation ? '' : job.location,
+      locationDetail: job.location_detail || '',
       eventStartDate: job.event_start_date,
       eventEndDate: job.event_end_date,
     })
@@ -176,12 +170,6 @@ export default function MyEvents() {
           skill: knownSkill ? d.skill : OTHER_SKILL,
           customSkill: knownSkill ? '' : d.skill,
           quantity: d.quantity,
-          budgetAmount: d.budget_amount != null ? String(d.budget_amount) : '',
-          budgetType: d.budget_type,
-          feeType: d.fee_type || 'all_in',
-          transportMax: d.transport_max_amount != null ? String(d.transport_max_amount) : '',
-          inviteIds: [],
-          openRecruit: Boolean(d.open_recruit),
         }
       })
     )
@@ -202,9 +190,9 @@ export default function MyEvents() {
     setShowForm(true)
   }
 
-  // Deep-linked from the Post (Job Board) tab: ?new=1 opens a blank form,
-  // ?edit=<jobId> opens that job pre-filled — cleared from the URL right
-  // after so a refresh doesn't re-trigger it.
+  // Deep-linked from an old Post bookmark or link: ?new=1 opens a blank
+  // form, ?edit=<jobId> opens that job pre-filled — cleared from the URL
+  // right after so a refresh doesn't re-trigger it.
   useEffect(() => {
     if (jobs.length === 0) return
     const editId = searchParams.get('edit')
@@ -234,25 +222,7 @@ export default function MyEvents() {
     return {
       skill: d.skill === OTHER_SKILL ? d.customSkill.trim() : d.skill,
       quantity: Number(d.quantity) || 1,
-      budget_amount: d.budgetAmount ? Number(d.budgetAmount) : null,
-      budget_type: d.budgetType,
-      fee_type: d.feeType,
-      transport_max_amount: d.feeType === 'plus_transport' && d.transportMax ? Number(d.transportMax) : null,
-      open_recruit: Boolean(d.openRecruit),
     }
-  }
-
-  async function inviteTeamMembers(divisionId, inviteIds) {
-    if (!inviteIds || inviteIds.length === 0) return
-    const { error: inviteError } = await supabase.from('applications').insert(
-      inviteIds.map((freelancerId) => ({
-        division_id: divisionId,
-        freelancer_id: freelancerId,
-        status: 'invited',
-        source: 'invited',
-      }))
-    )
-    if (inviteError) console.error(inviteError)
   }
 
   async function handleSubmit(e) {
@@ -279,17 +249,19 @@ export default function MyEvents() {
 
     setBusy(true)
 
+    const basePayload = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      location: resolvedLocation,
+      location_detail: form.locationDetail.trim() || null,
+      event_start_date: form.eventStartDate,
+      event_end_date: form.eventEndDate,
+    }
+
     if (!editingJobId) {
       const { data: job, error: jobError } = await supabase
         .from('job_postings')
-        .insert({
-          organizer_id: user.id,
-          title: form.title.trim(),
-          description: form.description.trim(),
-          location: resolvedLocation,
-          event_start_date: form.eventStartDate,
-          event_end_date: form.eventEndDate,
-        })
+        .insert({ organizer_id: user.id, ...basePayload })
         .select()
         .single()
 
@@ -299,30 +271,19 @@ export default function MyEvents() {
         return
       }
 
-      const { data: insertedDivisions, error: divError } = await supabase
+      // New divisions always start private — the organizer opts a division
+      // into public recruiting deliberately, from its "Open recruit" button.
+      const { error: divError } = await supabase
         .from('job_divisions')
-        .insert(cleanDivisions.map((d) => ({ job_id: job.id, ...divisionPayload(d) })))
-        .select()
+        .insert(cleanDivisions.map((d) => ({ job_id: job.id, ...divisionPayload(d), open_recruit: false })))
       if (divError) {
         setFormError(divError.message)
         setBusy(false)
         return
       }
-      for (let i = 0; i < insertedDivisions.length; i++) {
-        await inviteTeamMembers(insertedDivisions[i].id, cleanDivisions[i].inviteIds)
-      }
       setBusy(false)
     } else {
-      const { error: jobError } = await supabase
-        .from('job_postings')
-        .update({
-          title: form.title.trim(),
-          description: form.description.trim(),
-          location: resolvedLocation,
-          event_start_date: form.eventStartDate,
-          event_end_date: form.eventEndDate,
-        })
-        .eq('id', editingJobId)
+      const { error: jobError } = await supabase.from('job_postings').update(basePayload).eq('id', editingJobId)
 
       if (jobError) {
         setFormError(jobError.message)
@@ -334,21 +295,20 @@ export default function MyEvents() {
       const editedDivisions = cleanDivisions.filter((d) => d.id && !lockedDivisionIds.has(d.id))
 
       if (newDivisions.length > 0) {
-        const { data: insertedDivisions, error: insError } = await supabase
+        const { error: insError } = await supabase
           .from('job_divisions')
-          .insert(newDivisions.map((d) => ({ job_id: editingJobId, ...divisionPayload(d) })))
-          .select()
+          .insert(newDivisions.map((d) => ({ job_id: editingJobId, ...divisionPayload(d), open_recruit: false })))
         if (insError) {
           setFormError(insError.message)
           setBusy(false)
           return
         }
-        for (let i = 0; i < insertedDivisions.length; i++) {
-          await inviteTeamMembers(insertedDivisions[i].id, newDivisions[i].inviteIds)
-        }
       }
 
       for (const d of editedDivisions) {
+        // Only skill/quantity are touched here — budget, fee, and open-recruit
+        // are all managed separately now (see "Open recruit"), so saving this
+        // form never overwrites them.
         const { error: updError } = await supabase.from('job_divisions').update(divisionPayload(d)).eq('id', d.id)
         if (updError) {
           setFormError(updError.message)
@@ -387,6 +347,54 @@ export default function MyEvents() {
     setJobs((js) => js.map((j) => (j.id === jobId ? { ...j, chat_opened_at: nextOpen ? new Date().toISOString() : null } : j)))
   }
 
+  // Adding someone from your team roster into a division. Upsert (not plain
+  // insert) so re-inviting someone who was previously cancelled/withdrawn
+  // from this same division works instead of hitting the unique constraint.
+  async function addToTeam(freelancerId, divisionId) {
+    const { error } = await supabase
+      .from('applications')
+      .upsert(
+        { division_id: divisionId, freelancer_id: freelancerId, status: 'invited', source: 'invited' },
+        { onConflict: 'division_id,freelancer_id' }
+      )
+    if (error) {
+      console.error(error)
+      return
+    }
+    load()
+  }
+
+  // Removing a confirmed team member frees their slot automatically (a
+  // database trigger drops the division's filled count) — it can be filled
+  // again right away, by someone else on your team or publicly.
+  async function removeFromTeam(applicationId) {
+    const { error } = await supabase.from('applications').update({ status: 'cancelled' }).eq('id', applicationId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    load()
+  }
+
+  async function withdrawInvite(applicationId) {
+    const { error } = await supabase.from('applications').update({ status: 'declined' }).eq('id', applicationId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    load()
+  }
+
+  async function saveRecruit(divisionId, payload) {
+    const { error } = await supabase.from('job_divisions').update(payload).eq('id', divisionId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    setRecruitModal(null)
+    load()
+  }
+
   async function submitRating(jobId, freelancerId, rating, recommendation) {
     const { error } = await supabase.from('ratings').insert({
       job_id: jobId,
@@ -403,48 +411,57 @@ export default function MyEvents() {
     return true
   }
 
+  const totalPending = jobs.reduce((n, j) => n + (j.pendingApplicantCount || 0), 0)
+  const teamModalJob = teamModal && jobs.find((j) => j.id === teamModal.jobId)
+  const teamModalDivision = teamModalJob && teamModalJob.job_divisions.find((d) => d.id === teamModal.divisionId)
+  const recruitModalJob = recruitModal && jobs.find((j) => j.id === recruitModal.jobId)
+  const recruitModalDivision = recruitModalJob && recruitModalJob.job_divisions.find((d) => d.id === recruitModal.divisionId)
+
   return (
     <div className="app-shell">
       <Topbar title="My Event" />
       <div className="page">
         {showForm ? (
           <form className="card stack" onSubmit={handleSubmit}>
-            <h2>{editingJobId ? 'Edit job posting' : 'New job posting'}</h2>
+            <h2>{editingJobId ? 'Edit event' : 'New event'}</h2>
             <div className="field">
-              <label htmlFor="title">Event / job title</label>
+              <label htmlFor="title">Event name</label>
               <input id="title" type="text" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             </div>
             <div className="field">
               <label htmlFor="desc">Details</label>
               <textarea id="desc" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
             </div>
-            <div className="row">
-              <div className="field" style={{ flex: 1 }}>
-                <label style={{ display: 'flex', alignItems: 'center' }} htmlFor="loc">
-                  Location
-                  <InfoButton title="Location">
-                    Picking from the list (instead of typing) keeps this consistent with what freelancers filter by.
-                  </InfoButton>
-                </label>
-                <select id="loc" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}>
-                  <option value="">Select location…</option>
-                  {locationOptions.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                  <option value={OTHER_LOCATION}>Other (type your own)</option>
-                </select>
-                {form.location === OTHER_LOCATION && (
-                  <input
-                    style={{ marginTop: 8 }}
-                    type="text"
-                    placeholder="Type the city/area"
-                    value={form.customLocation}
-                    onChange={(e) => setForm((f) => ({ ...f, customLocation: e.target.value }))}
-                  />
-                )}
-              </div>
+            <div className="field">
+              <label htmlFor="loc">Location</label>
+              <select id="loc" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}>
+                <option value="">Select location…</option>
+                {locationOptions.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+                <option value={OTHER_LOCATION}>Other (type your own)</option>
+              </select>
+              {form.location === OTHER_LOCATION && (
+                <input
+                  style={{ marginTop: 8 }}
+                  type="text"
+                  placeholder="Type the city/area"
+                  value={form.customLocation}
+                  onChange={(e) => setForm((f) => ({ ...f, customLocation: e.target.value }))}
+                />
+              )}
+            </div>
+            <div className="field">
+              <label htmlFor="locDetail">Detailed location (optional)</label>
+              <input
+                id="locDetail"
+                type="text"
+                placeholder="Venue name, street address…"
+                value={form.locationDetail}
+                onChange={(e) => setForm((f) => ({ ...f, locationDetail: e.target.value }))}
+              />
             </div>
             <div className="row">
               <div className="field" style={{ flex: 1 }}>
@@ -479,7 +496,13 @@ export default function MyEvents() {
             </div>
 
             <div className="field">
-              <label>Divisions — who do you need, and how many?</label>
+              <label style={{ display: 'flex', alignItems: 'center' }}>
+                Divisions — who do you need, and how many?
+                <InfoButton title="Divisions">
+                  Just the role and headcount for now. Once you save, use "Select team" and "Open recruit" on each
+                  division (from the event's card) to decide who fills the spots and what they'll be paid.
+                </InfoButton>
+              </label>
               <div className="stack">
                 {divisions.map((d, i) => {
                   const locked = Boolean(d.id) && lockedDivisionIds.has(d.id)
@@ -487,10 +510,10 @@ export default function MyEvents() {
                     <div key={d.id || `new-${i}`} className="card" style={{ padding: 12, opacity: locked ? 0.6 : 1 }}>
                       {locked && (
                         <p className="helper-text" style={{ marginTop: 0 }}>
-                          Already has applicants — can't be edited or removed.
+                          Already has applicants — can't be edited or removed here.
                         </p>
                       )}
-                      <div className="row" style={{ marginBottom: 8 }}>
+                      <div className="row">
                         <select
                           style={{ flex: 2 }}
                           value={d.skill}
@@ -514,10 +537,15 @@ export default function MyEvents() {
                           disabled={locked}
                           onChange={(e) => updateDivision(i, { quantity: e.target.value })}
                         />
+                        {divisions.length > 1 && !locked && (
+                          <button type="button" className="btn btn-outline" onClick={() => removeDivisionAt(i)}>
+                            ✕
+                          </button>
+                        )}
                       </div>
                       {d.skill === OTHER_SKILL && (
                         <input
-                          style={{ marginBottom: 8 }}
+                          style={{ marginTop: 8 }}
                           type="text"
                           placeholder="Type the role you need"
                           value={d.customSkill}
@@ -525,94 +553,6 @@ export default function MyEvents() {
                           onChange={(e) => updateDivision(i, { customSkill: e.target.value })}
                         />
                       )}
-                      <div className="row" style={{ marginBottom: 8 }}>
-                        <input
-                          style={{ flex: 1 }}
-                          type="number"
-                          min="0"
-                          placeholder="Budget (IDR)"
-                          value={d.budgetAmount}
-                          disabled={locked}
-                          onChange={(e) => updateDivision(i, { budgetAmount: e.target.value })}
-                        />
-                        <select
-                          style={{ flex: 1 }}
-                          value={d.budgetType}
-                          disabled={locked}
-                          onChange={(e) => updateDivision(i, { budgetType: e.target.value })}
-                        >
-                          <option value="flat">flat total</option>
-                          <option value="hourly">per hour</option>
-                          <option value="daily">per day</option>
-                        </select>
-                        {divisions.length > 1 && !locked && (
-                          <button type="button" className="btn btn-outline" onClick={() => removeDivisionAt(i)}>
-                            ✕
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="field" style={{ marginBottom: 8 }}>
-                        <label style={{ fontSize: 12, display: 'flex', alignItems: 'center' }}>
-                          Fee covers
-                          <InfoButton title="Fee covers">
-                            Whether the fee is all-in, or transport gets reimbursed separately (optionally capped).
-                            This shows on the job post so applicants know upfront.
-                          </InfoButton>
-                        </label>
-                        <select value={d.feeType} disabled={locked} onChange={(e) => updateDivision(i, { feeType: e.target.value })}>
-                          <option value="all_in">All-in (no separate reimbursement)</option>
-                          <option value="plus_transport">+ Transport reimbursed separately</option>
-                        </select>
-                        {d.feeType === 'plus_transport' && (
-                          <input
-                            style={{ marginTop: 8 }}
-                            type="number"
-                            min="0"
-                            placeholder="Max transport reimbursement (optional)"
-                            value={d.transportMax}
-                            disabled={locked}
-                            onChange={(e) => updateDivision(i, { transportMax: e.target.value })}
-                          />
-                        )}
-                      </div>
-
-                      {!locked && teamMembers.length > 0 && (
-                        <div className="field" style={{ marginBottom: 8 }}>
-                          <label style={{ fontSize: 12, display: 'flex', alignItems: 'center' }}>
-                            Invite from your team (optional)
-                            <InfoButton title="Inviting team members">
-                              They'll be asked to confirm before they're booked into this role — it doesn't skip the
-                              rest of the quantity if you need more people than you invite.
-                            </InfoButton>
-                          </label>
-                          <div className="chip-row">
-                            {teamMembers.map((t) => (
-                              <span
-                                key={t.id}
-                                className={`chip chip-toggle ${d.inviteIds.includes(t.id) ? 'active' : ''}`}
-                                onClick={() => toggleInvite(i, t.id)}
-                              >
-                                {t.name}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                        <span style={{ display: 'flex', alignItems: 'center' }}>
-                          <Switch
-                            checked={d.openRecruit}
-                            onChange={(v) => updateDivision(i, { openRecruit: v })}
-                            label="Open recruit"
-                          />
-                          <InfoButton title="Open recruit">
-                            On: this role posts to the public Job Feed — anyone can apply for spots not already filled
-                            by a team invite. Off: private — only people you've invited above can fill this role.
-                          </InfoButton>
-                        </span>
-                      </div>
                     </div>
                   )
                 })}
@@ -633,14 +573,14 @@ export default function MyEvents() {
                 Cancel
               </button>
               <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={busy}>
-                {busy ? 'Saving…' : editingJobId ? 'Save changes' : 'Post job'}
+                {busy ? 'Saving…' : editingJobId ? 'Save changes' : 'Create event'}
               </button>
             </div>
           </form>
         ) : (
           <>
             <button className="btn btn-primary btn-block" onClick={startCreate}>
-              + Post a new job
+              + Create a new event
             </button>
 
             <div className="segmented">
@@ -656,7 +596,7 @@ export default function MyEvents() {
 
             {loading && <p className="subtitle">Loading…</p>}
             {view === 'list' && !loading && jobs.length === 0 && (
-              <div className="empty-state">No events yet — post a job to get started.</div>
+              <div className="empty-state">No events yet — create one to get started.</div>
             )}
             {view === 'list' && (
               <div className="stack">
@@ -669,7 +609,8 @@ export default function MyEvents() {
                         <div>
                           <h2 style={{ margin: 0 }}>{job.title}</h2>
                           <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                            📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                            📍 {job.location}
+                            {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
                           </p>
                         </div>
                         <button
@@ -681,21 +622,48 @@ export default function MyEvents() {
                           Edit
                         </button>
                       </div>
+
                       <div className="stack" style={{ gap: 8 }}>
                         {job.job_divisions.map((d) => (
-                          <div key={d.id} className="division-row">
-                            <div>
-                              <strong>{d.skill}</strong>
-                              <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                                {d.filled_count}/{d.quantity} filled
-                                {d.names.length > 0 && ` · ${d.names.join(', ')}`}
-                              </p>
+                          <div key={d.id} className="card" style={{ padding: 10, background: 'var(--surface-alt, rgba(0,0,0,0.02))' }}>
+                            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                              <div>
+                                <strong>{d.skill}</strong>
+                                <p className="subtitle" style={{ margin: '4px 0 0' }}>
+                                  {d.filled_count}/{d.quantity} filled
+                                  {d.team.accepted.length > 0 && ` · ${d.team.accepted.map((p) => p.name).join(', ')}`}
+                                  {d.team.invited.length > 0 && ` · ${d.team.invited.length} invited (pending)`}
+                                </p>
+                              </div>
+                              <span className={`chip ${d.open_recruit ? '' : 'chip-outline'}`} style={{ fontSize: 11 }}>
+                                {d.open_recruit ? 'Open recruit' : 'Private'}
+                              </span>
+                            </div>
+                            <div className="row" style={{ marginTop: 8 }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                                onClick={() => setTeamModal({ jobId: job.id, divisionId: d.id })}
+                              >
+                                Select team
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                                onClick={() => setRecruitModal({ jobId: job.id, divisionId: d.id })}
+                              >
+                                Open recruit
+                              </button>
                             </div>
                           </div>
                         ))}
                       </div>
+
                       <Link to={`/organizer/jobs/${job.id}/applicants`} className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
                         Manage applicants
+                        {job.pendingApplicantCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{job.pendingApplicantCount}</span>}
                       </Link>
 
                       {job.confirmedTeam.length > 0 && (
@@ -734,7 +702,142 @@ export default function MyEvents() {
           </>
         )}
       </div>
-      <OrganizerTabbar />
+
+      {teamModal && teamModalDivision && (
+        <Modal title={`Select team — ${teamModalDivision.skill}`} onClose={() => setTeamModal(null)}>
+          <div className="stack">
+            <p className="subtitle" style={{ margin: 0 }}>
+              {teamModalDivision.filled_count}/{teamModalDivision.quantity} filled
+            </p>
+            {teamModalDivision.team.accepted.length > 0 && (
+              <div className="stack" style={{ gap: 6 }}>
+                <strong style={{ fontSize: 12 }}>Confirmed</strong>
+                {teamModalDivision.team.accepted.map((p) => (
+                  <div key={p.appId} className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{p.name}</span>
+                    <button type="button" className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => removeFromTeam(p.appId)}>
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {teamModalDivision.team.invited.length > 0 && (
+              <div className="stack" style={{ gap: 6 }}>
+                <strong style={{ fontSize: 12 }}>Invited — waiting for response</strong>
+                {teamModalDivision.team.invited.map((p) => (
+                  <div key={p.appId} className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{p.name}</span>
+                    <button type="button" className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => withdrawInvite(p.appId)}>
+                      Withdraw
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="stack" style={{ gap: 6 }}>
+              <strong style={{ fontSize: 12 }}>Add from your team</strong>
+              {(() => {
+                const takenIds = new Set([...teamModalDivision.team.accepted, ...teamModalDivision.team.invited].map((p) => p.freelancerId))
+                const candidates = teamMembers.filter((t) => !takenIds.has(t.id))
+                if (candidates.length === 0) {
+                  return <p className="subtitle" style={{ margin: 0 }}>Everyone on your team is already in this role, or you have no team yet.</p>
+                }
+                return (
+                  <div className="chip-row">
+                    {candidates.map((t) => (
+                      <span key={t.id} className="chip chip-toggle" onClick={() => addToTeam(t.id, teamModalDivision.id)}>
+                        {t.name}
+                      </span>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {recruitModal && recruitModalDivision && (
+        <Modal title={`Open recruit — ${recruitModalDivision.skill}`} onClose={() => setRecruitModal(null)}>
+          <RecruitForm key={recruitModalDivision.id} division={recruitModalDivision} onSave={(payload) => saveRecruit(recruitModalDivision.id, payload)} />
+        </Modal>
+      )}
+
+      <OrganizerTabbar pendingCount={totalPending} />
+    </div>
+  )
+}
+
+function RecruitForm({ division, onSave }) {
+  const [budgetAmount, setBudgetAmount] = useState(division.budget_amount != null ? String(division.budget_amount) : '')
+  const [budgetType, setBudgetType] = useState(division.budget_type || 'flat')
+  const [feeType, setFeeType] = useState(division.fee_type || 'all_in')
+  const [transportMax, setTransportMax] = useState(division.transport_max_amount != null ? String(division.transport_max_amount) : '')
+  const [openRecruit, setOpenRecruit] = useState(Boolean(division.open_recruit))
+  const [busy, setBusy] = useState(false)
+
+  const remaining = Math.max(division.quantity - division.filled_count, 0)
+
+  async function submit() {
+    setBusy(true)
+    await onSave({
+      budget_amount: budgetAmount ? Number(budgetAmount) : null,
+      budget_type: budgetType,
+      fee_type: feeType,
+      transport_max_amount: feeType === 'plus_transport' && transportMax ? Number(transportMax) : null,
+      open_recruit: openRecruit,
+    })
+    setBusy(false)
+  }
+
+  return (
+    <div className="stack">
+      <p className="subtitle" style={{ margin: 0 }}>
+        {remaining > 0
+          ? `${remaining} of ${division.quantity} spot${division.quantity === 1 ? '' : 's'} not yet filled by your team.`
+          : 'Every spot in this role is already filled.'}
+      </p>
+      <div className="row">
+        <input
+          style={{ flex: 1 }}
+          type="number"
+          min="0"
+          placeholder="Budget (IDR)"
+          value={budgetAmount}
+          onChange={(e) => setBudgetAmount(e.target.value)}
+        />
+        <select style={{ flex: 1 }} value={budgetType} onChange={(e) => setBudgetType(e.target.value)}>
+          <option value="flat">flat total</option>
+          <option value="hourly">per hour</option>
+          <option value="daily">per day</option>
+        </select>
+      </div>
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label style={{ fontSize: 12 }}>Fee covers</label>
+        <select value={feeType} onChange={(e) => setFeeType(e.target.value)}>
+          <option value="all_in">All-in (no separate reimbursement)</option>
+          <option value="plus_transport">+ Transport reimbursed separately</option>
+        </select>
+        {feeType === 'plus_transport' && (
+          <input
+            style={{ marginTop: 8 }}
+            type="number"
+            min="0"
+            placeholder="Max transport reimbursement (optional)"
+            value={transportMax}
+            onChange={(e) => setTransportMax(e.target.value)}
+          />
+        )}
+      </div>
+      <Switch checked={openRecruit} onChange={setOpenRecruit} label="Open recruit" />
+      <p className="helper-text" style={{ margin: 0 }}>
+        On: the {remaining} remaining spot{remaining === 1 ? '' : 's'} post to the public Job Feed for anyone to
+        apply. Off: only people you invite from "Select team" can fill this role.
+      </p>
+      <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={submit}>
+        {busy ? 'Saving…' : 'Save'}
+      </button>
     </div>
   )
 }

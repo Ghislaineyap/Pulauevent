@@ -26,7 +26,7 @@ export default function MyEvents() {
       supabase
         .from('applications')
         .select(
-          'id, status, job_divisions(id, skill, budget_amount, budget_type, job_id, job_postings(id, title, location, event_start_date, event_end_date, chat_opened_at, organizer_profiles(org_name, hide_name)))'
+          'id, status, job_divisions(id, skill, budget_amount, budget_type, job_id, job_postings(id, title, location, location_detail, event_start_date, event_end_date, chat_opened_at, organizer_profiles(org_name, hide_name)))'
         )
         .eq('freelancer_id', user.id),
       supabase.from('skill_endorsements').select('freelancer_id, skill').eq('endorser_id', user.id),
@@ -128,7 +128,9 @@ export default function MyEvents() {
                     <h2 style={{ margin: 0 }}>{job.title}</h2>
                     <p className="subtitle" style={{ margin: '4px 0 0' }}>
                       {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} · 📍{' '}
-                      {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                      {job.location}
+                      {a.status === 'accepted' && job.location_detail && ` — ${job.location_detail}`} ·{' '}
+                      {formatEventDates(job.event_start_date, job.event_end_date)}
                     </p>
                   </div>
                   <span className={applicationStatusChipClass(a.status)}>{applicationStatusLabel(a.status)}</span>

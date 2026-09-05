@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
-import { PhotoFrame } from '../../components/PhotoFrame'
+import { ProfileAvatar } from '../../components/ProfileAvatar'
 import { formatEventDates } from '../../lib/date'
 import { experienceBandLabel, EXPERIENCE_BANDS } from '../../lib/experience'
 import { GENDERS } from '../../lib/gender'
@@ -46,7 +46,7 @@ export default function ApplicantReview() {
     }
     const { data, error } = await supabase
       .from('applications')
-      .select('id, status, freelancer_profiles(id, name, gender, locations, avatar_key, photo_urls, pitch, rate_amount, rate_type, skills, experience_band, work_history)')
+      .select('id, status, freelancer_profiles(id, name, gender, locations, avatar_key, photo_urls, pitch, skills, experience_band)')
       .eq('division_id', activeDivisionId)
       .eq('status', 'pending')
     if (error) console.error(error)
@@ -107,8 +107,8 @@ export default function ApplicantReview() {
     <div className="app-shell">
       <Topbar title={job.title} />
       <div className="page">
-        <Link to="/organizer/dashboard" className="subtitle">
-          ← Back to posts
+        <Link to="/organizer/my-events" className="subtitle">
+          ← Back to My Event
         </Link>
         <p className="subtitle">
           📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
@@ -235,40 +235,40 @@ export default function ApplicantReview() {
   )
 }
 
+// Compact by design — they've already agreed to the organizer's stated rate,
+// so there's no rate to compare here. Tap the name/photo to see their full
+// profile before deciding.
 function ApplicantCard({ app, onPass, onLike }) {
   const f = app.freelancer_profiles
   return (
-    <div className="swipe-card">
-      <PhotoFrame photoUrl={(f.photo_urls || [])[0]} gender={f.gender} dotCount={(f.photo_urls || []).length}>
-        <div className="photo-scrim">
-          <h2>{f.name}</h2>
-          <p>
-            📍 {(f.locations || []).join(', ')}
-            {f.experience_band && ` · ${experienceBandLabel(f.experience_band)} experience`}
-          </p>
+    <div className="card" style={{ padding: 12 }}>
+      <Link to={`/organizer/freelancers/${f.id}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+        <div className="row" style={{ alignItems: 'center', gap: 10 }}>
+          <ProfileAvatar avatarKey={f.avatar_key} photoUrl={(f.photo_urls || [])[0]} />
+          <div style={{ flex: 1 }}>
+            <strong>{f.name}</strong>
+            <p className="subtitle" style={{ margin: '2px 0 0' }}>
+              📍 {(f.locations || []).join(', ')}
+              {f.experience_band && ` · ${experienceBandLabel(f.experience_band)}`}
+            </p>
+          </div>
         </div>
-      </PhotoFrame>
-      <div className="photo-card-body">
-        {f.pitch && <p style={{ margin: 0, fontSize: 14 }}>{f.pitch}</p>}
-        <div className="chip-row">
-          {(f.skills || []).map((s) => (
-            <span key={s} className="chip chip-outline">
-              {s}
-            </span>
-          ))}
-        </div>
-        {f.rate_amount && (
-          <p className="subtitle">
-            Rate: Rp {Number(f.rate_amount).toLocaleString('id-ID')} / {f.rate_type}
-          </p>
+        {f.pitch && <p className="subtitle" style={{ margin: '8px 0 0' }}>{f.pitch}</p>}
+        {(f.skills || []).length > 0 && (
+          <div className="chip-row" style={{ marginTop: 8 }}>
+            {f.skills.map((s) => (
+              <span key={s} className="chip chip-outline">
+                {s}
+              </span>
+            ))}
+          </div>
         )}
-        {f.work_history && <p className="subtitle">{f.work_history}</p>}
-      </div>
-      <div className="swipe-actions" style={{ padding: '0 16px 16px' }}>
-        <button className="btn btn-outline" onClick={onPass}>
+      </Link>
+      <div className="row" style={{ marginTop: 10 }}>
+        <button className="btn btn-outline" style={{ flex: 1 }} onClick={onPass}>
           Decline
         </button>
-        <button className="btn btn-primary" onClick={onLike}>
+        <button className="btn btn-primary" style={{ flex: 1 }} onClick={onLike}>
           Accept
         </button>
       </div>
