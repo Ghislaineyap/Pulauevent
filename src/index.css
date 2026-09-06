@@ -1166,3 +1166,158 @@ textarea {
     display: inline-flex;
   }
 }
+
+/* ---------------------------------------------------------------------
+   Event workspace chrome (organizer/freelancer EventWorkspace pages) —
+   scoped to "ws-" so nothing here can bleed into the mobile app-shell or
+   the shared Rundown/Tasks/Share components, which stay untouched and
+   keep rendering identically inside the mobile modal.
+   --------------------------------------------------------------------- */
+.ws-back {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ws-back:hover {
+  color: var(--primary-dark);
+}
+
+.ws-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ws-header h1 {
+  font-size: 26px;
+}
+
+.ws-meta {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 6px 0 0;
+}
+
+/* Underline tab strip — a proper desktop nav, distinct from the mobile
+   pill-segmented control (.segmented) used elsewhere in the app. */
+.ws-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.ws-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 4px;
+  margin-right: 22px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ws-tabs button:hover {
+  color: var(--ink);
+}
+.ws-tabs button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.ws-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(23, 26, 18, 0.06);
+}
+
+.ws-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.ws-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.ws-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ws-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--cloud);
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+}
+.ws-icon-btn:hover {
+  background: white;
+  border-color: var(--primary);
+}
+.ws-icon-btn .ws-icon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ws-role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.ws-role-card {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--role-color, var(--primary));
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ws-role-card .ws-role-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ws-role-card .ws-role-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--cloud);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}

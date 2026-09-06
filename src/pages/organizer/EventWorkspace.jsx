@@ -8,7 +8,20 @@ import { RundownView } from '../../components/RundownView'
 import { TasksView } from '../../components/TasksView'
 import { ShareView } from '../../components/ShareView'
 import { InfoButton } from '../../components/InfoButton'
-import { ManageEventView, TeamSelectView, RecruitForm, EventForm } from './MyEvents'
+import { Switch } from '../../components/Switch'
+import { SkillIcon } from '../../components/SkillIcon'
+import { TeamSelectView, RecruitForm, EventForm, RateForm } from './MyEvents'
+
+const ROLE_COLORS = ['var(--primary)', 'var(--sunset-dark)', 'var(--mint)', 'var(--primary-dark)', 'var(--sunset)']
+const todayISO = () => new Date().toISOString().slice(0, 10)
+
+function daysLabel(startDate, endDate) {
+  const today = todayISO()
+  if (endDate < today) return 'Completed'
+  if (startDate <= today && endDate >= today) return 'Happening now'
+  const days = Math.round((new Date(`${startDate}T00:00:00`) - new Date(`${today}T00:00:00`)) / 86400000)
+  return `In ${days} day${days === 1 ? '' : 's'}`
+}
 
 // The desktop-only event workspace — a wider, tabbed alternative to the
 // mobile "Manage event" bottom sheet, reached from the sidebar rather than
@@ -197,23 +210,31 @@ export default function EventWorkspace() {
   }
 
   const divisionForSub = divSub ? job.job_divisions.find((d) => d.id === divSub.divisionId) : null
+  const isPast = job.event_end_date < todayISO()
+  const toRate = isPast ? job.confirmedTeam.filter((f) => !ratedKeys.has(`${job.id}:${f.id}`)) : []
+  const openRecruitSlots = job.job_divisions.reduce((n, d) => n + (d.open_recruit ? Math.max(d.quantity - d.filled_count, 0) : 0), 0)
 
   return (
-    <div className="desktop-workspace stack" style={{ gap: 18 }}>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <button type="button" className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 12, marginBottom: 10 }} onClick={() => navigate('/organizer/my-events')}>
-            ← My Event
+    <div className="desktop-workspace stack" style={{ gap: 20 }}>
+      <div>
+        <button type="button" className="ws-back" onClick={() => navigate('/organizer/my-events')}>
+          ← My Event
+        </button>
+        <div className="ws-header">
+          <div>
+            <h1>{job.title}</h1>
+            <p className="ws-meta">
+              📍 {job.location}
+              {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
+            </p>
+          </div>
+          <button type="button" className="btn btn-outline" style={{ padding: '7px 14px', fontSize: 12.5 }} onClick={() => setEditing(true)}>
+            Edit event
           </button>
-          <h1 style={{ margin: 0 }}>{job.title}</h1>
-          <p className="subtitle" style={{ margin: '4px 0 0' }}>
-            📍 {job.location}
-            {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
-          </p>
         </div>
       </div>
 
-      <div className="segmented" style={{ maxWidth: 520 }}>
+      <nav className="ws-tabs">
         <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
           Overview
         </button>
@@ -229,11 +250,11 @@ export default function EventWorkspace() {
         <button type="button" className={tab === 'share' ? 'active' : ''} onClick={() => setTab('share')}>
           Share
         </button>
-      </div>
+      </nav>
 
-      <div className="card" style={{ maxWidth: 720 }}>
-        {tab === 'overview' &&
-          (editing ? (
+      {tab === 'overview' &&
+        (editing ? (
+          <div className="ws-panel" style={{ maxWidth: 640 }}>
             <EventForm
               bare
               job={job}
@@ -246,37 +267,139 @@ export default function EventWorkspace() {
                 load()
               }}
             />
-          ) : (
-            <ManageEventView
-              job={job}
-              ratedKeys={ratedKeys}
-              onEdit={() => setEditing(true)}
-              onOpenTeam={(divisionId) => {
-                setTab('team')
-                setDivSub({ type: 'team', divisionId })
-              }}
-              onOpenRecruit={(divisionId) => {
-                setTab('team')
-                setDivSub({ type: 'recruit', divisionId })
-              }}
-              onAddToCalendar={addToCalendar}
-              onToggleChat={(_jobId, nextOpen) => toggleEventChat(nextOpen)}
-              onSubmitRating={submitRating}
-            />
-          ))}
+          </div>
+        ) : (
+          <div className="stack" style={{ gap: 20 }}>
+            <div className="ws-stat-grid">
+              <div className="stat-tile">
+                <span className="subtitle">Status</span>
+                <span style={{ fontSize: 18, fontWeight: 700 }}>{daysLabel(job.event_start_date, job.event_end_date)}</span>
+              </div>
+              <div className="stat-tile">
+                <span className="subtitle">Confirmed team</span>
+                <span style={{ fontSize: 22, fontWeight: 700 }}>{job.confirmedTeam.length}</span>
+              </div>
+              <div className="stat-tile">
+                <span className="subtitle">Open recruit spots</span>
+                <span style={{ fontSize: 22, fontWeight: 700 }}>{openRecruitSlots}</span>
+              </div>
+              <div className="stat-tile">
+                <span className="subtitle">Divisions</span>
+                <span style={{ fontSize: 22, fontWeight: 700 }}>{job.job_divisions.length}</span>
+              </div>
+            </div>
 
-        {tab === 'team' && (
-          <div className="stack">
-            {!divSub && (
-              <div className="stack" style={{ gap: 10 }}>
-                <p className="subtitle" style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
-                  Confirmed: {job.confirmedTeam.length}
-                  <InfoButton title="Team">"Select team" adds your own roster to a role. "Recruiting" sets budget/fee and whether the remaining spots show up publicly on Post.</InfoButton>
-                </p>
-                {job.job_divisions.map((d) => (
-                  <div key={d.id} className="card" style={{ padding: 12 }}>
-                    <strong>{d.skill}</strong>
-                    <p className="subtitle" style={{ margin: '4px 0 8px' }}>
+            <div className="ws-panel stack" style={{ gap: 14 }}>
+              <p className="ws-section-title">Event tools</p>
+              <div className="ws-tools-row">
+                <button type="button" className="ws-icon-btn" onClick={addToCalendar}>
+                  <span className="ws-icon-dot" style={{ background: 'var(--sunset-dark)' }} />
+                  Add to calendar
+                </button>
+                <span className="ws-icon-btn" style={{ cursor: 'default' }}>
+                  <Switch checked={Boolean(job.chat_opened_at)} onChange={(v) => toggleEventChat(v)} label="Event chat" />
+                  <InfoButton title="Event chat">
+                    Turning this on opens a group chat for you + everyone confirmed on this event.
+                  </InfoButton>
+                </span>
+                {job.chat_opened_at && (
+                  <Link to={`/event-chat/${job.id}`} className="ws-icon-btn" style={{ textDecoration: 'none' }}>
+                    <span className="ws-icon-dot" style={{ background: 'var(--mint)' }} />
+                    Open event chat · {job.confirmedTeam.length + 1}
+                  </Link>
+                )}
+              </div>
+            </div>
+
+            <div className="stack" style={{ gap: 10 }}>
+              <p className="ws-section-title">Roles</p>
+              <div className="ws-role-grid">
+                {job.job_divisions.map((d, i) => (
+                  <div key={d.id} className="ws-role-card" style={{ '--role-color': ROLE_COLORS[i % ROLE_COLORS.length] }}>
+                    <div className="ws-role-head">
+                      <span className="ws-role-icon">
+                        <SkillIcon skill={d.skill} color={ROLE_COLORS[i % ROLE_COLORS.length]} />
+                      </span>
+                      <div>
+                        <strong style={{ fontSize: 13.5 }}>{d.skill}</strong>
+                        <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                          {d.filled_count}/{d.quantity} filled{d.open_recruit && ' · Open recruit'}
+                        </p>
+                      </div>
+                    </div>
+                    {d.jobdesk && (
+                      <p className="subtitle" style={{ margin: 0 }}>
+                        {d.jobdesk}
+                      </p>
+                    )}
+                    {d.team.accepted.length > 0 && (
+                      <p className="subtitle" style={{ margin: 0 }}>
+                        {d.team.accepted.map((p) => p.name).join(', ')}
+                      </p>
+                    )}
+                    <div className="row">
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                        onClick={() => {
+                          setTab('team')
+                          setDivSub({ type: 'team', divisionId: d.id })
+                        }}
+                      >
+                        Select team
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                        onClick={() => {
+                          setTab('team')
+                          setDivSub({ type: 'recruit', divisionId: d.id })
+                        }}
+                      >
+                        Recruiting
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {isPast && job.confirmedTeam.length > 0 && (
+              <div className="ws-panel stack" style={{ gap: 12, maxWidth: 640 }}>
+                <p className="ws-section-title">Rate your team — this event has wrapped up</p>
+                {toRate.length === 0 && (
+                  <p className="subtitle" style={{ margin: 0 }}>
+                    You've rated everyone on this event.
+                  </p>
+                )}
+                {toRate.map((f) => (
+                  <RateForm key={f.id} freelancer={f} onSubmit={(rating, text) => submitRating(job.id, f.id, rating, text)} />
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+      {tab === 'team' && (
+        <div className="ws-panel" style={{ maxWidth: 980 }}>
+          {!divSub && (
+            <div className="stack" style={{ gap: 14 }}>
+              <p className="subtitle" style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+                Confirmed: {job.confirmedTeam.length}
+                <InfoButton title="Team">"Select team" adds your own roster to a role. "Recruiting" sets budget/fee and whether the remaining spots show up publicly on Post.</InfoButton>
+              </p>
+              <div className="ws-role-grid">
+                {job.job_divisions.map((d, i) => (
+                  <div key={d.id} className="ws-role-card" style={{ '--role-color': ROLE_COLORS[i % ROLE_COLORS.length] }}>
+                    <div className="ws-role-head">
+                      <span className="ws-role-icon">
+                        <SkillIcon skill={d.skill} color={ROLE_COLORS[i % ROLE_COLORS.length]} />
+                      </span>
+                      <strong style={{ fontSize: 13.5 }}>{d.skill}</strong>
+                    </div>
+                    <p className="subtitle" style={{ margin: 0 }}>
                       {d.filled_count}/{d.quantity} filled
                       {d.team.accepted.length > 0 && ` · ${d.team.accepted.map((p) => p.name).join(', ')}`}
                       {d.open_recruit && ' · Open recruit'}
@@ -292,30 +415,42 @@ export default function EventWorkspace() {
                   </div>
                 ))}
               </div>
-            )}
-            {divSub?.type === 'team' && divisionForSub && (
-              <div className="stack">
-                <button type="button" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }} onClick={() => setDivSub(null)}>
-                  ← Back
-                </button>
-                <TeamSelectView job={job} division={divisionForSub} teamMembers={teamMembers} onAdd={addToTeam} onRemove={removeFromTeam} onWithdraw={withdrawInvite} />
-              </div>
-            )}
-            {divSub?.type === 'recruit' && divisionForSub && (
-              <div className="stack">
-                <button type="button" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }} onClick={() => setDivSub(null)}>
-                  ← Back
-                </button>
-                <RecruitForm key={divisionForSub.id} division={divisionForSub} onSave={(payload) => saveRecruit(divisionForSub.id, payload)} />
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+          {divSub?.type === 'team' && divisionForSub && (
+            <div className="stack" style={{ maxWidth: 480 }}>
+              <button type="button" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }} onClick={() => setDivSub(null)}>
+                ← Back
+              </button>
+              <TeamSelectView job={job} division={divisionForSub} teamMembers={teamMembers} onAdd={addToTeam} onRemove={removeFromTeam} onWithdraw={withdrawInvite} />
+            </div>
+          )}
+          {divSub?.type === 'recruit' && divisionForSub && (
+            <div className="stack" style={{ maxWidth: 480 }}>
+              <button type="button" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }} onClick={() => setDivSub(null)}>
+                ← Back
+              </button>
+              <RecruitForm key={divisionForSub.id} division={divisionForSub} onSave={(payload) => saveRecruit(divisionForSub.id, payload)} />
+            </div>
+          )}
+        </div>
+      )}
 
-        {tab === 'rundown' && <RundownView jobId={job.id} canEdit />}
-        {tab === 'tasks' && <TasksView jobId={job.id} canManage currentUserId={user.id} teamMembers={job.confirmedTeam} />}
-        {tab === 'share' && <ShareView jobId={job.id} eventTitle={job.title} />}
-      </div>
+      {tab === 'rundown' && (
+        <div className="ws-panel" style={{ maxWidth: 700 }}>
+          <RundownView jobId={job.id} canEdit />
+        </div>
+      )}
+      {tab === 'tasks' && (
+        <div className="ws-panel" style={{ maxWidth: 700 }}>
+          <TasksView jobId={job.id} canManage currentUserId={user.id} teamMembers={job.confirmedTeam} />
+        </div>
+      )}
+      {tab === 'share' && (
+        <div className="ws-panel" style={{ maxWidth: 700 }}>
+          <ShareView jobId={job.id} eventTitle={job.title} />
+        </div>
+      )}
     </div>
   )
 }

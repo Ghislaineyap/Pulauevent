@@ -93,19 +93,23 @@ export default function EventWorkspace() {
   }
 
   return (
-    <div className="desktop-workspace stack" style={{ gap: 18 }}>
+    <div className="desktop-workspace stack" style={{ gap: 20 }}>
       <div>
-        <button type="button" className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 12, marginBottom: 10 }} onClick={() => navigate('/freelancer/my-events')}>
+        <button type="button" className="ws-back" onClick={() => navigate('/freelancer/my-events')}>
           ← My Event
         </button>
-        <h1 style={{ margin: 0 }}>{job.title}</h1>
-        <p className="subtitle" style={{ margin: '4px 0 0' }}>
-          📍 {job.location}
-          {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
-        </p>
+        <div className="ws-header">
+          <div>
+            <h1>{job.title}</h1>
+            <p className="ws-meta">
+              📍 {job.location}
+              {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="segmented" style={{ maxWidth: 420 }}>
+      <nav className="ws-tabs">
         <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
           Overview
         </button>
@@ -115,40 +119,61 @@ export default function EventWorkspace() {
         <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
           Tasks
         </button>
-      </div>
+      </nav>
 
-      <div className="card" style={{ maxWidth: 680 }}>
-        {tab === 'overview' && (
-          <div className="stack">
-            <div>
-              <strong>Your role: {job.skill}</strong>
-              {job.jobdesk && <p className="subtitle" style={{ margin: '4px 0 0' }}>{job.jobdesk}</p>}
+      {tab === 'overview' && (
+        <div className="stack" style={{ gap: 20 }}>
+          <div className="ws-stat-grid" style={{ maxWidth: 460 }}>
+            <div className="stat-tile">
+              <span className="subtitle">Your role</span>
+              <span style={{ fontSize: 16, fontWeight: 700 }}>{job.skill}</span>
             </div>
-            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-              {job.chat_opened_at && (
-                <Link to={`/event-chat/${jobId}`} className="btn btn-primary" style={{ flex: '1 1 45%', textDecoration: 'none' }}>
-                  💬 Open event chat
-                </Link>
-              )}
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%' }} onClick={addToCalendar}>
+            <div className="stat-tile">
+              <span className="subtitle">Teammates confirmed</span>
+              <span style={{ fontSize: 22, fontWeight: 700 }}>{teammates.length}</span>
+            </div>
+          </div>
+
+          <div className="ws-panel stack" style={{ gap: 14, maxWidth: 640 }}>
+            <p className="ws-section-title">Event tools</p>
+            {job.jobdesk && <p className="subtitle" style={{ margin: 0 }}>{job.jobdesk}</p>}
+            <div className="ws-tools-row">
+              <button type="button" className="ws-icon-btn" onClick={addToCalendar}>
+                <span className="ws-icon-dot" style={{ background: 'var(--sunset-dark)' }} />
                 Add to calendar
               </button>
+              {job.chat_opened_at && (
+                <Link to={`/event-chat/${jobId}`} className="ws-icon-btn" style={{ textDecoration: 'none' }}>
+                  <span className="ws-icon-dot" style={{ background: 'var(--mint)' }} />
+                  Open event chat
+                </Link>
+              )}
             </div>
-            {teammates.length > 0 && (
-              <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 6 }}>
-                <strong style={{ fontSize: 13 }}>Your teammates on this event</strong>
-                {teammates.map((t) => (
-                  <p key={t.id} className="subtitle" style={{ margin: 0 }}>
-                    {t.name}
-                  </p>
-                ))}
-              </div>
-            )}
           </div>
-        )}
-        {tab === 'rundown' && <RundownView jobId={jobId} canEdit={false} />}
-        {tab === 'tasks' && <TasksView jobId={jobId} canManage={false} currentUserId={user.id} teamMembers={[...teammates, { id: user.id, name: 'You' }]} />}
-      </div>
+
+          {teammates.length > 0 && (
+            <div className="ws-panel stack" style={{ gap: 8, maxWidth: 640 }}>
+              <p className="ws-section-title">Your teammates on this event</p>
+              {teammates.map((t) => (
+                <p key={t.id} className="subtitle" style={{ margin: 0 }}>
+                  {t.name}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'rundown' && (
+        <div className="ws-panel" style={{ maxWidth: 700 }}>
+          <RundownView jobId={jobId} canEdit={false} />
+        </div>
+      )}
+      {tab === 'tasks' && (
+        <div className="ws-panel" style={{ maxWidth: 700 }}>
+          <TasksView jobId={jobId} canManage={false} currentUserId={user.id} teamMembers={[...teammates, { id: user.id, name: 'You' }]} />
+        </div>
+      )}
     </div>
   )
 }
