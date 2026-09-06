@@ -7,6 +7,10 @@ import { formatEventDates } from '../../lib/date'
 import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/applicationStatus'
 import { EventCalendar } from '../../components/EventCalendar'
 import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
+import { Modal } from '../../components/Modal'
+import { RundownView } from '../../components/RundownView'
+import { TasksView } from '../../components/TasksView'
+import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
 
 // "My Event" — every job this freelancer has applied to or been invited to,
 // so they can see at a glance whether each one needs a response, is still
@@ -25,6 +29,7 @@ export default function MyEvents() {
   const [respondingId, setRespondingId] = useState(null)
   const [view, setView] = useState('list') // 'list' | 'calendar'
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
+  const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'rundown' | 'tasks' } | null
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -116,6 +121,25 @@ export default function MyEvents() {
   }
 
   const invitedCount = events.filter((a) => a.status === 'invited').length
+
+  // Add to calendar lives at the My Event level (not inside the Rundown
+  // tab) for freelancers too — same reasoning and same helper as the
+  // organizer side.
+  async function addToCalendar(job) {
+    const { data: rundowns, error: rundownError } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', job.id)
+    if (rundownError) console.error(rundownError)
+    let items = []
+    const rundownIds = (rundowns || []).map((r) => r.id)
+    if (rundownIds.length > 0) {
+      const { data: itemRows, error: itemError } = await supabase
+        .from('event_rundown_items')
+        .select('rundown_id, sort_order, start_time, duration_minutes')
+        .in('rundown_id', rundownIds)
+      if (itemError) console.error(itemError)
+      items = itemRows || []
+    }
+    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  }
 
   return (
     <div className="app-shell">
@@ -213,6 +237,33 @@ export default function MyEvents() {
                   <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
                 )}
 
+                {a.status === 'accepted' && (
+                  <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+                      onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'rundown' })}
+                    >
+                      View rundown
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+                      onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'tasks' })}
+                    >
+                      My tasks
+                    </button>
+                    <button type="button" className="btn btn-outline btn-block" style={{ padding: '8px 10px', fontSize: 12.5 }} onClick={() => addToCalendar(job)}>
+                      Add to calendar
+                    </button>
+                    <Link to={`/freelancer/events/${div.job_id}`} className="btn btn-outline btn-block desktop-only-inline" style={{ padding: '8px 10px', fontSize: 12.5, textDecoration: 'none' }}>
+                      Open workspace
+                    </Link>
+                  </div>
+                )}
+
                 {a.status === 'accepted' && teammates.length > 0 && (
                   <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 8 }}>
                     <strong style={{ fontSize: 13 }}>Your teammates on this event</strong>
@@ -248,6 +299,20 @@ export default function MyEvents() {
       </div>
 
       {aboutOrganizer && <OrganizerAboutModal organizer={aboutOrganizer} onClose={() => setAboutOrganizer(null)} />}
+
+      {eventTool && (
+        <Modal title={`${eventTool.type === 'rundown' ? 'Rundown' : 'Tasks'} — ${eventTool.title}`} onClose={() => setEventTool(null)}>
+          {eventTool.type === 'rundown' && <RundownView jobId={eventTool.jobId} canEdit={false} />}
+          {eventTool.type === 'tasks' && (
+            <TasksView
+              jobId={eventTool.jobId}
+              canManage={false}
+              currentUserId={user.id}
+              teamMembers={[...(teammatesByJob.get(eventTool.jobId) || []), { id: user.id, name: 'You' }]}
+            />
+          )}
+        </Modal>
+      )}
 
       <FreelancerTabbar myEventCount={invitedCount} />
     </div>
