@@ -59,6 +59,21 @@ they'd actually be working with before deciding.)
 
 ## What's shipped since v1
 
+- **Rundown, Tasks, client sharing, and a desktop workspace.** An organizer
+  can build one or more per-event rundowns (ordered, timed segments —
+  Day 1, Day 2, a crew-only load-in/load-out list) with a ▲▼ reorder that
+  recalculates surrounding times automatically, a shared checklist (Tasks)
+  optionally assigned to a confirmed team member, and a one-link
+  "Share with client" that shows only the segments toggled visible —
+  one link covers every day of a multi-day event, and it's live (it
+  updates automatically as the schedule changes, not a PDF snapshot).
+  The unauthenticated client view lives at `/schedule/:token`. Both roles
+  get "Add to calendar" (.ics download, no OAuth) at the My Event level.
+  On a wide window (900px+) a persistent sidebar replaces the bottom
+  tabbar, and organizers/freelancers can open a tabbed desktop workspace
+  for any event (`/organizer/events/:id`, `/freelancer/events/:id`)
+  alongside the existing mobile flows, which are unchanged. Requires
+  `supabase/migration_rundown_tasks.sql` on an existing database.
 - **Report a profile, suspend, appeal.** Either side can flag a profile
   (organizer or freelancer) from its "About"/profile view — reason + optional
   details, sent straight to the admin dashboard's new Reports tab. From
