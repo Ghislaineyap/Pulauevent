@@ -907,11 +907,21 @@ textarea {
     overflow-y: auto;
   }
 
+  /* Every page drops the "phone card in a desktop app" look at this width —
+     no more boxed, shadowed, 480px-wide frame floating next to the sidebar.
+     Instead .app-shell fills comfortable reading width like a real desktop
+     page. This is a width/chrome change only: the pages mounted inside
+     still render their existing mobile-first markup, so a page that hasn't
+     had a bespoke wide-screen reflow yet (see .page > .stack below for the
+     one that has) just reads as "a page with generous margins" rather than
+     a cramped phone screen — not the full multi-column treatment the new
+     EventWorkspace pages get, but no longer boxed away from the rest of
+     the desktop shell either. */
   .desktop-content > .app-shell {
-    box-shadow: 0 8px 30px -12px rgba(23, 26, 18, 0.25);
-    border-radius: 20px;
-    overflow: hidden;
+    width: 100%;
+    max-width: 760px;
     align-self: flex-start;
+    background: transparent;
   }
 
   .desktop-content > .desktop-workspace {
@@ -925,8 +935,13 @@ textarea {
   .app-shell .tabbar {
     display: none;
   }
+  .app-shell .topbar {
+    border-radius: 16px 16px 0 0;
+  }
   .app-shell .page {
-    padding-bottom: 24px;
+    padding: 26px 8px 24px;
+    background: var(--bg);
+    border-radius: 0 0 16px 16px;
   }
 }
 
