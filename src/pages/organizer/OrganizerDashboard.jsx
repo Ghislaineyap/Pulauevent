@@ -5,18 +5,9 @@ import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
 import { InfoButton } from '../../components/InfoButton'
+import { SkillIcon } from '../../components/SkillIcon'
 import { formatEventDates } from '../../lib/date'
 import { experienceBandLabel } from '../../lib/experience'
-
-// Skill -> icon, purely cosmetic (falls back to a generic person icon for
-// anything not in the curated list, including custom "Other: ..." skills).
-function skillIcon(skill) {
-  const s = (skill || '').toLowerCase()
-  if (s.includes('photo') || s.includes('video')) return <CameraIcon />
-  if (s.includes('mc') || s.includes('host') || s.includes('emcee')) return <MicIcon />
-  if (s.includes('decor') || s.includes('florist') || s.includes('styling')) return <SparkleIcon />
-  return <PersonIcon />
-}
 
 // "Post" — a read-only board of whatever's currently open to public
 // recruiting (set from My Event → Manage event → Recruiting). Private
@@ -152,7 +143,7 @@ export default function OrganizerDashboard() {
                           cursor: 'pointer',
                         }}
                       >
-                        <div className="icon-badge">{skillIcon(d.skill)}</div>
+                        <div className="icon-badge"><SkillIcon skill={d.skill} /></div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{d.skill}</div>
                           <p className="subtitle" style={{ margin: '2px 0 0' }}>
@@ -242,39 +233,5 @@ export default function OrganizerDashboard() {
 
       <OrganizerTabbar pendingCount={totalPending} />
     </div>
-  )
-}
-
-function CameraIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="7" width="18" height="13" rx="2" />
-      <path d="M8 7l1.5-3h5L16 7" />
-      <circle cx="12" cy="13.5" r="3.2" />
-    </svg>
-  )
-}
-function MicIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v6M8 6l4 3 4-3" />
-      <rect x="5" y="12" width="14" height="8" rx="2" />
-    </svg>
-  )
-}
-function SparkleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v10" />
-      <circle cx="12" cy="16.5" r="4" />
-    </svg>
-  )
-}
-function PersonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="8" r="3.4" />
-      <path d="M5 20c0-3.9 3.1-6 7-6s7 2.1 7 6" />
-    </svg>
   )
 }

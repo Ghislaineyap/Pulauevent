@@ -8,12 +8,23 @@ import { EventCalendar } from '../../components/EventCalendar'
 import { Switch } from '../../components/Switch'
 import { InfoButton } from '../../components/InfoButton'
 import { Modal } from '../../components/Modal'
+import { SkillIcon } from '../../components/SkillIcon'
 
 const OTHER_SKILL = '__other__'
 const OTHER_LOCATION = '__other__'
 const emptyDivision = () => ({ skill: '', customSkill: '', quantity: 1, jobdesk: '' })
 const emptyForm = () => ({ title: '', description: '', location: '', customLocation: '', locationDetail: '', eventStartDate: '', eventEndDate: '' })
 const todayISO = () => new Date().toISOString().slice(0, 10)
+const isoDate = (d) => {
+  const tz = d.getTimezoneOffset()
+  return new Date(d.getTime() - tz * 60000).toISOString().slice(0, 10)
+}
+function startOfWeek(date) {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - d.getDay())
+  return d
+}
 
 // "My Event" — create an event here, and run it here: crew (per-division
 // "Select team"), recruiting settings (per-division "Recruiting" — budget,
@@ -21,14 +32,15 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 // "Manage event"), the team chat, and post-event ratings. Post is just the
 // read-only, notification-driven board of whatever's currently open here.
 export default function MyEvents() {
-  const { user } = useAuth()
+  const { user, roleProfile } = useAuth()
   const [jobs, setJobs] = useState([])
   const [ratedKeys, setRatedKeys] = useState(new Set())
   const [teamMembers, setTeamMembers] = useState([])
   const [skillOptions, setSkillOptions] = useState([])
   const [locationOptions, setLocationOptions] = useState([])
+  const [pendingCount, setPendingCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('list') // 'list' | 'calendar'
+  const [view, setView] = useState('dashboard') // 'dashboard' | 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
 
   // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId } }
@@ -84,6 +96,23 @@ export default function MyEvents() {
         confirmedTeam: confirmedByJob.get(j.id) || [],
       }))
     )
+
+    // Same count the Post tab badges — how many applicants are waiting on a
+    // decision across every division you've opened to public recruiting.
+    // Powers the "Pending applicants" tile on the dashboard.
+    const openRecruitDivisionIds = (jobRows || []).flatMap((j) => j.job_divisions.filter((d) => d.open_recruit).map((d) => d.id))
+    if (openRecruitDivisionIds.length > 0) {
+      const { count, error: pendingError } = await supabase
+        .from('applications')
+        .select('id', { count: 'exact', head: true })
+        .in('division_id', openRecruitDivisionIds)
+        .eq('status', 'pending')
+      if (pendingError) console.error(pendingError)
+      setPendingCount(count || 0)
+    } else {
+      setPendingCount(0)
+    }
+
     setLoading(false)
   }, [user.id])
 
@@ -222,14 +251,19 @@ export default function MyEvents() {
             />
           </div>
         ) : (
-          <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
-            + Create a new event
-          </button>
+          view !== 'dashboard' && (
+            <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
+              + Create a new event
+            </button>
+          )
         )}
 
         {!showCreateForm && (
           <>
             <div className="segmented">
+              <button type="button" className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}>
+                Home
+              </button>
               <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
                 List
               </button>
@@ -238,9 +272,21 @@ export default function MyEvents() {
               </button>
             </div>
 
+            {loading && <p className="subtitle">Loading…</p>}
+
+            {!loading && view === 'dashboard' && (
+              <EventDashboard
+                jobs={jobs}
+                teamMembers={teamMembers}
+                pendingCount={pendingCount}
+                orgName={roleProfile?.org_name}
+                onManage={(jobId) => setManageModal({ jobId, sub: null })}
+                onCreate={() => setShowCreateForm(true)}
+              />
+            )}
+
             {view === 'calendar' && <EventCalendar events={jobs} />}
 
-            {loading && <p className="subtitle">Loading…</p>}
             {view === 'list' && !loading && jobs.length === 0 && (
               <div className="empty-state">No events yet — create one to get started.</div>
             )}
@@ -343,6 +389,142 @@ export default function MyEvents() {
       )}
 
       <OrganizerTabbar />
+    </div>
+  )
+}
+
+// The Home tab — a quick "what's going on" view instead of jumping straight
+// into the create form or a flat list: what's coming up next, a week strip
+// to jump to a day's agenda, and a few at-a-glance numbers. Everything here
+// reads from the same `jobs`/`teamMembers` the List/Calendar views use — no
+// separate data model — and tapping into an event reuses the same "Manage
+// event" modal those views already open.
+function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, onCreate }) {
+  const today = todayISO()
+  const [selectedDay, setSelectedDay] = useState(today)
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = startOfWeek(new Date())
+    d.setDate(d.getDate() + i)
+    return d
+  })
+
+  const hasEventOn = (dayISO) => jobs.some((j) => j.event_start_date <= dayISO && j.event_end_date >= dayISO)
+
+  const activeJobs = jobs.filter((j) => j.event_end_date >= today)
+  const nextEvent = [...activeJobs].sort((a, b) => a.event_start_date.localeCompare(b.event_start_date))[0]
+
+  const agendaJobs = jobs
+    .filter((j) => j.event_start_date <= selectedDay && j.event_end_date >= selectedDay)
+    .sort((a, b) => a.title.localeCompare(b.title))
+
+  const openRecruitCount = jobs.reduce(
+    (n, j) => n + j.job_divisions.filter((d) => d.open_recruit && d.filled_count < d.quantity).length,
+    0
+  )
+  const confirmedThisMonth = jobs.reduce((n, j) => {
+    const thisMonth = today.slice(0, 7)
+    const touchesThisMonth = (j.event_start_date && j.event_start_date.slice(0, 7) === thisMonth) || (j.event_end_date && j.event_end_date.slice(0, 7) === thisMonth)
+    return touchesThisMonth ? n + j.confirmedTeam.length : n
+  }, 0)
+
+  return (
+    <div className="stack">
+      <div>
+        <h2 style={{ margin: 0 }}>Hi{orgName ? `, ${orgName}` : ''} 👋</h2>
+        <p className="subtitle" style={{ margin: '2px 0 0' }}>
+          {activeJobs.length === 0 ? 'No upcoming events yet.' : `${activeJobs.length} upcoming event${activeJobs.length === 1 ? '' : 's'}.`}
+        </p>
+      </div>
+
+      {nextEvent ? (
+        <button
+          type="button"
+          className="card stack"
+          style={{ textAlign: 'left', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'inherit' }}
+          onClick={() => onManage(nextEvent.id)}
+        >
+          <p
+            className="subtitle"
+            style={{ margin: 0, fontWeight: 700, color: 'var(--primary-dark)', textTransform: 'uppercase', fontSize: 10.5, letterSpacing: 0.4 }}
+          >
+            Next event
+          </p>
+          <h2 style={{ margin: 0 }}>{nextEvent.title}</h2>
+          <p className="subtitle" style={{ margin: 0 }}>
+            📍 {nextEvent.location} · {formatEventDates(nextEvent.event_start_date, nextEvent.event_end_date)}
+          </p>
+          <p className="subtitle" style={{ margin: 0 }}>
+            {nextEvent.confirmedTeam.length} confirmed
+            {nextEvent.job_divisions.some((d) => d.open_recruit) && ' · Open recruit on'}
+          </p>
+        </button>
+      ) : (
+        <div className="empty-state">No upcoming events — create one to get started.</div>
+      )}
+
+      <div className="week-strip">
+        {weekDays.map((d) => {
+          const dISO = isoDate(d)
+          const active = dISO === selectedDay
+          return (
+            <button key={dISO} type="button" className={`week-day${active ? ' active' : ''}`} onClick={() => setSelectedDay(dISO)}>
+              <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.75 }}>{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
+              <span style={{ fontSize: 13.5, fontWeight: 700 }}>{d.getDate()}</span>
+              <span className={hasEventOn(dISO) ? 'dot' : ''} style={{ width: 5, height: 5 }} />
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="stack" style={{ gap: 8 }}>
+        <strong style={{ fontSize: 12.5 }}>
+          {selectedDay === today ? 'Today' : new Date(`${selectedDay}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+        </strong>
+        {agendaJobs.length === 0 && (
+          <p className="subtitle" style={{ margin: 0 }}>
+            Nothing scheduled this day.
+          </p>
+        )}
+        {agendaJobs.map((j) => (
+          <button key={j.id} type="button" className="row-card" onClick={() => onManage(j.id)}>
+            <div className="icon-badge">
+              <SkillIcon skill={j.job_divisions[0]?.skill} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <strong style={{ fontSize: 13 }}>{j.title}</strong>
+              <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                {j.job_divisions.map((d) => `${d.filled_count}/${d.quantity} ${d.skill}`).join(' · ')}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      <div className="row" style={{ gap: 10 }}>
+        <div className="stat-tile" style={{ flex: 1 }}>
+          <span className="subtitle">Open recruit</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{openRecruitCount}</span>
+        </div>
+        <div className="stat-tile" style={{ flex: 1 }}>
+          <span className="subtitle">Pending applicants</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{pendingCount}</span>
+        </div>
+      </div>
+      <div className="row" style={{ gap: 10 }}>
+        <div className="stat-tile" style={{ flex: 1 }}>
+          <span className="subtitle">Confirmed this month</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{confirmedThisMonth}</span>
+        </div>
+        <div className="stat-tile" style={{ flex: 1 }}>
+          <span className="subtitle">Team roster</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{teamMembers.length}</span>
+        </div>
+      </div>
+
+      <button type="button" className="fab-btn" aria-label="Create a new event" onClick={onCreate}>
+        +
+      </button>
     </div>
   )
 }

@@ -686,4 +686,68 @@ textarea {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  background: var(--card);
+  border: 1px solid var(--cloud);
+  gap: 4px;
+}
+
+/* My Event dashboard — a scrollable 7-day strip. Each day is a tappable
+   pill; a dot marks a day with at least one event running on it. */
+.week-strip {
+  display: flex;
+  gap: 6px;
+}
+
+.week-day {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0 7px;
+  border-radius: 13px;
+  border: 1px solid var(--cloud);
+  background: var(--card);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ink);
+}
+
+.week-day.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.week-day .dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--sunset);
+}
+
+.week-day.active .dot {
+  background: white;
+}
+
+/* Floating "+" button — My Event dashboard's quick way to start a new
+   event without leaving the Home view. Sits above the tabbar. */
+.fab-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 86px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-size: 26px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(225, 85, 46, 0.35);
+  z-index: 5;
 }
