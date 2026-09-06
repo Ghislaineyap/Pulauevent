@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect } from 'react'
 import { useAuth } from '../context/AuthProvider'
+import logoMark from '../assets/logo-mark.png'
 
 export default function Landing() {
   const navigate = useNavigate()
@@ -17,16 +18,18 @@ export default function Landing() {
 
   return (
     <div className="app-shell landing-hero">
-      <div className="spot-mark" />
+      <div className="logo-badge">
+        <img src={logoMark} alt="" />
+      </div>
       <div>
         <h1>Pulau Event</h1>
-        <p className="subtitle">Event-services freelancers, and the organizers who hire them. Browse, apply, connect.</p>
+        <p className="subtitle">Freelancers &amp; organizers — connected.</p>
       </div>
       <div className="stack" style={{ width: '100%', maxWidth: 320 }}>
         <button className="btn btn-accent btn-block" onClick={() => navigate('/login?role=freelancer')}>
           I'm a Freelancer
         </button>
-        <button className="btn btn-secondary btn-block" onClick={() => navigate('/login?role=organizer')}>
+        <button className="btn btn-outline btn-block" onClick={() => navigate('/login?role=organizer')}>
           I'm an Event Organizer
         </button>
       </div>

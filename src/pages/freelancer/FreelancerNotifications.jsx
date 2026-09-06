@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
+import { InfoButton } from '../../components/InfoButton'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -112,11 +113,13 @@ export default function FreelancerNotifications() {
 
         {tab === 'chat' && (
           <>
-            <h2>Interested in you</h2>
-            <p className="helper-text" style={{ margin: '-4px 0 0' }}>
-              Accepting just opens a 1:1 chat with them — no commitment beyond that. Check their profile first if
-              you're not sure.
-            </p>
+            <h2 style={{ display: 'flex', alignItems: 'center' }}>
+              Interested in you
+              <InfoButton title="Interested in you">
+                Accepting just opens a 1:1 chat with them — no commitment beyond that. Check their profile first if
+                you're not sure.
+              </InfoButton>
+            </h2>
             {!loading && pendingLikes.length === 0 && <p className="subtitle">No new interest right now — check back later.</p>}
             <div className="stack">
               {pendingLikes.map((l) => (
@@ -144,10 +147,12 @@ export default function FreelancerNotifications() {
               ))}
             </div>
 
-            <h2>Personal chats</h2>
-            <p className="helper-text" style={{ margin: '-4px 0 0' }}>
-              1:1 conversations from an organizer's Discover interest — not tied to a specific job.
-            </p>
+            <h2 style={{ display: 'flex', alignItems: 'center' }}>
+              Personal chats
+              <InfoButton title="Personal chats">
+                1:1 conversations from an organizer's Discover interest — not tied to a specific job.
+              </InfoButton>
+            </h2>
             {!loading && likeMatches.length === 0 && <p className="subtitle">No personal chats yet.</p>}
             <div className="stack">
               {likeMatches.map((m) => (
@@ -164,10 +169,12 @@ export default function FreelancerNotifications() {
 
         {tab === 'event' && (
           <>
-            <h2>Event chats</h2>
-            <p className="helper-text" style={{ margin: '-4px 0 0' }}>
-              One group thread per event you're confirmed on — everyone on the team, named after the event.
-            </p>
+            <h2 style={{ display: 'flex', alignItems: 'center' }}>
+              Event chats
+              <InfoButton title="Event chats">
+                One group thread per event you're confirmed on — everyone on the team, named after the event.
+              </InfoButton>
+            </h2>
             {!loading && activeEvents.length === 0 && (
               <p className="subtitle">No confirmed events yet — apply to jobs to get started.</p>
             )}

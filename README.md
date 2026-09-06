@@ -283,6 +283,25 @@ they'd actually be working with before deciding.)
   organizer name (and can check their full profile: location, about, logo,
   Instagram) before responding to an invite, a chat request, or an
   application.
+- **Warm visual redesign.** Reworked the color palette (cream background,
+  forest-green + terracotta + gold accents) across the whole app — every
+  screen re-skins from the same CSS custom properties in `index.css`, so no
+  per-page changes were needed. Prototyped first as a clickable mockup with
+  the user before touching real code.
+- **Easier role-quantity input.** The "how many do you need" field on Add
+  Roles (My Event → Create/Edit event) is now a large −/+ stepper instead of
+  a plain number field that was fiddly to tap on mobile.
+- **Apply confirmation step.** Tapping Apply on a job posting now opens a
+  confirmation card (role, jobdesk, fee) before the application is sent,
+  instead of applying immediately on the first tap — same date-conflict
+  warning as before, just gated behind that confirmation.
+- **Declutter pass, round two.** A few remaining always-visible helper
+  paragraphs (Connect tabs on both sides, organizer profile, freelancer Job
+  feed location hint) now use the same "ⓘ" `InfoButton` popup pattern as the
+  rest of the app instead of permanent text.
+- **Fixed stale onboarding copy.** The organizer profile screen no longer
+  mentions "you can choose to stay anonymous" — that option was removed
+  earlier, but the leftover subtitle wasn't updated at the time.
 
 ## On the roadmap
 

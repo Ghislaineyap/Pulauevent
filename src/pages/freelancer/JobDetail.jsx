@@ -13,6 +13,11 @@ function feeSummary(d) {
   return d.transport_max_amount ? `+ Transport, up to Rp ${Number(d.transport_max_amount).toLocaleString('id-ID')}` : '+ Transport reimbursed'
 }
 
+function budgetSummary(d) {
+  if (!d.budget_amount) return null
+  return `Rp ${Number(d.budget_amount).toLocaleString('id-ID')} ${d.budget_type === 'flat' ? 'flat' : `/ ${d.budget_type}`}`
+}
+
 export default function JobDetail() {
   const { jobId } = useParams()
   const { user } = useAuth()
@@ -23,6 +28,7 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true)
   const [applying, setApplying] = useState(null)
   const [conflictDivisionId, setConflictDivisionId] = useState(null)
+  const [confirmDivisionId, setConfirmDivisionId] = useState(null)
   const [error, setError] = useState('')
   const [showDetails, setShowDetails] = useState(false)
   const [showOrganizer, setShowOrganizer] = useState(false)
@@ -101,6 +107,7 @@ export default function JobDetail() {
   if (!job) return <div className="center-page">Job not found.</div>
 
   const feePopupDivision = feePopupDivisionId && job.job_divisions.find((d) => d.id === feePopupDivisionId)
+  const confirmDivision = confirmDivisionId && job.job_divisions.find((d) => d.id === confirmDivisionId)
 
   return (
     <div className="app-shell">
@@ -167,6 +174,46 @@ export default function JobDetail() {
           </Modal>
         )}
 
+        {confirmDivision && (
+          <Modal title="Confirm your application" onClose={() => setConfirmDivisionId(null)}>
+            <div className="card" style={{ padding: 12, background: 'var(--cloud)' }}>
+              <p style={{ margin: 0, fontWeight: 700 }}>
+                {confirmDivision.skill} — {job.title}
+              </p>
+              <p className="subtitle" style={{ margin: '3px 0 0' }}>
+                📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+              </p>
+              {confirmDivision.jobdesk && (
+                <p style={{ margin: '8px 0 0', fontSize: 13 }}>{confirmDivision.jobdesk}</p>
+              )}
+              {budgetSummary(confirmDivision) && (
+                <p style={{ margin: '10px 0 0', fontWeight: 700 }}>{budgetSummary(confirmDivision)}</p>
+              )}
+              <p className="subtitle" style={{ margin: '2px 0 0' }}>{feeSummary(confirmDivision)}</p>
+            </div>
+            <p className="subtitle" style={{ margin: '12px 0 0' }}>
+              The organizer will see your profile and can accept or decline. You'll get a notification either way.
+            </p>
+            <div className="row" style={{ marginTop: 16 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmDivisionId(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  const id = confirmDivision.id
+                  setConfirmDivisionId(null)
+                  apply(id)
+                }}
+              >
+                Confirm application
+              </button>
+            </div>
+          </Modal>
+        )}
+
         <h2>Divisions</h2>
         {job.job_divisions.length === 0 && <p className="subtitle">No public roles open on this event right now.</p>}
         <div className="stack">
@@ -202,7 +249,11 @@ export default function JobDetail() {
                   ) : full ? (
                     <span className="chip chip-outline">Full</span>
                   ) : (
-                    <button className="btn btn-primary" disabled={applying === d.id} onClick={() => apply(d.id)}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={applying === d.id}
+                      onClick={() => (showConflict ? apply(d.id) : setConfirmDivisionId(d.id))}
+                    >
                       {applying === d.id ? 'Applying…' : showConflict ? 'Apply anyway' : 'Apply'}
                     </button>
                   )}

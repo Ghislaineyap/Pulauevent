@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { useAuth } from '../../context/AuthProvider'
 import { formatEventDates } from '../../lib/date'
+import { InfoButton } from '../../components/InfoButton'
 
 export default function JobFeed() {
   const { roleProfile } = useAuth()
@@ -55,17 +56,24 @@ export default function JobFeed() {
     <div className="app-shell">
       <Topbar title="Open jobs" />
       <div className="page">
-        <button
-          className="btn btn-outline btn-block"
-          style={{ justifyContent: 'space-between' }}
-          onClick={() => setShowFilters((s) => !s)}
-        >
-          <span>
-            Location
-            {selectedLocations.length > 0 && <span className="badge" style={{ marginLeft: 6 }}>{selectedLocations.length}</span>}
-          </span>
-          <span style={{ color: 'var(--muted)', fontWeight: 400 }}>{showFilters ? '▴' : '▾'}</span>
-        </button>
+        <div className="row" style={{ alignItems: 'center', gap: 6 }}>
+          <button
+            className="btn btn-outline btn-block"
+            style={{ justifyContent: 'space-between', flex: 1 }}
+            onClick={() => setShowFilters((s) => !s)}
+          >
+            <span>
+              Location
+              {selectedLocations.length > 0 && <span className="badge" style={{ marginLeft: 6 }}>{selectedLocations.length}</span>}
+            </span>
+            <span style={{ color: 'var(--muted)', fontWeight: 400 }}>{showFilters ? '▴' : '▾'}</span>
+          </button>
+          {!showFilters && selectedLocations.length > 0 && (
+            <InfoButton title="Location">
+              Pre-selected from your saved locations — tap Location to add more or clear it.
+            </InfoButton>
+          )}
+        </div>
 
         {showFilters && (
           <div className="card stack">
@@ -87,12 +95,6 @@ export default function JobFeed() {
               </button>
             )}
           </div>
-        )}
-
-        {!showFilters && selectedLocations.length > 0 && (
-          <p className="helper-text" style={{ margin: 0 }}>
-            Pre-selected from your saved locations — tap Location to add more or clear it.
-          </p>
         )}
 
         {loading && <p className="subtitle">Loading…</p>}

@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
+import { InfoButton } from '../../components/InfoButton'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -74,22 +75,26 @@ export default function OrganizerNotifications() {
     <div className="app-shell">
       <Topbar title="Connect" />
       <div className="page">
-        <div className="segmented">
-          <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
-            Event chat
-          </button>
-          <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
-            My team chat
-          </button>
+        <div className="row" style={{ alignItems: 'center', gap: 0 }}>
+          <div className="segmented" style={{ flex: 1 }}>
+            <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
+              Event chat
+            </button>
+            <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
+              My team chat
+            </button>
+          </div>
+          <InfoButton title={tab === 'event' ? 'Event chat' : 'My team chat'}>
+            {tab === 'event'
+              ? 'One group thread per event, for everyone confirmed on it — named after the event, not a person.'
+              : "1:1 chats with people you've connected with via Discover — tap their name to revisit their profile."}
+          </InfoButton>
         </div>
 
         {loading && <p className="subtitle">Loading…</p>}
 
         {tab === 'event' && (
           <>
-            <p className="helper-text" style={{ margin: 0 }}>
-              One group thread per event, for everyone confirmed on it — named after the event, not a person.
-            </p>
             {!loading && activeEvents.length === 0 && (
               <p className="subtitle">No confirmed team yet — accept an applicant or invite someone.</p>
             )}
@@ -145,9 +150,6 @@ export default function OrganizerNotifications() {
 
         {tab === 'team' && (
           <>
-            <p className="helper-text" style={{ margin: 0 }}>
-              1:1 chats with people you've connected with via Discover — tap their name to revisit their profile.
-            </p>
             {!loading && likeMatches.length === 0 && <p className="subtitle">No connections yet — browse freelancers in Discover.</p>}
             <div className="stack">
               {likeMatches.map((m) => {

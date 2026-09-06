@@ -1,17 +1,17 @@
 :root {
-  --primary: #2f6fed;
-  --primary-dark: #1b4fc0;
-  --sunset: #ff7a33;
-  --sunset-dark: #e85f1a;
-  --mint: #16c79a;
-  --ink: #101425;
-  --muted: #57607a;
-  --bg: #ffffff;
-  --cloud: #eef3ff;
+  --primary: #e1552e;
+  --primary-dark: #b8431f;
+  --sunset: #d9a441;
+  --sunset-dark: #b8842e;
+  --mint: #2e3b24;
+  --ink: #171a12;
+  --muted: #8a6f4a;
+  --bg: #f6efe1;
+  --cloud: #efe4cd;
   --card: #ffffff;
-  --border: #dfe6f7;
-  --success: #16c79a;
-  --danger: #e5484d;
+  --border: #e7dac1;
+  --success: #2e3b24;
+  --danger: #b3261e;
   font-family: 'Poppins', -apple-system, system-ui, sans-serif;
 }
 
@@ -63,7 +63,7 @@ a {
 .topbar button.link {
   background: none;
   border: none;
-  color: #dbe6ff;
+  color: #f7e9d2;
   font-size: 13px;
   cursor: pointer;
 }
@@ -106,7 +106,7 @@ li {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
-  box-shadow: 0 1px 3px rgba(30, 30, 60, 0.06);
+  box-shadow: 0 1px 3px rgba(23, 26, 18, 0.06);
 }
 
 .stack {
@@ -184,12 +184,6 @@ textarea {
   background: var(--sunset-dark);
 }
 
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.14);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-}
-
 .btn-outline {
   background: white;
   border: 1px solid var(--border);
@@ -262,7 +256,7 @@ textarea {
   background: var(--card);
   border-radius: 20px;
   border: 1px solid var(--border);
-  box-shadow: 0 16px 34px -20px rgba(16, 20, 37, 0.35);
+  box-shadow: 0 16px 34px -20px rgba(23, 26, 18, 0.35);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -324,7 +318,7 @@ textarea {
   right: 0;
   bottom: 0;
   padding: 34px 16px 14px;
-  background: linear-gradient(to top, rgba(16, 20, 37, 0.82), transparent);
+  background: linear-gradient(to top, rgba(23, 26, 18, 0.82), transparent);
   color: #fff;
   text-align: left;
 }
@@ -335,7 +329,7 @@ textarea {
 }
 .photo-scrim p {
   font-size: 11.5px;
-  color: #e7ecfc;
+  color: #f0e5d0;
   margin: 3px 0 0;
 }
 
@@ -380,7 +374,7 @@ textarea {
 }
 
 .badge {
-  background: var(--sunset);
+  background: var(--primary);
   color: white;
   border-radius: 999px;
   min-width: 18px;
@@ -449,7 +443,7 @@ textarea {
   position: relative;
 }
 .tabbar a.active {
-  color: var(--sunset-dark);
+  color: var(--primary);
 }
 .tabbar .tab-icon {
   display: block;
@@ -521,29 +515,37 @@ textarea {
   text-align: center;
   gap: 22px;
   padding: 40px 28px;
-  background:
-    radial-gradient(circle at 50% 12%, rgba(255, 122, 51, 0.5), transparent 50%),
-    linear-gradient(165deg, var(--primary), var(--primary-dark));
-  color: #fff;
+  background: var(--bg);
+  color: var(--ink);
 }
 
-.landing-hero .spot-mark {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 34%, var(--sunset), var(--sunset-dark) 72%);
-  box-shadow: 0 0 0 10px rgba(255, 122, 51, 0.2);
+.landing-hero .logo-badge {
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  background: var(--mint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 26px -14px rgba(23, 26, 18, 0.45);
+}
+
+.landing-hero .logo-badge img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
 }
 
 .landing-hero h1 {
-  color: #fff;
+  color: var(--ink);
   font-size: 24px;
 }
 
 .landing-hero p.subtitle {
-  color: #dce6ff;
-  max-width: 280px;
+  color: var(--muted);
+  max-width: 320px;
   margin: 0 auto;
+  white-space: nowrap;
 }
 
 /* Smoother page-open feel — a quick fade+rise instead of an abrupt swap. */
@@ -578,7 +580,7 @@ textarea {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(16, 20, 37, 0.45);
+  background: rgba(23, 26, 18, 0.45);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -619,5 +621,5 @@ textarea {
 .segmented button.active {
   background: white;
   color: var(--ink);
-  box-shadow: 0 1px 3px rgba(30, 30, 60, 0.12);
+  box-shadow: 0 1px 3px rgba(23, 26, 18, 0.12);
 }

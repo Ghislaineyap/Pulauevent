@@ -87,7 +87,12 @@ export default function OrganizerOnboarding() {
     <div className="app-shell">
       <Topbar title={isOnboarded ? 'Edit your organizer profile' : 'Set up your organizer profile'} />
       <div className="page">
-        <p className="subtitle">Freelancers see this once you connect. Until then, you can choose to stay anonymous.</p>
+        <p className="subtitle" style={{ display: 'flex', alignItems: 'center' }}>
+          Your public profile
+          <InfoButton title="Your public profile">
+            This is what freelancers see everywhere — your name is never hidden, so make it a good first impression.
+          </InfoButton>
+        </p>
         <form className="card stack" onSubmit={handleSubmit}>
           <div className="field" style={{ textAlign: 'center' }}>
             <label style={{ textAlign: 'left' }}>Logo (optional)</label>

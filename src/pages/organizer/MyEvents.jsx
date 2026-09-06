@@ -834,15 +834,66 @@ function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, o
                     ))}
                     <option value={OTHER_SKILL}>Other (type your own)</option>
                   </select>
-                  <input
-                    style={{ flex: 1 }}
-                    type="number"
-                    min="1"
-                    placeholder="Qty"
-                    value={d.quantity}
-                    disabled={locked}
-                    onChange={(e) => updateDivision(i, { quantity: e.target.value })}
-                  />
+                  <div
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 10,
+                      background: 'var(--cloud)',
+                      borderRadius: 10,
+                      padding: '4px 8px',
+                    }}
+                  >
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => updateDivision(i, { quantity: Math.max(1, (Number(d.quantity) || 1) - 1) })}
+                      aria-label="Decrease quantity"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 9,
+                        border: '1px solid var(--border)',
+                        background: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: locked ? 'not-allowed' : 'pointer',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: 'var(--ink)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      −
+                    </button>
+                    <span style={{ minWidth: 20, textAlign: 'center', fontSize: 15, fontWeight: 700 }}>{d.quantity}</span>
+                    <button
+                      type="button"
+                      disabled={locked}
+                      onClick={() => updateDivision(i, { quantity: Math.min(20, (Number(d.quantity) || 1) + 1) })}
+                      aria-label="Increase quantity"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 9,
+                        border: 'none',
+                        background: 'var(--mint)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: locked ? 'not-allowed' : 'pointer',
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: 'var(--bg)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
                   {divisions.length > 1 && !locked && (
                     <button type="button" className="btn btn-outline" onClick={() => removeDivisionAt(i)}>
                       ✕
