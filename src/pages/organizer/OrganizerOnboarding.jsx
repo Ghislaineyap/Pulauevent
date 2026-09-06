@@ -99,9 +99,9 @@ export default function OrganizerOnboarding() {
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <label
                 style={{
-                  width: 84,
-                  height: 84,
-                  borderRadius: 12,
+                  width: 88,
+                  height: 88,
+                  borderRadius: 18,
                   border: '1px dashed var(--border)',
                   display: 'flex',
                   alignItems: 'center',

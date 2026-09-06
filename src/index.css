@@ -254,7 +254,7 @@ textarea {
 
 .swipe-card {
   background: var(--card);
-  border-radius: 20px;
+  border-radius: 22px;
   border: 1px solid var(--border);
   box-shadow: 0 16px 34px -20px rgba(23, 26, 18, 0.35);
   overflow: hidden;
@@ -622,4 +622,68 @@ textarea {
   background: white;
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(23, 26, 18, 0.12);
+}
+
+/* Icon-badge square — a division/skill's little colored icon tile, used on
+   Post and My Event so a row reads at a glance instead of as plain text. */
+.icon-badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--cloud);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Round color-block placeholder standing in for a photo (a chat thread, a
+   teammate) until a real avatar/photo is wired up for that row. */
+.avatar-chip {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.avatar-chip.square {
+  border-radius: 12px;
+}
+
+/* Small circular icon button — used for "open this chat" instead of a bare
+   emoji, so it reads as a tappable control. */
+.circle-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: var(--mint);
+}
+
+/* Round card-style row — chat threads, division headers — replacing a plain
+   .row with a bordered, padded card so lists read as distinct tappable
+   items rather than a flat list. */
+.row-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--cloud);
+  border-radius: 16px;
+  padding: 13px;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+
+/* Small stat tile — used on dashboard-style summaries (Post's pending
+   count, My Event's open-recruit count). */
+.stat-tile {
+  border-radius: 18px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }

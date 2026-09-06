@@ -100,22 +100,21 @@ export default function OrganizerNotifications() {
             )}
             <div className="stack">
               {activeEvents.map((job) => (
-                <div key={job.id} className="card">
-                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <strong>{job.title}</strong>
-                      <p className="subtitle" style={{ margin: '2px 0 0' }}>{job.memberCount} in chat</p>
-                    </div>
-                    {job.chatOpened ? (
-                      <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open event chat">
-                        💬
-                      </Link>
-                    ) : (
-                      <span className="chip chip-outline" style={{ fontSize: 11 }}>
-                        Not started
-                      </span>
-                    )}
+                <div key={job.id} className="row-card">
+                  <div className="avatar-chip square" style={{ width: 40, height: 40, background: 'var(--mint)' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <strong>{job.title}</strong>
+                    <p className="subtitle" style={{ margin: '2px 0 0' }}>{job.memberCount} in chat</p>
                   </div>
+                  {job.chatOpened ? (
+                    <Link to={`/event-chat/${job.id}`} className="circle-icon-btn" style={{ textDecoration: 'none' }} aria-label="Open event chat">
+                      <ChatIcon />
+                    </Link>
+                  ) : (
+                    <span className="chip chip-outline" style={{ fontSize: 10.5, whiteSpace: 'nowrap' }}>
+                      Not started
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -128,17 +127,16 @@ export default function OrganizerNotifications() {
                 {showArchived && (
                   <div className="stack">
                     {archivedEvents.map((job) => (
-                      <div key={job.id} className="card" style={{ opacity: 0.75 }}>
-                        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                          <strong>{job.title}</strong>
-                          {job.chatOpened ? (
-                            <Link to={`/event-chat/${job.id}`} className="chip chip-outline" style={{ textDecoration: 'none' }} aria-label="View chat history">
-                              💬
-                            </Link>
-                          ) : (
-                            <span className="chip chip-outline">Past event</span>
-                          )}
-                        </div>
+                      <div key={job.id} className="row-card" style={{ opacity: 0.75, cursor: 'default' }}>
+                        <div className="avatar-chip square" style={{ width: 40, height: 40, background: 'var(--muted)' }} />
+                        <strong style={{ flex: 1 }}>{job.title}</strong>
+                        {job.chatOpened ? (
+                          <Link to={`/event-chat/${job.id}`} className="chip chip-outline" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }} aria-label="View chat history">
+                            View chat
+                          </Link>
+                        ) : (
+                          <span className="chip chip-outline" style={{ whiteSpace: 'nowrap' }}>Past event</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -155,10 +153,10 @@ export default function OrganizerNotifications() {
               {likeMatches.map((m) => {
                 const f = m.freelancer_profiles
                 return (
-                  <div key={m.id} className="card row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={m.id} className="row-card">
                     <Link
                       to={`/organizer/freelancers/${f.id}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit', flex: 1 }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0 }}
                     >
                       <ProfileAvatar avatarKey={f.avatar_key} photoUrl={(f.photo_urls || [])[0]} />
                       <div>
@@ -166,8 +164,8 @@ export default function OrganizerNotifications() {
                         <p className="subtitle" style={{ margin: '2px 0 0' }}>📍 {(f.locations || []).join(', ')}</p>
                       </div>
                     </Link>
-                    <Link to={`/chat/${m.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open chat">
-                      💬
+                    <Link to={`/chat/${m.id}`} className="circle-icon-btn" style={{ textDecoration: 'none' }} aria-label="Open chat">
+                      <ChatIcon />
                     </Link>
                   </div>
                 )
@@ -178,5 +176,13 @@ export default function OrganizerNotifications() {
       </div>
       <OrganizerTabbar />
     </div>
+  )
+}
+
+function ChatIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--bg)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5.5h16v11H9.5L5 20.5v-4H4z" />
+    </svg>
   )
 }
