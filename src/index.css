@@ -12,6 +12,8 @@
   --border: #e7dac1;
   --success: #2e3b24;
   --danger: #b3261e;
+  --navy: #1c2541;
+  --navy-light: #2b3a5f;
   font-family: 'Poppins', -apple-system, system-ui, sans-serif;
 }
 
@@ -814,4 +816,353 @@ textarea {
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(225, 85, 46, 0.35);
   z-index: 6;
+}
+
+/* ---------------------------------------------------------------------
+   Desktop shell — additive only. Below 900px .desktop-sidebar never
+   renders (AppFrame doesn't mount it) and .desktop-frame/.desktop-content
+   are plain pass-through wrappers, so mobile is pixel-identical to before.
+   At 900px+ a persistent sidebar appears alongside the existing mobile
+   app-shell (kept at its normal 480px width, centered) — a "phone frame in
+   a desktop app" layout — except for pages that opt into the wider
+   `.desktop-workspace` shell (the new event-workspace pages), which use
+   the freed-up space instead of staying phone-width.
+   --------------------------------------------------------------------- */
+.desktop-frame {
+  min-height: 100%;
+}
+
+/* Base (mobile-reachable-by-URL) padding for the new workspace pages — at
+   900px+ .desktop-content's flex layout takes over sizing (see below). */
+.desktop-workspace {
+  padding: 20px 16px 60px;
+  min-height: 100%;
+}
+@media (min-width: 900px) {
+  .desktop-workspace {
+    padding: 0;
+  }
+}
+
+/* Hidden below the breakpoint by default — AppFrame always mounts this
+   markup so the component tree doesn't branch on width, but only CSS (not
+   JS) decides whether it's visible, so a resize needs no re-render. */
+.desktop-sidebar {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .desktop-frame {
+    display: flex;
+    min-height: 100vh;
+    background: var(--cloud);
+  }
+
+  .desktop-sidebar {
+    display: flex;
+    width: 260px;
+    flex-shrink: 0;
+    background: var(--navy);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+    gap: 4px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+  }
+
+  .desktop-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    padding: 32px 24px;
+    overflow-y: auto;
+  }
+
+  .desktop-content > .app-shell {
+    box-shadow: 0 8px 30px -12px rgba(23, 26, 18, 0.25);
+    border-radius: 20px;
+    overflow: hidden;
+    align-self: flex-start;
+  }
+
+  .desktop-content > .desktop-workspace {
+    width: 100%;
+    max-width: 1100px;
+    align-self: flex-start;
+  }
+
+  /* The bottom tabbar makes no sense next to a sidebar — nav lives in the
+     sidebar instead once there's room for one. */
+  .app-shell .tabbar {
+    display: none;
+  }
+  .app-shell .page {
+    padding-bottom: 24px;
+  }
+}
+
+.desktop-sidebar .ds-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 18px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.desktop-sidebar .ds-brand img {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  object-fit: contain;
+  background: var(--navy-light);
+}
+
+.desktop-sidebar a,
+.desktop-sidebar .ds-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #cfd6e8;
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.desktop-sidebar a:hover,
+.desktop-sidebar .ds-link:hover {
+  background: var(--navy-light);
+  color: #fff;
+}
+
+.desktop-sidebar a.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.desktop-sidebar .ds-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.desktop-sidebar .ds-section {
+  margin-top: 18px;
+  padding: 0 12px 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #8b93ac;
+}
+
+.desktop-sidebar .ds-spacer {
+  flex: 1;
+}
+
+.desktop-sidebar .ds-signout {
+  border-top: 1px solid var(--navy-light);
+  padding-top: 12px;
+}
+
+/* Info-dot — same pattern as InfoButton, for a static hint that doesn't
+   warrant a whole popup component call. */
+.info-dot {
+  color: var(--muted);
+  cursor: default;
+  font-size: 12.5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Rundown */
+.rundown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--card);
+}
+.rundown-item .ri-time {
+  min-width: 56px;
+  font-weight: 700;
+  font-size: 12.5px;
+  color: var(--primary-dark);
+}
+.rundown-item .ri-body {
+  flex: 1;
+  min-width: 0;
+}
+.rundown-item .ri-reorder {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rundown-item .ri-arrow {
+  width: 22px;
+  height: 20px;
+  border: 1px solid var(--border);
+  background: white;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 10px;
+  padding: 0;
+}
+.rundown-item .ri-arrow:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.rundown-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  background: var(--card);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+/* Tasks */
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--card);
+}
+.task-row.done {
+  opacity: 0.55;
+}
+.task-row .task-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: white;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0;
+}
+.task-row .task-check.checked {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+/* Share */
+.share-day-group {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.share-day-group .sdg-head {
+  background: var(--cloud);
+  padding: 9px 12px;
+  font-weight: 700;
+  font-size: 12.5px;
+}
+.share-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.share-link-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--cloud);
+  border-radius: 10px;
+  padding: 9px 10px;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* Public/client schedule page — deliberately its own look, not the app
+   shell, since the person viewing it has no account. */
+.client-page {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100%;
+  background: var(--bg);
+  padding: 28px 20px 60px;
+}
+.client-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.client-brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--primary);
+}
+.client-day-section + .client-day-section {
+  margin-top: 22px;
+}
+.client-day-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 13px;
+}
+.client-day-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.client-day-table td {
+  padding: 9px 8px;
+  border-bottom: 1px solid var(--cloud);
+  vertical-align: top;
+}
+
+/* Shown only once there's room for the desktop workspace to make sense —
+   a link to the wider tabbed page, alongside the mobile modal flow that
+   still works fine at any width. */
+.desktop-only-inline {
+  display: none;
+}
+@media (min-width: 900px) {
+  .desktop-only-inline {
+    display: inline-flex;
+  }
 }
