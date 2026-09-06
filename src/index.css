@@ -184,12 +184,6 @@ textarea {
   background: var(--sunset-dark);
 }
 
-.btn-secondary {
-  background: rgba(255, 255, 255, 0.14);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.32);
-}
-
 .btn-outline {
   background: white;
   border: 1px solid var(--border);
@@ -521,27 +515,34 @@ textarea {
   text-align: center;
   gap: 22px;
   padding: 40px 28px;
-  background:
-    radial-gradient(circle at 50% 12%, rgba(255, 122, 51, 0.5), transparent 50%),
-    linear-gradient(165deg, var(--primary), var(--primary-dark));
-  color: #fff;
+  background: var(--bg);
+  color: var(--ink);
 }
 
-.landing-hero .spot-mark {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 38% 34%, var(--sunset), var(--sunset-dark) 72%);
-  box-shadow: 0 0 0 10px rgba(255, 122, 51, 0.2);
+.landing-hero .logo-badge {
+  width: 84px;
+  height: 84px;
+  border-radius: 22px;
+  background: var(--mint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 26px -14px rgba(23, 26, 18, 0.45);
+}
+
+.landing-hero .logo-badge img {
+  width: 58%;
+  height: 58%;
+  object-fit: contain;
 }
 
 .landing-hero h1 {
-  color: #fff;
+  color: var(--ink);
   font-size: 24px;
 }
 
 .landing-hero p.subtitle {
-  color: #dce6ff;
+  color: var(--muted);
   max-width: 280px;
   margin: 0 auto;
 }
