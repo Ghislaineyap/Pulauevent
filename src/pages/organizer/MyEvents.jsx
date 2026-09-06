@@ -1228,7 +1228,7 @@ export function EventForm({ job, organizerId, skillOptions, locationOptions, onS
   )
 }
 
-function RateForm({ freelancer, onSubmit }) {
+export function RateForm({ freelancer, onSubmit }) {
   const [rating, setRating] = useState(0)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)

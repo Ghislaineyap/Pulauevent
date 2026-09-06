@@ -218,6 +218,16 @@ textarea {
   color: var(--ink);
 }
 
+.chip-mint {
+  background: var(--mint);
+  color: #f4ead4;
+}
+
+.chip-sunset {
+  background: var(--sunset);
+  color: #3a2c0c;
+}
+
 .chip-toggle {
   cursor: pointer;
   user-select: none;
@@ -248,6 +258,21 @@ textarea {
   font-size: 24px;
   flex-shrink: 0;
   object-fit: cover;
+}
+
+/* Small colored initials avatar — event-workspace team rosters (Team tab,
+   Team-at-a-glance card). Distinct from .avatar (profile-photo sized). */
+.avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: white;
 }
 
 .swipe-stack {
@@ -1165,4 +1190,397 @@ textarea {
   .desktop-only-inline {
     display: inline-flex;
   }
+}
+
+/* ---------------------------------------------------------------------
+   Event workspace chrome (organizer/freelancer EventWorkspace pages) —
+   scoped to "ws-" so nothing here can bleed into the mobile app-shell or
+   the shared Rundown/Tasks/Share components, which stay untouched and
+   keep rendering identically inside the mobile modal.
+   --------------------------------------------------------------------- */
+.ws-back {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ws-back:hover {
+  color: var(--primary-dark);
+}
+
+.ws-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ws-header h1 {
+  font-size: 26px;
+}
+
+.ws-meta {
+  color: var(--muted);
+  font-size: 13.5px;
+  margin: 6px 0 0;
+}
+
+/* Underline tab strip — a proper desktop nav, distinct from the mobile
+   pill-segmented control (.segmented) used elsewhere in the app. */
+.ws-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.ws-tabs button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 4px;
+  margin-right: 22px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.ws-tabs button:hover {
+  color: var(--ink);
+}
+.ws-tabs button.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.ws-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(23, 26, 18, 0.06);
+}
+
+.ws-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0;
+}
+
+.ws-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.ws-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ws-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--cloud);
+  border-radius: 12px;
+  padding: 9px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: none;
+}
+.ws-icon-btn:hover {
+  background: white;
+  border-color: var(--primary);
+}
+.ws-icon-btn .ws-icon-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ws-role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.ws-role-card {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--role-color, var(--primary));
+  border-radius: 14px;
+  padding: 14px;
+  background: var(--card);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ws-role-card .ws-role-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ws-role-card .ws-role-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--cloud);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Breadcrumb above the title — matches the original mockup's "Your events /
+   Event name" trail. */
+.ws-crumb {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Flex stat row (not a wrapping grid) — matches the mockup's fixed 4-across
+   strip exactly; kept as its own ws-* class so the existing global
+   .stat-tile (used by the mobile dashboards) is untouched. */
+.ws-stat-row {
+  display: flex;
+  gap: 12px;
+}
+.ws-stat-tile {
+  flex: 1;
+  min-width: 0;
+  border-radius: 14px;
+  padding: 13px 15px;
+  background: var(--card);
+  border: 1px solid var(--cloud);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-stat-tile .ws-stat-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.ws-stat-tile .ws-stat-value {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ws-stat-tile .ws-stat-value.accent {
+  color: var(--primary-dark);
+}
+.ws-stat-tile .ws-stat-value.good {
+  color: var(--mint);
+}
+
+/* Two-column body (About/Run-of-show on the left, Team-at-a-glance/Budget
+   on the right) — the mockup's main content shape, once there's a chat
+   rail eating the right edge of the page. */
+.ws-two-col {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+.ws-col-main {
+  flex: 1.55;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ws-col-side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ws-kv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+}
+.ws-kv-row + .ws-kv-row {
+  margin-top: 10px;
+}
+
+/* Body row that splits the workspace's main column from the persistent
+   chat rail — wraps under the rail on narrower windows rather than
+   squeezing the tab content. */
+.ws-body-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.ws-body-row > .ws-main-col {
+  flex: 3;
+  min-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ---------- Event chat rail ---------- */
+.chat-rail {
+  width: 320px;
+  flex: 1 0 320px;
+  max-width: 320px;
+  flex-shrink: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  max-height: 640px;
+  min-height: 320px;
+  position: sticky;
+  top: 20px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(23, 26, 18, 0.06);
+}
+.chat-rail .chat-head {
+  padding: 15px 16px 13px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.chat-rail .ct-name {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.chat-rail .ct-sub {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.chat-rail .chat-body {
+  flex: 1;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  overflow-y: auto;
+  min-height: 160px;
+}
+.chat-rail .msg-group {
+  display: flex;
+  flex-direction: column;
+}
+.chat-rail .msg-group.mine {
+  align-items: flex-end;
+}
+.chat-rail .msg-group.theirs {
+  align-items: flex-start;
+}
+.chat-rail .msg-sender {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.chat-rail .chat-bubble {
+  max-width: 82%;
+  padding: 9px 12px;
+  border-radius: 15px;
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+.chat-rail .chat-bubble.mine {
+  background: var(--primary);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+.chat-rail .chat-bubble.theirs {
+  background: var(--cloud);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  border-bottom-left-radius: 4px;
+}
+.chat-rail .msg-time {
+  font-size: 9.5px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.chat-rail .chat-input-row {
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.chat-rail .chat-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+}
+.chat-rail .chat-send-btn {
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.chat-rail .chat-send-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Stacked, full-width division cards for the Team tab — matches the
+   mockup's single-column list (rather than a card grid) so each division's
+   description and roster reads as a proper row, not a tile. */
+.ws-team-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ws-team-card {
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--role-color, var(--primary));
+  border-radius: 14px;
+  padding: 16px;
+  background: var(--card);
+}
+.ws-team-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.ws-team-roster {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.ws-team-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
