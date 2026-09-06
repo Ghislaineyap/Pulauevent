@@ -52,11 +52,10 @@ Either path converging on an "accepted" status triggers a Postgres trigger
 (`supabase/schema.sql`) that creates a row in `matches` automatically — the client
 never inserts matches directly, which keeps that logic in one trustworthy place.
 
-If an organizer chose to stay anonymous during onboarding, their real name is hidden
-from freelancers (shown as "Event Organizer") until a match exists, at which point the
-frontend reveals it. **Known v1 simplification:** this hiding is enforced by the
-frontend, not the database — see the comment above the RLS policies in
-`supabase/schema.sql` for the honest caveat and how to harden it later.
+An organizer's real name/org name is always visible to freelancers, everywhere — there's
+no anonymity option. (An earlier version let organizers hide their name until connected;
+that's been removed, since the marketplace works better when everyone can see who
+they'd actually be working with before deciding.)
 
 ## What's shipped since v1
 
@@ -216,6 +215,93 @@ frontend, not the database — see the comment above the RLS policies in
   on a month grid.
 - **Organizer tab order changed.** Now Profile · My Event · Discover · Post ·
   Connect (My Event moved up, next to Profile).
+- **Declutter pass: toggles + info popups instead of paragraphs.** Two new
+  reusable pieces — a small pill `Switch` and an "ⓘ" `InfoButton` that opens
+  a popup with the explanation — replaced several always-visible helper-text
+  blocks (name-hiding, Instagram, fee-covers, team invites, open recruit) so
+  the job form and event cards read shorter at a glance.
+- **Event chat is a real on/off toggle now.** Previously a one-way "Start
+  event chat for this team" button; an organizer can now flip it back off
+  any time too (e.g. after a last-minute cancellation), still enforced via
+  the same `chat_opened_at`-gated RLS policies.
+- **Organizer logo.** Organizers can upload a logo on their profile (reusing
+  the same photo-upload pipeline as freelancer photos) — it shows at the top
+  of the "About the organizer" popup on a job post, when their name isn't
+  hidden.
+- **Post and My Event, cleanly split by what each tracks.** My Event owns
+  the event itself, start to finish, including all recruiting decisions:
+  "+ Create a new event" (name, details, location + a free-text "Detailed
+  location" for the venue/address, dates, and each division's role,
+  headcount, and jobdesk), and a clean per-event card with a single
+  "Manage event" button that opens everything about running it — Edit (the
+  same details, editable any time), per-division "Select team" (assign
+  your own people, or remove one — a person already assigned to one
+  division of an event can't also be assigned to another division of the
+  same event; removing a confirmed member frees their slot automatically
+  so it can be filled again right away), per-division "Recruiting" (sets
+  the budget/fee terms and the "Open Recruit" toggle that decides whether
+  that role's unfilled spots are posted publicly), the event chat toggle,
+  and post-event ratings. Post is purely a read-only, notification-driven
+  board: it lists only the divisions currently open to public recruiting
+  (private ones don't appear at all, not even as a tag) with a live
+  filled-count, and tapping one goes straight to "Manage applicants" for
+  that role.
+- **Jobdesk per division.** Adding a role to an event now also takes a
+  short free-text jobdesk — what the person will actually do — shown to
+  applicants alongside the role title, headcount, and fee details so they
+  understand the job before applying.
+- **New-applicant badge, on Post.** A count of pending (public) applicants
+  shows on the Post tab itself, both as an overall tab badge and per
+  division — the only place a pending applicant can come from is a public,
+  open-recruit division, so the notification lives where the recruiting
+  board lives.
+- **Compact, clickable applicant cards.** Reviewing applicants is a smaller
+  card now — no rate shown (they've already agreed to your stated rate) —
+  and tapping it opens their full profile before you decide.
+- **Connect split into real tabs, both sides.** Organizer: "Event chat" (one
+  thread per event) and "My team chat" (1:1s from Discover connections,
+  tap a name to revisit their profile) — each its own segmented tab instead
+  of stacked sections, with a small chat icon on the side instead of a
+  full-width button. Freelancer: "Chat" (personal chats + anything needing a
+  response — invites, interest) and "Event Chat" (event threads only),
+  regrouped the same way for a clearer split.
+- **No more Skip/Shortlist on an already-connected profile.** Opening a
+  freelancer's profile from "My team chat" (or anywhere else once you're
+  already connected) drops the Skip/Shortlist row entirely — those only
+  make sense pre-connection, from Discover.
+- **Job invites live in My Event now, with the jobdesk and fee right there.**
+  A freelancer invited by an organizer sees it as an actionable card in My
+  Event (sorted to the top, needs-a-response first) — jobdesk, role, and
+  fee/transport terms all shown, plus a "View organizer" link to their full
+  profile, so Accept/Decline is an informed decision made in one place
+  instead of a bare "Invited — respond in Connect" chip. Connect's "Chat"
+  tab is personal-only now: "Interested in you" (a plain accept-to-chat
+  request, with the same organizer-profile check available before
+  deciding) and personal 1:1 threads.
+- **Organizer identity is never hidden.** Removed the "keep my name hidden
+  until connected" option entirely — a freelancer always sees the real
+  organizer name (and can check their full profile: location, about, logo,
+  Instagram) before responding to an invite, a chat request, or an
+  application.
+- **Warm visual redesign.** Reworked the color palette (cream background,
+  forest-green + terracotta + gold accents) across the whole app — every
+  screen re-skins from the same CSS custom properties in `index.css`, so no
+  per-page changes were needed. Prototyped first as a clickable mockup with
+  the user before touching real code.
+- **Easier role-quantity input.** The "how many do you need" field on Add
+  Roles (My Event → Create/Edit event) is now a large −/+ stepper instead of
+  a plain number field that was fiddly to tap on mobile.
+- **Apply confirmation step.** Tapping Apply on a job posting now opens a
+  confirmation card (role, jobdesk, fee) before the application is sent,
+  instead of applying immediately on the first tap — same date-conflict
+  warning as before, just gated behind that confirmation.
+- **Declutter pass, round two.** A few remaining always-visible helper
+  paragraphs (Connect tabs on both sides, organizer profile, freelancer Job
+  feed location hint) now use the same "ⓘ" `InfoButton` popup pattern as the
+  rest of the app instead of permanent text.
+- **Fixed stale onboarding copy.** The organizer profile screen no longer
+  mentions "you can choose to stay anonymous" — that option was removed
+  earlier, but the leftover subtitle wasn't updated at the time.
 
 ## On the roadmap
 

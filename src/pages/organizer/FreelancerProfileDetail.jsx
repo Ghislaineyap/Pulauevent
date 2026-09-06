@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
@@ -7,9 +7,10 @@ import { PhotoFrame } from '../../components/PhotoFrame'
 import { RatingsSummary } from '../../components/RatingsSummary'
 import { experienceBandLabel } from '../../lib/experience'
 
-// Full-detail view reached by tapping a freelancer's browse card — the
-// compact card only shows a name, location, and one-line pitch; everything
-// else (full skill list, rate, work history, all photos) lives here instead.
+// Full-detail view reached from a few places now — Discover's browse card,
+// an applicant's compact card in review, or a "My team chat" row in Connect
+// — everything else (full skill list, rate, work history, all photos) lives
+// here instead of the compact preview.
 export default function FreelancerProfileDetail() {
   const { freelancerId } = useParams()
   const navigate = useNavigate()
@@ -22,6 +23,7 @@ export default function FreelancerProfileDetail() {
   const [done, setDone] = useState(null)
   const [inTeam, setInTeam] = useState(false)
   const [teamBusy, setTeamBusy] = useState(false)
+  const [connected, setConnected] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -42,6 +44,15 @@ export default function FreelancerProfileDetail() {
       .eq('freelancer_id', freelancerId)
       .maybeSingle()
       .then(({ data }) => setInTeam(Boolean(data)))
+    // Already connected (a shortlist or a job application went through) —
+    // Skip/Shortlist no longer make sense, so hide that row entirely.
+    supabase
+      .from('matches')
+      .select('id')
+      .eq('organizer_id', user.id)
+      .eq('freelancer_id', freelancerId)
+      .maybeSingle()
+      .then(({ data }) => setConnected(Boolean(data)))
   }, [freelancerId, user.id])
 
   async function addToTeam() {
@@ -101,9 +112,14 @@ export default function FreelancerProfileDetail() {
     <div className="app-shell">
       <Topbar title="Freelancer profile" />
       <div className="page">
-        <Link to="/organizer/browse" className="subtitle">
-          ← Back to Discover
-        </Link>
+        <button
+          type="button"
+          className="subtitle"
+          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+          onClick={() => navigate(-1)}
+        >
+          ← Back
+        </button>
 
         <PhotoFrame
           photoUrl={(freelancer.photo_urls || [])[activePhoto]}
@@ -191,7 +207,11 @@ export default function FreelancerProfileDetail() {
 
         {error && <p className="error-text">{error}</p>}
 
-        {done ? (
+        {connected ? (
+          <div className="card" style={{ textAlign: 'center' }}>
+            <p className="subtitle" style={{ margin: 0 }}>✓ You're already connected with {freelancer.name}.</p>
+          </div>
+        ) : done ? (
           <div className="card" style={{ textAlign: 'center' }}>
             <p style={{ margin: 0 }}>
               {done === 'like'

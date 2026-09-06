@@ -4,12 +4,18 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { Modal } from '../../components/Modal'
+import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
 import { formatEventDates, datesOverlap } from '../../lib/date'
 import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/applicationStatus'
 
 function feeSummary(d) {
   if (d.fee_type !== 'plus_transport') return 'All-in rate'
   return d.transport_max_amount ? `+ Transport, up to Rp ${Number(d.transport_max_amount).toLocaleString('id-ID')}` : '+ Transport reimbursed'
+}
+
+function budgetSummary(d) {
+  if (!d.budget_amount) return null
+  return `Rp ${Number(d.budget_amount).toLocaleString('id-ID')} ${d.budget_type === 'flat' ? 'flat' : `/ ${d.budget_type}`}`
 }
 
 export default function JobDetail() {
@@ -22,6 +28,7 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true)
   const [applying, setApplying] = useState(null)
   const [conflictDivisionId, setConflictDivisionId] = useState(null)
+  const [confirmDivisionId, setConfirmDivisionId] = useState(null)
   const [error, setError] = useState('')
   const [showDetails, setShowDetails] = useState(false)
   const [showOrganizer, setShowOrganizer] = useState(false)
@@ -32,7 +39,7 @@ export default function JobDetail() {
     const { data, error } = await supabase
       .from('job_postings')
       .select(
-        'id, title, description, location, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, hide_name, instagram_handle, location, about), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit)'
+        'id, title, description, location, location_detail, event_start_date, event_end_date, organizer_id, organizer_profiles(org_name, instagram_handle, location, about, logo_url), job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit, jobdesk)'
       )
       .eq('id', jobId)
       .single()
@@ -100,6 +107,7 @@ export default function JobDetail() {
   if (!job) return <div className="center-page">Job not found.</div>
 
   const feePopupDivision = feePopupDivisionId && job.job_divisions.find((d) => d.id === feePopupDivisionId)
+  const confirmDivision = confirmDivisionId && job.job_divisions.find((d) => d.id === confirmDivisionId)
 
   return (
     <div className="app-shell">
@@ -125,49 +133,33 @@ export default function JobDetail() {
             style={{ background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600 }}
             onClick={() => setShowOrganizer(true)}
           >
-            {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} — About the organizer →
+            {job.organizer_profiles.org_name} — About the organizer →
           </button>
         </div>
 
         {showDetails && (
           <Modal title={job.title} onClose={() => setShowDetails(false)}>
             <p className="subtitle" style={{ marginBottom: 10 }}>
-              📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+              📍 {job.location}
+              {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
             </p>
             <p style={{ whiteSpace: 'pre-wrap' }}>{job.description}</p>
           </Modal>
         )}
 
         {showOrganizer && (
-          <Modal title="About the organizer" onClose={() => setShowOrganizer(false)}>
-            <div className="stack">
-              <p style={{ margin: 0, fontWeight: 600 }}>
-                {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
-              </p>
-              {job.organizer_profiles.location && <p className="subtitle" style={{ margin: 0 }}>📍 Based in {job.organizer_profiles.location}</p>}
-              <p className="subtitle" style={{ margin: 0 }}>
-                {organizerStats ? `Posted ${organizerStats.jobCount} event${organizerStats.jobCount === 1 ? '' : 's'} on Pulau Event` : 'Loading history…'}
-              </p>
-              {job.organizer_profiles.about && <p style={{ margin: 0 }}>{job.organizer_profiles.about}</p>}
-              {job.organizer_profiles.instagram_handle ? (
-                <a
-                  href={`https://instagram.com/${job.organizer_profiles.instagram_handle.replace(/^@/, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="subtitle"
-                  style={{ color: 'var(--primary-dark)', fontWeight: 600 }}
-                >
-                  📷 @{job.organizer_profiles.instagram_handle.replace(/^@/, '')}
-                </a>
-              ) : (
-                <p className="helper-text" style={{ margin: 0 }}>No social profile linked yet.</p>
-              )}
-            </div>
-          </Modal>
+          <OrganizerAboutModal
+            organizer={job.organizer_profiles}
+            jobCount={organizerStats?.jobCount}
+            onClose={() => setShowOrganizer(false)}
+          />
         )}
 
         {feePopupDivision && (
-          <Modal title={`${feePopupDivision.skill} — fee details`} onClose={() => setFeePopupDivisionId(null)}>
+          <Modal title={`${feePopupDivision.skill} — role details`} onClose={() => setFeePopupDivisionId(null)}>
+            {feePopupDivision.jobdesk && (
+              <p style={{ margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>{feePopupDivision.jobdesk}</p>
+            )}
             <p style={{ margin: 0 }}>
               {feePopupDivision.budget_amount &&
                 `Rp ${Number(feePopupDivision.budget_amount).toLocaleString('id-ID')} ${feePopupDivision.budget_type === 'flat' ? 'flat' : `/ ${feePopupDivision.budget_type}`}`}
@@ -179,6 +171,46 @@ export default function JobDetail() {
                   : 'Transport is reimbursed separately (actual cost).'
                 : 'This rate is all-in — no separate transport reimbursement.'}
             </p>
+          </Modal>
+        )}
+
+        {confirmDivision && (
+          <Modal title="Confirm your application" onClose={() => setConfirmDivisionId(null)}>
+            <div className="card" style={{ padding: 12, background: 'var(--cloud)' }}>
+              <p style={{ margin: 0, fontWeight: 700 }}>
+                {confirmDivision.skill} — {job.title}
+              </p>
+              <p className="subtitle" style={{ margin: '3px 0 0' }}>
+                📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+              </p>
+              {confirmDivision.jobdesk && (
+                <p style={{ margin: '8px 0 0', fontSize: 13 }}>{confirmDivision.jobdesk}</p>
+              )}
+              {budgetSummary(confirmDivision) && (
+                <p style={{ margin: '10px 0 0', fontWeight: 700 }}>{budgetSummary(confirmDivision)}</p>
+              )}
+              <p className="subtitle" style={{ margin: '2px 0 0' }}>{feeSummary(confirmDivision)}</p>
+            </div>
+            <p className="subtitle" style={{ margin: '12px 0 0' }}>
+              The organizer will see your profile and can accept or decline. You'll get a notification either way.
+            </p>
+            <div className="row" style={{ marginTop: 16 }}>
+              <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmDivisionId(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                onClick={() => {
+                  const id = confirmDivision.id
+                  setConfirmDivisionId(null)
+                  apply(id)
+                }}
+              >
+                Confirm application
+              </button>
+            </div>
           </Modal>
         )}
 
@@ -194,6 +226,11 @@ export default function JobDetail() {
                 <div className="division-row">
                   <div>
                     <strong>{d.skill}</strong>
+                    {d.jobdesk && (
+                      <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                        {d.jobdesk}
+                      </p>
+                    )}
                     <p className="subtitle" style={{ margin: '4px 0 0' }}>
                       {d.filled_count}/{d.quantity} filled
                       {d.budget_amount && ` · Rp ${Number(d.budget_amount).toLocaleString('id-ID')} ${d.budget_type === 'flat' ? 'flat' : `/ ${d.budget_type}`}`}
@@ -212,7 +249,11 @@ export default function JobDetail() {
                   ) : full ? (
                     <span className="chip chip-outline">Full</span>
                   ) : (
-                    <button className="btn btn-primary" disabled={applying === d.id} onClick={() => apply(d.id)}>
+                    <button
+                      className="btn btn-primary"
+                      disabled={applying === d.id}
+                      onClick={() => (showConflict ? apply(d.id) : setConfirmDivisionId(d.id))}
+                    >
                       {applying === d.id ? 'Applying…' : showConflict ? 'Apply anyway' : 'Apply'}
                     </button>
                   )}

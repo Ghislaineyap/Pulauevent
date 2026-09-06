@@ -14,7 +14,7 @@ export function Guard({ children, role, skipOnboardedCheck = false }) {
 
   if (role && userRole && userRole !== role) {
     // Signed in as the other role — send them to their own home.
-    return <Navigate to={userRole === 'freelancer' ? '/freelancer/jobs' : '/organizer/dashboard'} replace />
+    return <Navigate to={userRole === 'freelancer' ? '/freelancer/jobs' : '/organizer/my-events'} replace />
   }
 
   if (!userRole) return <Navigate to="/login" replace />

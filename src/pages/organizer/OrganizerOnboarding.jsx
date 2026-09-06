@@ -2,16 +2,20 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
+import { uploadProfilePhoto } from '../../lib/uploadPhoto'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
+import { InfoButton } from '../../components/InfoButton'
 
 export default function OrganizerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [orgName, setOrgName] = useState('')
-  const [hideName, setHideName] = useState(true)
   const [instagramHandle, setInstagramHandle] = useState('')
   const [location, setLocation] = useState('')
   const [about, setAbout] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoError, setLogoError] = useState('')
   const [locationOptions, setLocationOptions] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -20,10 +24,10 @@ export default function OrganizerOnboarding() {
   useEffect(() => {
     if (hydrated || !roleProfile) return
     setOrgName(roleProfile.org_name || '')
-    setHideName(Boolean(roleProfile.hide_name))
     setInstagramHandle(roleProfile.instagram_handle || '')
     setLocation(roleProfile.location || '')
     setAbout(roleProfile.about || '')
+    setLogoUrl(roleProfile.logo_url || '')
     setHydrated(true)
   }, [roleProfile, hydrated])
 
@@ -38,6 +42,22 @@ export default function OrganizerOnboarding() {
       })
   }, [])
 
+  async function handleLogoChange(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setLogoError('')
+    setUploadingLogo(true)
+    try {
+      const url = await uploadProfilePhoto(user.id, file, 1)
+      setLogoUrl(url)
+    } catch (err) {
+      setLogoError(err.message || 'Could not upload that image — try a different one.')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
@@ -49,10 +69,10 @@ export default function OrganizerOnboarding() {
     const { error: upsertError } = await supabase.from('organizer_profiles').upsert({
       id: user.id,
       org_name: orgName.trim(),
-      hide_name: hideName,
       instagram_handle: instagramHandle.trim().replace(/^@/, '') || null,
       location: location || null,
       about: about.trim() || null,
+      logo_url: logoUrl || null,
     })
     setBusy(false)
     if (upsertError) {
@@ -60,33 +80,64 @@ export default function OrganizerOnboarding() {
       return
     }
     await refreshProfile()
-    navigate('/organizer/dashboard')
+    navigate('/organizer/my-events')
   }
 
   return (
     <div className="app-shell">
       <Topbar title={isOnboarded ? 'Edit your organizer profile' : 'Set up your organizer profile'} />
       <div className="page">
-        <p className="subtitle">Freelancers see this once you connect. Until then, you can choose to stay anonymous.</p>
+        <p className="subtitle" style={{ display: 'flex', alignItems: 'center' }}>
+          Your public profile
+          <InfoButton title="Your public profile">
+            This is what freelancers see everywhere — your name is never hidden, so make it a good first impression.
+          </InfoButton>
+        </p>
         <form className="card stack" onSubmit={handleSubmit}>
+          <div className="field" style={{ textAlign: 'center' }}>
+            <label style={{ textAlign: 'left' }}>Logo (optional)</label>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <label
+                style={{
+                  width: 84,
+                  height: 84,
+                  borderRadius: 12,
+                  border: '1px dashed var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  gap: 4,
+                  cursor: uploadingLogo ? 'default' : 'pointer',
+                  color: 'var(--muted)',
+                  fontSize: 11,
+                  textAlign: 'center',
+                  overflow: 'hidden',
+                  backgroundImage: logoUrl ? `url(${logoUrl})` : 'none',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              >
+                {!logoUrl && (uploadingLogo ? 'Uploading…' : (
+                  <>
+                    <span style={{ fontSize: 20, lineHeight: 1 }}>+</span>
+                    Add logo
+                  </>
+                ))}
+                <input type="file" accept="image/*" style={{ display: 'none' }} disabled={uploadingLogo} onChange={handleLogoChange} />
+              </label>
+            </div>
+            {logoUrl && (
+              <button type="button" className="btn btn-outline" style={{ marginTop: 8, padding: '4px 10px', fontSize: 12 }} onClick={() => setLogoUrl('')}>
+                Remove logo
+              </button>
+            )}
+            {logoError && <p className="error-text">{logoError}</p>}
+          </div>
+
           <div className="field">
             <label htmlFor="orgName">Your name or organization</label>
             <input id="orgName" type="text" value={orgName} onChange={(e) => setOrgName(e.target.value)} />
-          </div>
-          <div className="field">
-            <label>
-              <input
-                type="checkbox"
-                checked={hideName}
-                onChange={(e) => setHideName(e.target.checked)}
-                style={{ marginRight: 8 }}
-              />
-              Keep my name hidden from freelancers until we connect
-            </label>
-            <p className="helper-text">
-              Before you connect, freelancers see you as "Event Organizer." Once connected, your real name is
-              revealed to them.
-            </p>
           </div>
           <div className="field">
             <label htmlFor="orgLocation">Based in</label>
@@ -109,7 +160,13 @@ export default function OrganizerOnboarding() {
             />
           </div>
           <div className="field" style={{ marginBottom: 0 }}>
-            <label htmlFor="instagram">Instagram (optional)</label>
+            <label style={{ display: 'flex', alignItems: 'center' }} htmlFor="instagram">
+              Instagram (optional)
+              <InfoButton title="Why add these?">
+                Logo, location, About and Instagram all show up in a freelancer's "About the organizer" popup on your
+                job posts — helps them trust you're legit before applying.
+              </InfoButton>
+            </label>
             <input
               id="instagram"
               type="text"
@@ -117,10 +174,6 @@ export default function OrganizerOnboarding() {
               value={instagramHandle}
               onChange={(e) => setInstagramHandle(e.target.value)}
             />
-            <p className="helper-text">
-              Location, About and Instagram all show up in a freelancer's "About the organizer" popup on your job
-              posts — helps them trust you're legit before applying.
-            </p>
           </div>
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-primary btn-block" disabled={busy} type="submit">

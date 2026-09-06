@@ -3,32 +3,33 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
+import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
+import { InfoButton } from '../../components/InfoButton'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// "Chat" is personal, 1:1 stuff — conversations plus a straightforward
+// yes/no on someone interested in you. Job invites live in My Event now
+// (they come with a jobdesk and a fee to weigh, not just a chat request).
+// "Event Chat" is the group threads, one per event, kept separate.
 export default function FreelancerNotifications() {
   const { user } = useAuth()
-  const [tab, setTab] = useState('chats') // 'chats' | 'requests'
+  const [tab, setTab] = useState('chat') // 'chat' | 'event'
   const [pendingLikes, setPendingLikes] = useState([])
-  const [invites, setInvites] = useState([])
   const [likeMatches, setLikeMatches] = useState([])
   const [eventTeams, setEventTeams] = useState([])
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
+  const [aboutOrganizer, setAboutOrganizer] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: likes }, { data: invitedApps }, { data: matchRows }, { data: acceptedApps }] = await Promise.all([
+    const [{ data: likes }, { data: matchRows }, { data: acceptedApps }] = await Promise.all([
       supabase
         .from('likes')
-        .select('id, organizer_profiles(org_name, hide_name)')
+        .select('id, organizer_profiles(org_name, location, about, instagram_handle, logo_url)')
         .eq('freelancer_id', user.id)
         .eq('status', 'pending'),
-      supabase
-        .from('applications')
-        .select('id, job_divisions(skill, job_postings(id, title, organizer_profiles(org_name, hide_name)))')
-        .eq('freelancer_id', user.id)
-        .eq('status', 'invited'),
       supabase
         .from('matches')
         .select('id, source, created_at, organizer_profiles(org_name)')
@@ -37,12 +38,11 @@ export default function FreelancerNotifications() {
         .order('created_at', { ascending: false }),
       supabase
         .from('applications')
-        .select('job_divisions(job_id, job_postings(id, title, event_end_date, chat_opened_at, organizer_profiles(org_name, hide_name)))')
+        .select('job_divisions(job_id, job_postings(id, title, event_end_date, chat_opened_at, organizer_profiles(org_name)))')
         .eq('freelancer_id', user.id)
         .eq('status', 'accepted'),
     ])
     setPendingLikes(likes || [])
-    setInvites((invitedApps || []).filter((a) => a.job_divisions?.job_postings))
     setLikeMatches(matchRows || [])
 
     const byJob = new Map()
@@ -88,12 +88,7 @@ export default function FreelancerNotifications() {
     load()
   }
 
-  async function respondInvite(applicationId, status) {
-    await supabase.from('applications').update({ status }).eq('id', applicationId)
-    load()
-  }
-
-  const pendingCount = pendingLikes.length + invites.length
+  const pendingCount = pendingLikes.length
 
   // Keep finished events out of the way once they've wrapped up, so the
   // chat list stays about what's current instead of growing forever.
@@ -105,78 +100,81 @@ export default function FreelancerNotifications() {
       <Topbar title="Connect" />
       <div className="page">
         <div className="segmented">
-          <button type="button" className={tab === 'chats' ? 'active' : ''} onClick={() => setTab('chats')}>
-            Chats
-          </button>
-          <button type="button" className={tab === 'requests' ? 'active' : ''} onClick={() => setTab('requests')}>
-            Requests
+          <button type="button" className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}>
+            Chat
             {pendingCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{pendingCount}</span>}
+          </button>
+          <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
+            Event Chat
           </button>
         </div>
 
         {loading && <p className="subtitle">Loading…</p>}
 
-        {tab === 'requests' && (
+        {tab === 'chat' && (
           <>
-            {invites.length > 0 && (
-              <>
-                <h2>Invited to a role</h2>
-                <div className="stack">
-                  {invites.map((inv) => {
-                    const job = inv.job_divisions.job_postings
-                    return (
-                      <div key={inv.id} className="card row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <strong>{job.title}</strong>
-                          <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                            {job.organizer_profiles.hide_name ? 'An Event Organizer' : job.organizer_profiles.org_name} invited
-                            you as {inv.job_divisions.skill}
-                          </p>
-                        </div>
-                        <div className="row">
-                          <button className="btn btn-outline" onClick={() => respondInvite(inv.id, 'declined')}>
-                            Decline
-                          </button>
-                          <button className="btn btn-primary" onClick={() => respondInvite(inv.id, 'accepted')}>
-                            Accept
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-
-            <h2>Interested in you</h2>
+            <h2 style={{ display: 'flex', alignItems: 'center' }}>
+              Interested in you
+              <InfoButton title="Interested in you">
+                Accepting just opens a 1:1 chat with them — no commitment beyond that. Check their profile first if
+                you're not sure.
+              </InfoButton>
+            </h2>
             {!loading && pendingLikes.length === 0 && <p className="subtitle">No new interest right now — check back later.</p>}
             <div className="stack">
               {pendingLikes.map((l) => (
                 <div key={l.id} className="card row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <strong>{l.organizer_profiles.hide_name ? 'An Event Organizer' : l.organizer_profiles.org_name}</strong>
-                    <p className="subtitle" style={{ margin: '4px 0 0' }}>liked your profile</p>
+                    <button
+                      type="button"
+                      className="subtitle"
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
+                      onClick={() => setAboutOrganizer(l.organizer_profiles)}
+                    >
+                      {l.organizer_profiles.org_name}
+                    </button>
+                    <p className="subtitle" style={{ margin: '4px 0 0' }}>wants to start a chat with you</p>
                   </div>
                   <div className="row">
                     <button className="btn btn-outline" onClick={() => respondLike(l.id, 'declined')}>
                       Decline
                     </button>
                     <button className="btn btn-primary" onClick={() => respondLike(l.id, 'accepted')}>
-                      Accept
+                      Accept chat
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+
+            <h2 style={{ display: 'flex', alignItems: 'center' }}>
+              Personal chats
+              <InfoButton title="Personal chats">
+                1:1 conversations from an organizer's Discover interest — not tied to a specific job.
+              </InfoButton>
+            </h2>
+            {!loading && likeMatches.length === 0 && <p className="subtitle">No personal chats yet.</p>}
+            <div className="stack">
+              {likeMatches.map((m) => (
+                <div key={m.id} className="card row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>{m.organizer_profiles.org_name}</strong>
+                  <Link to={`/chat/${m.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open chat">
+                    💬
+                  </Link>
                 </div>
               ))}
             </div>
           </>
         )}
 
-        {tab === 'chats' && (
+        {tab === 'event' && (
           <>
-            <h2>Event chats</h2>
-            <p className="helper-text" style={{ margin: '-4px 0 0' }}>
-              One group thread per event you're confirmed on — everyone on the team, named after the event.
-            </p>
+            <h2 style={{ display: 'flex', alignItems: 'center' }}>
+              Event chats
+              <InfoButton title="Event chats">
+                One group thread per event you're confirmed on — everyone on the team, named after the event.
+              </InfoButton>
+            </h2>
             {!loading && activeEvents.length === 0 && (
               <p className="subtitle">No confirmed events yet — apply to jobs to get started.</p>
             )}
@@ -184,22 +182,21 @@ export default function FreelancerNotifications() {
               {activeEvents.map((job) => (
                 <div key={job.id} className="card">
                   <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong>{job.title}</strong>
-                    {job.chat_opened_at && <span className="chip chip-outline">{job.memberCount} in chat</span>}
+                    <div>
+                      <strong>{job.title}</strong>
+                      <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                        {job.organizer_profiles.org_name}
+                        {job.chat_opened_at && ` · ${job.memberCount} in chat`}
+                      </p>
+                    </div>
+                    {job.chat_opened_at ? (
+                      <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open event chat">
+                        💬
+                      </Link>
+                    ) : (
+                      <span className="chip chip-outline" style={{ fontSize: 11 }}>Not started</span>
+                    )}
                   </div>
-                  <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                    {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} · confirmed on
-                    this event
-                  </p>
-                  {job.chat_opened_at ? (
-                    <Link to={`/event-chat/${job.id}`} className="btn btn-primary btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
-                      💬 Open event chat
-                    </Link>
-                  ) : (
-                    <p className="helper-text" style={{ margin: '10px 0 0' }}>
-                      The organizer hasn't started this event's group chat yet.
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
@@ -218,44 +215,33 @@ export default function FreelancerNotifications() {
                     {archivedEvents.map((job) => (
                       <div key={job.id} className="card" style={{ opacity: 0.75 }}>
                         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                          <strong>{job.title}</strong>
-                          <span className="chip chip-outline">Past event</span>
+                          <div>
+                            <strong>{job.title}</strong>
+                            <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                              {job.organizer_profiles.org_name}
+                            </p>
+                          </div>
+                          {job.chat_opened_at ? (
+                            <Link to={`/event-chat/${job.id}`} className="chip chip-outline" style={{ textDecoration: 'none' }} aria-label="View chat history">
+                              💬
+                            </Link>
+                          ) : (
+                            <span className="chip chip-outline">Past event</span>
+                          )}
                         </div>
-                        <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                          {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name}
-                        </p>
-                        {job.chat_opened_at && (
-                          <Link to={`/event-chat/${job.id}`} className="btn btn-outline btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
-                            💬 View chat history
-                          </Link>
-                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </>
             )}
-
-            <h2>Personal chats</h2>
-            <p className="helper-text" style={{ margin: '-4px 0 0' }}>
-              1:1 conversations from an organizer's Discover interest — not tied to a specific job.
-            </p>
-            {!loading && likeMatches.length === 0 && <p className="subtitle">No personal chats yet.</p>}
-            <div className="stack">
-              {likeMatches.map((m) => (
-                <div key={m.id} className="card">
-                  <strong>{m.organizer_profiles.org_name}</strong>
-                  <p className="subtitle" style={{ margin: '4px 0 0' }}>Connected via their interest</p>
-                  <Link to={`/chat/${m.id}`} className="btn btn-primary btn-block" style={{ marginTop: 10, textDecoration: 'none' }}>
-                    💬 Open chat
-                  </Link>
-                </div>
-              ))}
-            </div>
           </>
         )}
       </div>
-      <FreelancerTabbar pendingCount={pendingCount} />
+
+      {aboutOrganizer && <OrganizerAboutModal organizer={aboutOrganizer} onClose={() => setAboutOrganizer(null)} />}
+
+      <FreelancerTabbar connectCount={pendingCount} />
     </div>
   )
 }

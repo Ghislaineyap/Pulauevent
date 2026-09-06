@@ -72,10 +72,11 @@ create table if not exists public.freelancer_profiles (
 create table if not exists public.organizer_profiles (
   id uuid primary key references public.profiles(id) on delete cascade,
   org_name text not null,
-  hide_name boolean not null default false, -- if true, freelancers see "Event Organizer" until matched
+  hide_name boolean not null default false, -- unused: organizer identity is never hidden from freelancers (kept only for backward compatibility, no longer read or written by the app)
   instagram_handle text, -- optional, visible legitimacy signal — not verification
   location text, -- where they're based, from the same curated `locations` list
   about text, -- short blurb: what kind of events they run
+  logo_url text, -- public URL in the "avatars" storage bucket, same pattern as freelancer photos
   updated_at timestamptz not null default now()
 );
 
@@ -89,6 +90,7 @@ create table if not exists public.job_postings (
   title text not null,
   description text,
   location text not null,
+  location_detail text, -- free-text venue/address detail, separate from the curated location above
   event_start_date date not null,
   event_end_date date not null,
   status text not null default 'open' check (status in ('open', 'closed')),
@@ -104,6 +106,9 @@ create table if not exists public.job_divisions (
   job_id uuid not null references public.job_postings(id) on delete cascade,
   skill text not null,
   quantity integer not null default 1,
+  -- What someone in this role actually does — shown to applicants so they
+  -- understand the job before applying, not just the role title.
+  jobdesk text,
   budget_amount numeric,
   budget_type text check (budget_type in ('hourly', 'daily', 'flat')),
   filled_count integer not null default 0,
@@ -124,7 +129,11 @@ create table if not exists public.applications (
   -- 'invited' = an organizer put a known team member directly into this
   -- division; the freelancer still has to confirm (transitions to accepted
   -- or declined), same as a freelancer-initiated ('applied') application.
-  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'invited')),
+  -- 'cancelled' = was accepted, then removed (dropped out / swapped out) —
+  -- distinct from 'declined' (never accepted in the first place) so the
+  -- freelancer sees an honest label, and it's what the trigger below keys
+  -- off of to free the slot back up.
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'invited', 'cancelled')),
   source text not null default 'applied' check (source in ('applied', 'invited')),
   created_at timestamptz not null default now(),
   unique (division_id, freelancer_id)
@@ -204,6 +213,28 @@ drop trigger if exists on_application_accepted on public.applications;
 create trigger on_application_accepted
   after update on public.applications
   for each row execute function public.handle_application_accepted();
+
+-- ---------------------------------------------------------------------------
+-- Removing a confirmed team member frees their slot — automatically, so it
+-- can be re-filled (another team invite, or publicly if "Open recruit" is
+-- on) without the organizer having to touch anything else.
+-- ---------------------------------------------------------------------------
+create or replace function public.handle_application_cancelled()
+returns trigger as $$
+begin
+  if new.status = 'cancelled' and old.status = 'accepted' then
+    update public.job_divisions
+    set filled_count = greatest(filled_count - 1, 0)
+    where id = new.division_id;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_application_cancelled on public.applications;
+create trigger on_application_cancelled
+  after update on public.applications
+  for each row execute function public.handle_application_cancelled();
 
 -- ---------------------------------------------------------------------------
 -- Auto-create a match when a like is accepted by the freelancer.

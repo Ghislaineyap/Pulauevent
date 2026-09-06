@@ -11,7 +11,7 @@ export default function Landing() {
     if (!isOnboarded) {
       navigate(role === 'freelancer' ? '/freelancer/onboarding' : '/organizer/onboarding', { replace: true })
     } else {
-      navigate(role === 'freelancer' ? '/freelancer/jobs' : '/organizer/dashboard', { replace: true })
+      navigate(role === 'freelancer' ? '/freelancer/jobs' : '/organizer/my-events', { replace: true })
     }
   }, [loading, user, role, isOnboarded, navigate])
 

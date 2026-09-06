@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { useAuth } from '../../context/AuthProvider'
 import { formatEventDates } from '../../lib/date'
+import { InfoButton } from '../../components/InfoButton'
 
 export default function JobFeed() {
   const { roleProfile } = useAuth()
@@ -20,7 +21,7 @@ export default function JobFeed() {
       const { data, error } = await supabase
         .from('job_postings')
         .select(
-          'id, title, location, event_start_date, event_end_date, organizer_profiles(org_name, hide_name), job_divisions(id, skill, quantity, filled_count, open_recruit)'
+          'id, title, location, event_start_date, event_end_date, organizer_profiles(org_name), job_divisions(id, skill, quantity, filled_count, open_recruit)'
         )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
@@ -55,17 +56,24 @@ export default function JobFeed() {
     <div className="app-shell">
       <Topbar title="Open jobs" />
       <div className="page">
-        <button
-          className="btn btn-outline btn-block"
-          style={{ justifyContent: 'space-between' }}
-          onClick={() => setShowFilters((s) => !s)}
-        >
-          <span>
-            Location
-            {selectedLocations.length > 0 && <span className="badge" style={{ marginLeft: 6 }}>{selectedLocations.length}</span>}
-          </span>
-          <span style={{ color: 'var(--muted)', fontWeight: 400 }}>{showFilters ? '▴' : '▾'}</span>
-        </button>
+        <div className="row" style={{ alignItems: 'center', gap: 6 }}>
+          <button
+            className="btn btn-outline btn-block"
+            style={{ justifyContent: 'space-between', flex: 1 }}
+            onClick={() => setShowFilters((s) => !s)}
+          >
+            <span>
+              Location
+              {selectedLocations.length > 0 && <span className="badge" style={{ marginLeft: 6 }}>{selectedLocations.length}</span>}
+            </span>
+            <span style={{ color: 'var(--muted)', fontWeight: 400 }}>{showFilters ? '▴' : '▾'}</span>
+          </button>
+          {!showFilters && selectedLocations.length > 0 && (
+            <InfoButton title="Location">
+              Pre-selected from your saved locations — tap Location to add more or clear it.
+            </InfoButton>
+          )}
+        </div>
 
         {showFilters && (
           <div className="card stack">
@@ -89,12 +97,6 @@ export default function JobFeed() {
           </div>
         )}
 
-        {!showFilters && selectedLocations.length > 0 && (
-          <p className="helper-text" style={{ margin: 0 }}>
-            Pre-selected from your saved locations — tap Location to add more or clear it.
-          </p>
-        )}
-
         {loading && <p className="subtitle">Loading…</p>}
         {!loading && jobs.length === 0 && (
           <div className="empty-state">
@@ -109,7 +111,7 @@ export default function JobFeed() {
               <Link key={job.id} to={`/freelancer/jobs/${job.id}`} className="card" style={{ textDecoration: 'none', color: 'inherit' }}>
                 <h2>{job.title}</h2>
                 <p className="subtitle">
-                  {job.organizer_profiles.hide_name ? 'Event Organizer' : job.organizer_profiles.org_name} · 📍{' '}
+                  {job.organizer_profiles.org_name} · 📍{' '}
                   {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
                 </p>
                 <div className="chip-row" style={{ marginTop: 8 }}>
