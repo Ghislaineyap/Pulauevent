@@ -278,7 +278,8 @@ textarea {
 .photo-frame {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 4 / 3;
+  max-height: 340px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -789,11 +790,16 @@ textarea {
 }
 
 /* Floating "+" button — My Event dashboard's quick way to start a new
-   event without leaving the Home view. Sits above the tabbar. */
+   event without leaving the Home view. Pinned to the viewport (like
+   .tabbar below) so it stays put as the page scrolls, sitting a fixed
+   distance above the tabbar instead of scrolling along with the content.
+   The `right` formula mirrors .tabbar's centering: on a narrow viewport it
+   sits 18px from the screen edge; on a wider one it tracks the app-shell's
+   own right edge (max-width 480px) instead of the browser window's. */
 .fab-btn {
-  position: absolute;
-  right: 18px;
-  bottom: calc(76px + env(safe-area-inset-bottom));
+  position: fixed;
+  right: max(18px, calc(50vw - 222px));
+  bottom: calc(84px + env(safe-area-inset-bottom));
   width: 52px;
   height: 52px;
   border-radius: 50%;
@@ -807,5 +813,5 @@ textarea {
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 6px 16px rgba(225, 85, 46, 0.35);
-  z-index: 5;
+  z-index: 6;
 }

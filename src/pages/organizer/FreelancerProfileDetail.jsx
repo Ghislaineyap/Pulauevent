@@ -185,17 +185,21 @@ export default function FreelancerProfileDetail() {
               📷 @{freelancer.instagram_handle.replace(/^@/, '')}
             </a>
           )}
-          <button
-            className="btn btn-outline"
-            disabled={inTeam || teamBusy}
-            onClick={addToTeam}
-            style={{ marginTop: 4 }}
-          >
-            {inTeam ? '✓ In your team' : teamBusy ? 'Adding…' : '+ Add to my team'}
-          </button>
-          <p className="helper-text" style={{ margin: 0 }}>
-            Team members can be invited directly into a division next time you post a job.
-          </p>
+          {connected && (
+            <>
+              <button
+                className="btn btn-outline"
+                disabled={inTeam || teamBusy}
+                onClick={addToTeam}
+                style={{ marginTop: 4 }}
+              >
+                {inTeam ? '✓ In your team' : teamBusy ? 'Adding…' : '+ Add to my team'}
+              </button>
+              <p className="helper-text" style={{ margin: 0 }}>
+                Team members can be invited directly into a division next time you post a job.
+              </p>
+            </>
+          )}
         </div>
 
         <RatingsSummary freelancerId={freelancer.id} />
