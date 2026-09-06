@@ -9,6 +9,10 @@ import { Switch } from '../../components/Switch'
 import { InfoButton } from '../../components/InfoButton'
 import { Modal } from '../../components/Modal'
 import { SkillIcon } from '../../components/SkillIcon'
+import { RundownView } from '../../components/RundownView'
+import { TasksView } from '../../components/TasksView'
+import { ShareView } from '../../components/ShareView'
+import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
 
 const OTHER_SKILL = '__other__'
 const OTHER_LOCATION = '__other__'
@@ -43,7 +47,8 @@ export default function MyEvents() {
   const [view, setView] = useState('dashboard') // 'dashboard' | 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
 
-  // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId } }
+  // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId }
+  //   | { type: 'rundowns' } | { type: 'tasks' } | { type: 'share' } }
   const [manageModal, setManageModal] = useState(null)
 
   const load = useCallback(async () => {
@@ -220,6 +225,26 @@ export default function MyEvents() {
     return true
   }
 
+  // Add to calendar lives at the My Event / overview level, not inside the
+  // Rundown tab — it pulls the current rundown (if any) so the calendar
+  // entry has real times, and falls back to the event's date span if no
+  // rundown has been built yet.
+  async function addToCalendar(job) {
+    const { data: rundowns, error: rundownError } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', job.id)
+    if (rundownError) console.error(rundownError)
+    let items = []
+    const rundownIds = (rundowns || []).map((r) => r.id)
+    if (rundownIds.length > 0) {
+      const { data: itemRows, error: itemError } = await supabase
+        .from('event_rundown_items')
+        .select('rundown_id, sort_order, start_time, duration_minutes')
+        .in('rundown_id', rundownIds)
+      if (itemError) console.error(itemError)
+      items = itemRows || []
+    }
+    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  }
+
   const manageJob = manageModal && jobs.find((j) => j.id === manageModal.jobId)
   const manageDivision =
     manageJob && (manageModal.sub?.type === 'team' || manageModal.sub?.type === 'recruit')
@@ -230,6 +255,9 @@ export default function MyEvents() {
   if (manageModal?.sub?.type === 'edit') manageTitle = `Edit — ${manageJob.title}`
   if (manageModal?.sub?.type === 'team' && manageDivision) manageTitle = `Select team — ${manageDivision.skill}`
   if (manageModal?.sub?.type === 'recruit' && manageDivision) manageTitle = `Recruiting — ${manageDivision.skill}`
+  if (manageModal?.sub?.type === 'rundowns') manageTitle = `Rundown — ${manageJob.title}`
+  if (manageModal?.sub?.type === 'tasks') manageTitle = `Tasks — ${manageJob.title}`
+  if (manageModal?.sub?.type === 'share') manageTitle = `Share — ${manageJob.title}`
 
   return (
     <div className="app-shell">
@@ -301,9 +329,14 @@ export default function MyEvents() {
                         {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
                       </p>
                     </div>
-                    <button type="button" className="btn btn-primary btn-block" onClick={() => setManageModal({ jobId: job.id, sub: null })}>
-                      Manage event
-                    </button>
+                    <div className="row">
+                      <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => setManageModal({ jobId: job.id, sub: null })}>
+                        Manage event
+                      </button>
+                      <Link to={`/organizer/events/${job.id}`} className="btn btn-outline desktop-only-inline" style={{ flex: 1, textDecoration: 'none' }}>
+                        Open workspace
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -321,6 +354,10 @@ export default function MyEvents() {
               onEdit={() => setManageModal((m) => ({ ...m, sub: { type: 'edit' } }))}
               onOpenTeam={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'team', divisionId } }))}
               onOpenRecruit={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'recruit', divisionId } }))}
+              onOpenRundowns={() => setManageModal((m) => ({ ...m, sub: { type: 'rundowns' } }))}
+              onOpenTasks={() => setManageModal((m) => ({ ...m, sub: { type: 'tasks' } }))}
+              onOpenShare={() => setManageModal((m) => ({ ...m, sub: { type: 'share' } }))}
+              onAddToCalendar={() => addToCalendar(manageJob)}
               onToggleChat={toggleEventChat}
               onSubmitRating={submitRating}
             />
@@ -383,6 +420,48 @@ export default function MyEvents() {
                 ← Back
               </button>
               <RecruitForm key={manageDivision.id} division={manageDivision} onSave={(payload) => saveRecruit(manageDivision.id, payload)} />
+            </div>
+          )}
+
+          {manageModal.sub?.type === 'rundowns' && (
+            <div className="stack">
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
+                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
+              >
+                ← Back
+              </button>
+              <RundownView jobId={manageJob.id} canEdit />
+            </div>
+          )}
+
+          {manageModal.sub?.type === 'tasks' && (
+            <div className="stack">
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
+                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
+              >
+                ← Back
+              </button>
+              <TasksView jobId={manageJob.id} canManage currentUserId={user.id} teamMembers={manageJob.confirmedTeam} />
+            </div>
+          )}
+
+          {manageModal.sub?.type === 'share' && (
+            <div className="stack">
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
+                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
+              >
+                ← Back
+              </button>
+              <ShareView jobId={manageJob.id} eventTitle={manageJob.title} />
             </div>
           )}
         </Modal>
@@ -529,7 +608,7 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
   )
 }
 
-function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onToggleChat, onSubmitRating }) {
+export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onOpenRundowns, onOpenTasks, onOpenShare, onAddToCalendar, onToggleChat, onSubmitRating }) {
   const isPast = job.event_end_date < todayISO()
   const toRate = isPast ? job.confirmedTeam.filter((f) => !ratedKeys.has(`${job.id}:${f.id}`)) : []
 
@@ -544,6 +623,34 @@ function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, on
           Edit
         </button>
       </div>
+
+      {(onOpenRundowns || onOpenTasks || onOpenShare || onAddToCalendar) && (
+        <div className="stack" style={{ gap: 8, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '10px 0' }}>
+          <strong style={{ fontSize: 12.5 }}>Event tools</strong>
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            {onOpenRundowns && (
+              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenRundowns}>
+                Rundown
+              </button>
+            )}
+            {onOpenTasks && (
+              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenTasks}>
+                Tasks
+              </button>
+            )}
+            {onOpenShare && (
+              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenShare}>
+                Share with client
+              </button>
+            )}
+            {onAddToCalendar && (
+              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onAddToCalendar}>
+                Add to calendar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="stack" style={{ gap: 8 }}>
         {job.job_divisions.map((d) => (
@@ -607,7 +714,7 @@ function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, on
 // A freelancer already assigned to one division of this event can't also be
 // assigned to another — the candidate list is filtered across every
 // division on the job, not just the one you're currently staffing.
-function TeamSelectView({ job, division, teamMembers, onAdd, onRemove, onWithdraw }) {
+export function TeamSelectView({ job, division, teamMembers, onAdd, onRemove, onWithdraw }) {
   const takenAcrossJob = new Set(job.job_divisions.flatMap((d) => [...d.team.accepted, ...d.team.invited]).map((p) => p.freelancerId))
   const candidates = teamMembers.filter((t) => !takenAcrossJob.has(t.id))
 
@@ -662,7 +769,7 @@ function TeamSelectView({ job, division, teamMembers, onAdd, onRemove, onWithdra
   )
 }
 
-function RecruitForm({ division, onSave }) {
+export function RecruitForm({ division, onSave }) {
   const [budgetAmount, setBudgetAmount] = useState(division.budget_amount != null ? String(division.budget_amount) : '')
   const [budgetType, setBudgetType] = useState(division.budget_type || 'flat')
   const [feeType, setFeeType] = useState(division.fee_type || 'all_in')
@@ -740,7 +847,7 @@ function RecruitForm({ division, onSave }) {
 // name, details, location, dates, and each division's role, headcount, and
 // jobdesk. Budget/fee/Open Recruit live in "Manage event → Recruiting", not
 // this form.
-function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, onCancel, bare = false }) {
+export function EventForm({ job, organizerId, skillOptions, locationOptions, onSaved, onCancel, bare = false }) {
   const isEdit = Boolean(job)
   const [form, setForm] = useState(() =>
     job

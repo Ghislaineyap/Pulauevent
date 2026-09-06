@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthProvider'
 import { Guard } from './components/Guard'
 import { AdminGuard } from './components/AdminGuard'
+import { AppFrame } from './components/AppFrame'
 
 import Landing from './pages/Landing'
 import Login from './pages/Login'
@@ -11,6 +12,7 @@ import CheckEmail from './pages/CheckEmail'
 import SuspendedAccount from './pages/SuspendedAccount'
 import Chat from './pages/Chat'
 import EventChat from './pages/EventChat'
+import PublicSchedule from './pages/PublicSchedule'
 
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -20,6 +22,7 @@ import JobFeed from './pages/freelancer/JobFeed'
 import JobDetail from './pages/freelancer/JobDetail'
 import FreelancerMyEvents from './pages/freelancer/MyEvents'
 import FreelancerNotifications from './pages/freelancer/FreelancerNotifications'
+import FreelancerEventWorkspace from './pages/freelancer/EventWorkspace'
 
 import OrganizerOnboarding from './pages/organizer/OrganizerOnboarding'
 import OrganizerDashboard from './pages/organizer/OrganizerDashboard'
@@ -28,11 +31,13 @@ import FreelancerBrowse from './pages/organizer/FreelancerBrowse'
 import FreelancerProfileDetail from './pages/organizer/FreelancerProfileDetail'
 import OrganizerMyEvents from './pages/organizer/MyEvents'
 import OrganizerNotifications from './pages/organizer/OrganizerNotifications'
+import OrganizerEventWorkspace from './pages/organizer/EventWorkspace'
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <AppFrame>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
@@ -40,6 +45,10 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/suspended" element={<SuspendedAccount />} />
+          {/* The one unauthenticated, no-chrome route — a client's schedule
+              link, not gated by Guard since the person opening it has no
+              account. */}
+          <Route path="/schedule/:token" element={<PublicSchedule />} />
 
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route
@@ -107,6 +116,14 @@ export default function App() {
               </Guard>
             }
           />
+          <Route
+            path="/freelancer/events/:jobId"
+            element={
+              <Guard role="freelancer">
+                <FreelancerEventWorkspace />
+              </Guard>
+            }
+          />
 
           <Route
             path="/organizer/onboarding"
@@ -164,9 +181,18 @@ export default function App() {
               </Guard>
             }
           />
+          <Route
+            path="/organizer/events/:jobId"
+            element={
+              <Guard role="organizer">
+                <OrganizerEventWorkspace />
+              </Guard>
+            }
+          />
 
           <Route path="*" element={<Landing />} />
         </Routes>
+        </AppFrame>
       </AuthProvider>
     </BrowserRouter>
   )
