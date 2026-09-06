@@ -13,6 +13,18 @@ export function formatEventDates(startDate, endDate) {
   return `${formatDate(startDate)} – ${formatDate(endDate)}`
 }
 
+// Small timestamp under a chat bubble — just the time for something sent
+// today, since that's the common case, and a short date + time once it's
+// from an earlier day so old messages still read clearly in a long thread.
+export function formatMessageTime(isoTimestamp) {
+  if (!isoTimestamp) return ''
+  const d = new Date(isoTimestamp)
+  const now = new Date()
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  if (d.toDateString() === now.toDateString()) return time
+  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${time}`
+}
+
 // Do two inclusive date ranges (ISO 'YYYY-MM-DD' strings) overlap at all —
 // used to warn a freelancer they're already booked on an overlapping date
 // before they apply to a second job on the same day(s).

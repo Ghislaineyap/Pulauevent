@@ -9,6 +9,8 @@ import { SkillIcon } from '../../components/SkillIcon'
 import { formatEventDates } from '../../lib/date'
 import { experienceBandLabel } from '../../lib/experience'
 
+const todayISO = () => new Date().toISOString().slice(0, 10)
+
 // "Post" — a read-only board of whatever's currently open to public
 // recruiting (set from My Event → Manage event → Recruiting). Private
 // divisions never appear here at all. Tapping a division expands it right
@@ -22,6 +24,7 @@ export default function OrganizerDashboard() {
   const [showInfo, setShowInfo] = useState(false)
   const [expandedDivisionId, setExpandedDivisionId] = useState(null)
   const [applicantsByDivision, setApplicantsByDivision] = useState({})
+  const [showArchived, setShowArchived] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -91,7 +94,14 @@ export default function OrganizerDashboard() {
     load()
   }
 
-  const totalPending = jobs.reduce((n, j) => n + j.job_divisions.reduce((m, d) => m + d.pendingCount, 0), 0)
+  // A past event has no business staying on an "open recruiting" board —
+  // it's tucked under "Past events" below instead of cluttering the active
+  // list forever, same pattern as Connect's archived events.
+  const today = todayISO()
+  const activeJobs = jobs.filter((j) => j.event_end_date >= today)
+  const archivedJobs = jobs.filter((j) => j.event_end_date < today)
+
+  const totalPending = activeJobs.reduce((n, j) => n + j.job_divisions.reduce((m, d) => m + d.pendingCount, 0), 0)
 
   return (
     <div className="app-shell">
@@ -105,7 +115,7 @@ export default function OrganizerDashboard() {
         </p>
 
         {loading && <p className="subtitle">Loading…</p>}
-        {!loading && jobs.length === 0 && (
+        {!loading && activeJobs.length === 0 && (
           <div className="empty-state">
             Nothing open right now — turn on "Recruiting" for a role from My Event → Manage event when you want it to
             show up here.
@@ -113,7 +123,7 @@ export default function OrganizerDashboard() {
         )}
 
         <div className="stack">
-          {jobs.map((job) => (
+          {activeJobs.map((job) => (
             <div key={job.id} className="card" style={{ padding: '14px 14px 6px' }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 14.5 }}>{job.title}</h2>
@@ -229,6 +239,35 @@ export default function OrganizerDashboard() {
             </div>
           ))}
         </div>
+
+        {archivedJobs.length > 0 && (
+          <>
+            <button type="button" className="btn btn-outline btn-block" onClick={() => setShowArchived((s) => !s)}>
+              {showArchived ? 'Hide' : 'Show'} past events ({archivedJobs.length})
+            </button>
+            {showArchived && (
+              <div className="stack">
+                {archivedJobs.map((job) => (
+                  <div key={job.id} className="card" style={{ padding: '14px 14px 6px', opacity: 0.7 }}>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: 14.5 }}>{job.title}</h2>
+                      <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                        📍 {job.location} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                      </p>
+                    </div>
+                    <div className="stack" style={{ gap: 6, marginTop: 8, paddingBottom: 10 }}>
+                      {job.job_divisions.map((d) => (
+                        <p key={d.id} className="subtitle" style={{ margin: 0 }}>
+                          {d.skill} — {d.filled_count}/{d.quantity} filled
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <OrganizerTabbar pendingCount={totalPending} />

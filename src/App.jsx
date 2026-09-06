@@ -1,12 +1,18 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthProvider'
 import { Guard } from './components/Guard'
+import { AdminGuard } from './components/AdminGuard'
 
 import Landing from './pages/Landing'
 import Login from './pages/Login'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import CheckEmail from './pages/CheckEmail'
 import Chat from './pages/Chat'
 import EventChat from './pages/EventChat'
+
+import AdminLogin from './pages/admin/AdminLogin'
+import AdminDashboard from './pages/admin/AdminDashboard'
 
 import FreelancerOnboarding from './pages/freelancer/FreelancerOnboarding'
 import JobFeed from './pages/freelancer/JobFeed'
@@ -29,7 +35,19 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
+
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminGuard>
+                <AdminDashboard />
+              </AdminGuard>
+            }
+          />
           <Route
             path="/chat/:matchId"
             element={

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthProvider'
+import { formatMessageTime } from '../lib/date'
 
 // Group chat scoped to one event/job — everyone confirmed on it (the
 // organizer + every freelancer accepted into any of its divisions) shares
@@ -156,23 +157,31 @@ export default function EventChat() {
               This is the group chat for everyone confirmed on {job.title} — say hello!
             </p>
           )}
-          {messages.map((m) => (
-            <div key={m.id} className={`chat-bubble ${m.sender_id === user.id ? 'mine' : 'theirs'}`}>
-              {m.sender_id !== user.id && (
-                <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginBottom: 2 }}>
-                  {namesById.get(m.sender_id) || 'Someone'}
+          {messages.map((m) => {
+            const mine = m.sender_id === user.id
+            return (
+              <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+                <div className={`chat-bubble ${mine ? 'mine' : 'theirs'}`}>
+                  {!mine && (
+                    <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, marginBottom: 2 }}>
+                      {namesById.get(m.sender_id) || 'Someone'}
+                    </div>
+                  )}
+                  {m.body}
                 </div>
-              )}
-              {m.body}
-            </div>
-          ))}
+                <span className="subtitle" style={{ fontSize: 10.5, margin: '2px 4px 0' }}>
+                  {formatMessageTime(m.created_at)}
+                </span>
+              </div>
+            )
+          })}
           <div ref={bottomRef} />
         </div>
 
         {error && <p className="error-text">{error}</p>}
         <form className="row" style={{ marginTop: 8 }} onSubmit={handleSend}>
           <input
-            style={{ flex: 1 }}
+            style={{ flex: 1, fontSize: 16 }}
             type="text"
             placeholder="Type a message…"
             value={body}

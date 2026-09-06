@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
     if (error) console.error('loadProfile error', error)
     setProfile(data || null)
 
-    if (data?.role) {
+    if (data?.role === 'freelancer' || data?.role === 'organizer') {
       const table = data.role === 'freelancer' ? 'freelancer_profiles' : 'organizer_profiles'
       const { data: detail, error: detailErr } = await supabase
         .from(table)
@@ -35,6 +35,8 @@ export function AuthProvider({ children }) {
       if (detailErr) console.error('loadProfile detail error', detailErr)
       setRoleProfile(detail || null)
     } else {
+      // Admin accounts have no freelancer/organizer detail row and no
+      // onboarding step.
       setRoleProfile(null)
     }
     setLoadingProfile(false)

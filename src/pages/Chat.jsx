@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthProvider'
 import { ProfileAvatar } from '../components/ProfileAvatar'
+import { formatMessageTime } from '../lib/date'
 
 export default function Chat() {
   const { matchId } = useParams()
@@ -138,18 +139,24 @@ export default function Chat() {
               wherever's easiest.
             </p>
           )}
-          {messages.map((m) => (
-            <div key={m.id} className={`chat-bubble ${m.sender_id === user.id ? 'mine' : 'theirs'}`}>
-              {m.body}
-            </div>
-          ))}
+          {messages.map((m) => {
+            const mine = m.sender_id === user.id
+            return (
+              <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+                <div className={`chat-bubble ${mine ? 'mine' : 'theirs'}`}>{m.body}</div>
+                <span className="subtitle" style={{ fontSize: 10.5, margin: '2px 4px 0' }}>
+                  {formatMessageTime(m.created_at)}
+                </span>
+              </div>
+            )
+          })}
           <div ref={bottomRef} />
         </div>
 
         {error && <p className="error-text">{error}</p>}
         <form className="row" style={{ marginTop: 8 }} onSubmit={handleSend}>
           <input
-            style={{ flex: 1 }}
+            style={{ flex: 1, fontSize: 16 }}
             type="text"
             placeholder="Type a message…"
             value={body}
