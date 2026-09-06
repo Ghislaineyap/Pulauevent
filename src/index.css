@@ -1718,3 +1718,85 @@ textarea {
 .budget-item-form .field.span-2 {
   grid-column: span 2;
 }
+
+/* Vendors — per-event cards, organizer-wide roster page, and the
+   add-from-roster picker modal. */
+.vendor-card {
+  margin-bottom: 12px;
+}
+.vendor-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+.vendor-name {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+.vendor-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.roster-search-row {
+  margin-top: 14px;
+}
+.chip-row-desktop {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.filter-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: white;
+}
+.filter-chip.active {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: #f4ead4;
+}
+.pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow: auto;
+  margin-bottom: 14px;
+}
+.pick-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 6px;
+  border-radius: 10px;
+}
+.pick-row:hover {
+  background: var(--bg);
+}
+.pick-add-btn {
+  padding: 6px 12px;
+  border-radius: 9px;
+  border: none;
+  background: var(--primary);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+}
+.add-new-vendor-link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-dark);
+}

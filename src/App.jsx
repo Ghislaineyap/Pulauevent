@@ -32,6 +32,7 @@ import FreelancerProfileDetail from './pages/organizer/FreelancerProfileDetail'
 import OrganizerMyEvents from './pages/organizer/MyEvents'
 import OrganizerNotifications from './pages/organizer/OrganizerNotifications'
 import OrganizerEventWorkspace from './pages/organizer/EventWorkspace'
+import VendorRoster from './pages/organizer/VendorRoster'
 
 export default function App() {
   return (
@@ -186,6 +187,14 @@ export default function App() {
             element={
               <Guard role="organizer">
                 <OrganizerEventWorkspace />
+              </Guard>
+            }
+          />
+          <Route
+            path="/organizer/vendors"
+            element={
+              <Guard role="organizer">
+                <VendorRoster />
               </Guard>
             }
           />

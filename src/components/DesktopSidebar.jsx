@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat, IconStore } from './TabIcons'
 import logoMark from '../assets/logo-mark.png'
 
 // The desktop-only left nav — mirrors the mobile tabbar's destinations (see
@@ -40,6 +40,10 @@ export function DesktopSidebar({ role }) {
           <NavLink to="/organizer/notifications" className={linkClass}>
             <IconChat className="ds-icon" />
             Connect
+          </NavLink>
+          <NavLink to="/organizer/vendors" className={linkClass}>
+            <IconStore className="ds-icon" />
+            Vendor management
           </NavLink>
         </>
       )}
