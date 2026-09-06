@@ -580,22 +580,24 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
         ))}
       </div>
 
-      <div className="row" style={{ gap: 10 }}>
-        <div className="stat-tile" style={{ flex: 1 }}>
+      {/* Same 4-across stat-row idiom as the desktop event workspace — on a
+          narrow phone this just wraps to two rows via CSS, so nothing here
+          is desktop-only markup; it's one row on any width wide enough to
+          fit it (see .home-stat-row's own wrap rule). */}
+      <div className="row home-stat-row" style={{ gap: 10, flexWrap: 'wrap' }}>
+        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
           <span className="subtitle">Open recruit</span>
           <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{openRecruitCount}</span>
         </div>
-        <div className="stat-tile" style={{ flex: 1 }}>
+        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
           <span className="subtitle">Pending applicants</span>
           <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{pendingCount}</span>
         </div>
-      </div>
-      <div className="row" style={{ gap: 10 }}>
-        <div className="stat-tile" style={{ flex: 1 }}>
+        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
           <span className="subtitle">Confirmed this month</span>
           <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{confirmedThisMonth}</span>
         </div>
-        <div className="stat-tile" style={{ flex: 1 }}>
+        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
           <span className="subtitle">Team roster</span>
           <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{teamMembers.length}</span>
         </div>

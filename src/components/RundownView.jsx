@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { InfoButton } from './InfoButton'
-import { formatTime, formatDuration, reorderAndRetime } from '../lib/schedule'
+import { formatTime, formatDuration, reorderAndRetime, timeToMinutes, minutesToTime } from '../lib/schedule'
 
 // Shared Rundown feature — organizer gets full CRUD + reorder, a freelancer
 // (or the desktop read-only workspace tab) gets the same list/detail views
@@ -16,6 +16,7 @@ export function RundownView({ jobId, canEdit }) {
   const [loading, setLoading] = useState(true)
   const [itemsLoading, setItemsLoading] = useState(false)
   const [showNewForm, setShowNewForm] = useState(false)
+  const [editingItemId, setEditingItemId] = useState(null)
 
   const loadRundowns = useCallback(async () => {
     setLoading(true)
@@ -91,6 +92,16 @@ export function RundownView({ jobId, canEdit }) {
       console.error(error)
       return
     }
+    loadItems(selectedId)
+  }
+
+  async function updateItem(itemId, payload) {
+    const { error } = await supabase.from('event_rundown_items').update(payload).eq('id', itemId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    setEditingItemId(null)
     loadItems(selectedId)
   }
 
@@ -187,46 +198,75 @@ export function RundownView({ jobId, canEdit }) {
       {!itemsLoading && items.length === 0 && <div className="empty-state">No segments yet.</div>}
 
       <div className="stack" style={{ gap: 8 }}>
-        {items.map((item, i) => (
-          <div key={item.id} className="rundown-item">
-            {canEdit && (
-              <div className="ri-reorder">
-                <button type="button" className="ri-arrow" disabled={i === 0} onClick={() => moveItem(i, -1)} aria-label="Move earlier">
-                  ▲
-                </button>
-                <button type="button" className="ri-arrow" disabled={i === items.length - 1} onClick={() => moveItem(i, 1)} aria-label="Move later">
-                  ▼
-                </button>
-              </div>
-            )}
-            <span className="ri-time">{formatTime(item.start_time)}</span>
-            <div className="ri-body">
-              <strong style={{ fontSize: 13 }}>{item.segment}</strong>
-              <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                {formatDuration(item.duration_minutes)}
-                {item.owner_label && ` · ${item.owner_label}`}
-              </p>
-              {item.note && (
+        {items.map((item, i) =>
+          editingItemId === item.id ? (
+            <ItemForm
+              key={item.id}
+              item={item}
+              onSave={(payload) => updateItem(item.id, payload)}
+              onCancel={() => setEditingItemId(null)}
+            />
+          ) : (
+            <div key={item.id} className="rundown-item">
+              {canEdit && (
+                <div className="ri-reorder">
+                  <button type="button" className="ri-arrow" disabled={i === 0} onClick={() => moveItem(i, -1)} aria-label="Move earlier">
+                    ▲
+                  </button>
+                  <button type="button" className="ri-arrow" disabled={i === items.length - 1} onClick={() => moveItem(i, 1)} aria-label="Move later">
+                    ▼
+                  </button>
+                </div>
+              )}
+              <span className="ri-time">{formatTime(item.start_time)}</span>
+              <div className="ri-body">
+                <strong style={{ fontSize: 13 }}>{item.segment}</strong>
                 <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                  {item.note}
+                  {formatDuration(item.duration_minutes)}
+                  {item.owner_label && ` · ${item.owner_label}`}
                 </p>
+                {item.note && (
+                  <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                    {item.note}
+                  </p>
+                )}
+              </div>
+              {canEdit && (
+                <div className="row" style={{ gap: 2 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingItemId(item.id)}
+                    aria-label="Edit segment"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 14, padding: 4 }}
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteItem(item.id)}
+                    aria-label="Delete segment"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 16, padding: 4 }}
+                  >
+                    ✕
+                  </button>
+                </div>
               )}
             </div>
-            {canEdit && (
-              <button
-                type="button"
-                onClick={() => deleteItem(item.id)}
-                aria-label="Delete segment"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 16, padding: 4 }}
-              >
-                ✕
-              </button>
-            )}
-          </div>
-        ))}
+          )
+        )}
       </div>
 
-      {canEdit && <AddItemForm onAdd={addItem} />}
+      {canEdit && (
+        <AddItemForm
+          onAdd={addItem}
+          // Default the new segment to start right where the last one ends,
+          // instead of always defaulting to 09:00 — the whole point of a
+          // time-sequenced rundown is that segments stack back to back, so
+          // this is what an organizer wants nearly every time; they can
+          // still edit the time before saving.
+          defaultStartTime={items.length > 0 ? minutesToTime(timeToMinutes(items[items.length - 1].start_time) + items[items.length - 1].duration_minutes) : null}
+        />
+      )}
     </div>
   )
 }
@@ -268,28 +308,8 @@ function NewRundownForm({ onCreate, onCancel }) {
   )
 }
 
-function AddItemForm({ onAdd }) {
+function AddItemForm({ onAdd, defaultStartTime }) {
   const [open, setOpen] = useState(false)
-  const [segment, setSegment] = useState('')
-  const [startTime, setStartTime] = useState('09:00')
-  const [duration, setDuration] = useState('30')
-  const [ownerLabel, setOwnerLabel] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function submit() {
-    if (!segment.trim() || !startTime || !duration) return
-    setBusy(true)
-    await onAdd({
-      segment: segment.trim(),
-      start_time: `${startTime}:00`,
-      duration_minutes: Number(duration),
-      owner_label: ownerLabel.trim() || null,
-    })
-    setSegment('')
-    setOwnerLabel('')
-    setBusy(false)
-    setOpen(false)
-  }
 
   if (!open) {
     return (
@@ -297,6 +317,43 @@ function AddItemForm({ onAdd }) {
         + Add segment
       </button>
     )
+  }
+
+  return (
+    <ItemForm
+      defaultStartTime={defaultStartTime}
+      onSave={async (payload) => {
+        await onAdd(payload)
+        setOpen(false)
+      }}
+      onCancel={() => setOpen(false)}
+    />
+  )
+}
+
+// Shared segment form for both "+ Add segment" (item=null) and editing an
+// existing row in place (item set) — same fields either way, just a
+// different starting value and a different button label.
+function ItemForm({ item, defaultStartTime, onSave, onCancel }) {
+  const [segment, setSegment] = useState(item?.segment || '')
+  // New segments default to right after the previous one ends (see the
+  // defaultStartTime passed from RundownView); editing an existing segment
+  // keeps its own time; a rundown's very first segment falls back to 09:00.
+  const [startTime, setStartTime] = useState((item?.start_time || defaultStartTime || '09:00:00').slice(0, 5))
+  const [duration, setDuration] = useState(String(item?.duration_minutes || 30))
+  const [ownerLabel, setOwnerLabel] = useState(item?.owner_label || '')
+  const [busy, setBusy] = useState(false)
+
+  async function submit() {
+    if (!segment.trim() || !startTime || !duration) return
+    setBusy(true)
+    await onSave({
+      segment: segment.trim(),
+      start_time: `${startTime}:00`,
+      duration_minutes: Number(duration),
+      owner_label: ownerLabel.trim() || null,
+    })
+    setBusy(false)
   }
 
   return (
@@ -320,11 +377,11 @@ function AddItemForm({ onAdd }) {
         <input type="text" placeholder="e.g. MC / Host" value={ownerLabel} onChange={(e) => setOwnerLabel(e.target.value)} />
       </div>
       <div className="row">
-        <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setOpen(false)}>
+        <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onCancel}>
           Cancel
         </button>
         <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy || !segment.trim()} onClick={submit}>
-          {busy ? 'Adding…' : 'Add'}
+          {busy ? 'Saving…' : item ? 'Save' : 'Add'}
         </button>
       </div>
     </div>

@@ -8,6 +8,8 @@ import { formatTime } from '../../lib/schedule'
 import { RundownView } from '../../components/RundownView'
 import { TasksView } from '../../components/TasksView'
 import { ShareView } from '../../components/ShareView'
+import { BudgetView } from '../../components/BudgetView'
+import { VendorsView } from '../../components/VendorsView'
 import { ChatRail } from '../../components/ChatRail'
 import { InfoButton } from '../../components/InfoButton'
 import { Switch } from '../../components/Switch'
@@ -276,8 +278,14 @@ export default function EventWorkspace() {
         <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
           Team
         </button>
+        <button type="button" className={tab === 'budget' ? 'active' : ''} onClick={() => setTab('budget')}>
+          Budget
+        </button>
         <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
           Rundown
+        </button>
+        <button type="button" className={tab === 'vendors' ? 'active' : ''} onClick={() => setTab('vendors')}>
+          Vendors
         </button>
         <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
           Tasks
@@ -523,11 +531,15 @@ export default function EventWorkspace() {
             </div>
           )}
 
+          {tab === 'budget' && <BudgetView jobId={job.id} />}
+
           {tab === 'rundown' && (
             <div className="ws-panel">
               <RundownView jobId={job.id} canEdit />
             </div>
           )}
+          {tab === 'vendors' && <VendorsView jobId={job.id} />}
+
           {tab === 'tasks' && (
             <div className="ws-panel">
               <TasksView jobId={job.id} canManage currentUserId={user.id} teamMembers={job.confirmedTeam} />

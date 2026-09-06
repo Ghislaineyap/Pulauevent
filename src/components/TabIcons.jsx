@@ -56,3 +56,15 @@ export function IconChat(props) {
     </svg>
   )
 }
+
+// Storefront-style icon for the organizer-wide Vendor management link.
+export function IconStore(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 9.5l1-5h14l1 5" />
+      <path d="M4 9.5a2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0 2.5 2.5 0 0 0 5 0" />
+      <path d="M5 9.5V20.5h14V9.5" />
+      <path d="M10 20.5v-6h4v6" />
+    </svg>
+  )
+}
