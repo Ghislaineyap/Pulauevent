@@ -17,12 +17,23 @@ export function AuthProvider({ children }) {
       return
     }
     setLoadingProfile(true)
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('profiles')
       .select('id, role, status, suspended_reason')
       .eq('id', userId)
       .maybeSingle()
-    if (error) console.error('loadProfile error', error)
+    if (error) {
+      // Postgrest fails the WHOLE query if any requested column doesn't
+      // exist yet — most likely because migration_reports_appeals.sql
+      // hasn't been run against this database. Falling back to the columns
+      // that have always existed keeps sign-in working (just without
+      // suspension awareness) instead of leaving `data` null, `role` null,
+      // and everyone stranded on the landing screen until the migration
+      // catches up.
+      console.error('loadProfile error, retrying with fewer columns', error)
+      ;({ data, error } = await supabase.from('profiles').select('id, role').eq('id', userId).maybeSingle())
+      if (error) console.error('loadProfile fallback error', error)
+    }
     setProfile(data || null)
 
     if (data?.role === 'freelancer' || data?.role === 'organizer') {
