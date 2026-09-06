@@ -32,7 +32,7 @@ export default function MyEvents() {
       supabase
         .from('applications')
         .select(
-          'id, status, job_divisions(id, skill, jobdesk, budget_amount, budget_type, fee_type, transport_max_amount, job_id, job_postings(id, title, location, location_detail, event_start_date, event_end_date, chat_opened_at, organizer_profiles(org_name, location, about, instagram_handle, logo_url)))'
+          'id, status, job_divisions(id, skill, jobdesk, budget_amount, budget_type, fee_type, transport_max_amount, job_id, job_postings(id, title, location, location_detail, event_start_date, event_end_date, chat_opened_at, organizer_id, organizer_profiles(org_name, location, about, instagram_handle, logo_url)))'
         )
         .eq('freelancer_id', user.id),
       supabase.from('skill_endorsements').select('freelancer_id, skill').eq('endorser_id', user.id),
@@ -151,7 +151,7 @@ export default function MyEvents() {
                       type="button"
                       className="subtitle"
                       style={{ background: 'none', border: 'none', padding: 0, margin: '4px 0 0', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
-                      onClick={() => setAboutOrganizer(job.organizer_profiles)}
+                      onClick={() => setAboutOrganizer({ ...job.organizer_profiles, id: job.organizer_id })}
                     >
                       {job.organizer_profiles.org_name}
                     </button>

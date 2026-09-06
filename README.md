@@ -59,6 +59,17 @@ they'd actually be working with before deciding.)
 
 ## What's shipped since v1
 
+- **Report a profile, suspend, appeal.** Either side can flag a profile
+  (organizer or freelancer) from its "About"/profile view — reason + optional
+  details, sent straight to the admin dashboard's new Reports tab. From
+  there an admin can suspend the reported profile (with a reason) or dismiss
+  the report; a suspended person is signed out of the app into a dedicated
+  screen explaining why, where they can file an appeal. Appeals land in the
+  dashboard's Appeals tab — Approve reinstates the account, Deny keeps it
+  suspended with an optional note. Requires
+  `supabase/migration_reports_appeals.sql` (on top of `migration_admin.sql`)
+  on an existing database — new installs just need it added after
+  `schema.sql`.
 - **Multiple locations per freelancer.** `freelancer_profiles.locations` is a
   `text[]` — freelancers can list every city/area they're willing to work in, at no
   extra cost to organizers (their rate stays the same regardless).

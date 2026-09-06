@@ -5,6 +5,8 @@ import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { PhotoFrame } from '../../components/PhotoFrame'
 import { RatingsSummary } from '../../components/RatingsSummary'
+import { Modal } from '../../components/Modal'
+import { ReportForm } from '../../components/ReportForm'
 import { experienceBandLabel } from '../../lib/experience'
 
 // Full-detail view reached from a few places now — Discover's browse card,
@@ -24,6 +26,7 @@ export default function FreelancerProfileDetail() {
   const [inTeam, setInTeam] = useState(false)
   const [teamBusy, setTeamBusy] = useState(false)
   const [connected, setConnected] = useState(false)
+  const [reporting, setReporting] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -112,14 +115,35 @@ export default function FreelancerProfileDetail() {
     <div className="app-shell">
       <Topbar title="Freelancer profile" />
       <div className="page">
-        <button
-          type="button"
-          className="subtitle"
-          style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-          onClick={() => navigate(-1)}
-        >
-          ← Back
-        </button>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+            type="button"
+            className="subtitle"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+            onClick={() => navigate(-1)}
+          >
+            ← Back
+          </button>
+          <button
+            type="button"
+            className="helper-text"
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--danger)' }}
+            onClick={() => setReporting(true)}
+          >
+            🚩 Report
+          </button>
+        </div>
+
+        {reporting && (
+          <Modal title={`Report ${freelancer.name}`} onClose={() => setReporting(false)}>
+            <ReportForm
+              reportedId={freelancer.id}
+              reportedName={freelancer.name}
+              onCancel={() => setReporting(false)}
+              onDone={() => setReporting(false)}
+            />
+          </Modal>
+        )}
 
         <PhotoFrame
           photoUrl={(freelancer.photo_urls || [])[activePhoto]}

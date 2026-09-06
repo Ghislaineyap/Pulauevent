@@ -149,7 +149,7 @@ export default function JobDetail() {
 
         {showOrganizer && (
           <OrganizerAboutModal
-            organizer={job.organizer_profiles}
+            organizer={{ ...job.organizer_profiles, id: job.organizer_id }}
             jobCount={organizerStats?.jobCount}
             onClose={() => setShowOrganizer(false)}
           />

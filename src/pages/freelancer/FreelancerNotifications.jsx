@@ -27,7 +27,7 @@ export default function FreelancerNotifications() {
     const [{ data: likes }, { data: matchRows }, { data: acceptedApps }] = await Promise.all([
       supabase
         .from('likes')
-        .select('id, organizer_profiles(org_name, location, about, instagram_handle, logo_url)')
+        .select('id, organizer_id, organizer_profiles(org_name, location, about, instagram_handle, logo_url)')
         .eq('freelancer_id', user.id)
         .eq('status', 'pending'),
       supabase
@@ -129,7 +129,7 @@ export default function FreelancerNotifications() {
                       type="button"
                       className="subtitle"
                       style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
-                      onClick={() => setAboutOrganizer(l.organizer_profiles)}
+                      onClick={() => setAboutOrganizer({ ...l.organizer_profiles, id: l.organizer_id })}
                     >
                       {l.organizer_profiles.org_name}
                     </button>

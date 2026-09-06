@@ -5,16 +5,18 @@ import logoMark from '../assets/logo-mark.png'
 
 export default function Landing() {
   const navigate = useNavigate()
-  const { user, role, isOnboarded, loading } = useAuth()
+  const { user, role, isOnboarded, isSuspended, loading } = useAuth()
 
   useEffect(() => {
     if (loading || !user || !role) return
-    if (!isOnboarded) {
+    if (isSuspended) {
+      navigate('/suspended', { replace: true })
+    } else if (!isOnboarded) {
       navigate(role === 'freelancer' ? '/freelancer/onboarding' : '/organizer/onboarding', { replace: true })
     } else {
       navigate(role === 'freelancer' ? '/freelancer/jobs' : '/organizer/my-events', { replace: true })
     }
-  }, [loading, user, role, isOnboarded, navigate])
+  }, [loading, user, role, isOnboarded, isSuspended, navigate])
 
   return (
     <div className="app-shell landing-hero">

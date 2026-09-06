@@ -8,6 +8,7 @@ import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import CheckEmail from './pages/CheckEmail'
+import SuspendedAccount from './pages/SuspendedAccount'
 import Chat from './pages/Chat'
 import EventChat from './pages/EventChat'
 
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/suspended" element={<SuspendedAccount />} />
 
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route

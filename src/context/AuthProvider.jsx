@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
     setLoadingProfile(true)
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, role')
+      .select('id, role, status, suspended_reason')
       .eq('id', userId)
       .maybeSingle()
     if (error) console.error('loadProfile error', error)
@@ -67,6 +67,11 @@ export function AuthProvider({ children }) {
     role: profile?.role ?? null,
     roleProfile,
     isOnboarded: Boolean(roleProfile),
+    // Suspension is a profile-level flag (see migration_reports_appeals.sql)
+    // — checked by Guard/Landing to route a suspended user to /suspended
+    // regardless of role.
+    isSuspended: profile?.status === 'suspended',
+    suspendedReason: profile?.suspended_reason ?? null,
     loading: session === undefined || loadingProfile,
     refreshProfile,
     signOut,
