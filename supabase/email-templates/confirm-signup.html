@@ -1,0 +1,66 @@
+<!-- Pulau Event — "Confirm signup" template.
+     Paste into: Supabase Dashboard → Authentication → Email Templates → Confirm signup
+     (replace both the Subject and the body). Table-based layout with all
+     styles inline — this is deliberate, not sloppy: many email clients
+     (Outlook especially) ignore <style> blocks and modern CSS entirely, so
+     inline styles + tables is what actually renders consistently everywhere.
+     Subject suggestion: Confirm your Pulau Event account -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f6efe1;padding:32px 16px;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background-color:#ffffff;border:1px solid #e7dac1;border-radius:18px;overflow:hidden;">
+        <tr>
+          <td align="center" style="padding:36px 32px 8px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td width="72" height="72" style="width:72px;height:72px;background-color:#2e3b24;border-radius:18px;" align="center" valign="middle">
+                  <img src="https://pulauevent.com/logo-mark.png" width="52" height="52" alt="Pulau Event" style="display:block;width:52px;height:52px;" />
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:16px 36px 0;">
+            <h1 style="margin:0;font-size:20px;line-height:1.3;color:#171a12;font-weight:700;">Confirm your email</h1>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:10px 36px 28px;">
+            <p style="margin:0;font-size:14px;line-height:1.6;color:#8a6f4a;">
+              One tap and you're in — this confirms <strong style="color:#171a12;">{{ .Email }}</strong> is really you, so your Pulau Event account is ready to go.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding:0 36px 36px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background-color:#e1552e;border-radius:12px;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:13px 34px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:12px;">
+                    Confirm my email
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:0 36px 32px;">
+            <p style="margin:0;font-size:12px;line-height:1.6;color:#8a6f4a;text-align:center;">
+              Button not working? Paste this link into your browser:<br />
+              <a href="{{ .ConfirmationURL }}" style="color:#b8431f;word-break:break-all;">{{ .ConfirmationURL }}</a>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 36px;background-color:#f6efe1;border-top:1px solid #e7dac1;">
+            <p style="margin:0;font-size:11.5px;line-height:1.6;color:#8a6f4a;text-align:center;">
+              Didn't sign up for Pulau Event? You can safely ignore this email.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
