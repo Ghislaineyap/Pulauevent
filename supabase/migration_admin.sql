@@ -33,26 +33,34 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Read access for the dashboard's overview + management views. These are
 -- ADDITIONAL (permissive) policies — they only ever grant more, never take
--- away what freelancers/organizers can already see.
+-- away what freelancers/organizers can already see. Each is dropped first
+-- so this file is actually safe to re-run, as the header above claims.
 -- ---------------------------------------------------------------------------
+drop policy if exists "admins can read every profile" on public.profiles;
 create policy "admins can read every profile" on public.profiles
   for select using (public.is_admin());
 
+drop policy if exists "admins can read every application" on public.applications;
 create policy "admins can read every application" on public.applications
   for select using (public.is_admin());
 
+drop policy if exists "admins can read every like" on public.likes;
 create policy "admins can read every like" on public.likes
   for select using (public.is_admin());
 
+drop policy if exists "admins can read every match" on public.matches;
 create policy "admins can read every match" on public.matches
   for select using (public.is_admin());
 
+drop policy if exists "admins can read every team roster" on public.team_members;
 create policy "admins can read every team roster" on public.team_members
   for select using (public.is_admin());
 
+drop policy if exists "admins can read every 1:1 message" on public.messages;
 create policy "admins can read every 1:1 message" on public.messages
   for select using (public.is_admin());
 
+drop policy if exists "admins can read every event chat message" on public.job_chat_messages;
 create policy "admins can read every event chat message" on public.job_chat_messages
   for select using (public.is_admin());
 
@@ -62,6 +70,7 @@ create policy "admins can read every event chat message" on public.job_chat_mess
 -- ratings for that event, so deleting the posting is enough to remove it
 -- entirely.
 -- ---------------------------------------------------------------------------
+drop policy if exists "admins can delete any event" on public.job_postings;
 create policy "admins can delete any event" on public.job_postings
   for delete using (public.is_admin());
 
