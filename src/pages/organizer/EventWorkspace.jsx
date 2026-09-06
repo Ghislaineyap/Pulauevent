@@ -8,6 +8,7 @@ import { formatTime } from '../../lib/schedule'
 import { RundownView } from '../../components/RundownView'
 import { TasksView } from '../../components/TasksView'
 import { ShareView } from '../../components/ShareView'
+import { BudgetView } from '../../components/BudgetView'
 import { ChatRail } from '../../components/ChatRail'
 import { InfoButton } from '../../components/InfoButton'
 import { Switch } from '../../components/Switch'
@@ -276,6 +277,9 @@ export default function EventWorkspace() {
         <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
           Team
         </button>
+        <button type="button" className={tab === 'budget' ? 'active' : ''} onClick={() => setTab('budget')}>
+          Budget
+        </button>
         <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
           Rundown
         </button>
@@ -522,6 +526,8 @@ export default function EventWorkspace() {
               )}
             </div>
           )}
+
+          {tab === 'budget' && <BudgetView jobId={job.id} />}
 
           {tab === 'rundown' && (
             <div className="ws-panel">

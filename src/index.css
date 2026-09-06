@@ -1599,3 +1599,122 @@ textarea {
   align-items: center;
   gap: 8px;
 }
+
+/* Budget tab — line-item table + ledger summary sidebar */
+.budget-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+.budget-table th {
+  text-align: left;
+  padding: 9px 10px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+  background: var(--cloud);
+}
+.budget-table th.num {
+  text-align: right;
+}
+.budget-table th:nth-last-child(2),
+.budget-table td:nth-last-child(2) {
+  white-space: nowrap;
+  min-width: 112px;
+}
+.budget-table td {
+  padding: 9px 10px;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.budget-table td.num {
+  text-align: right;
+  font-weight: 700;
+}
+.budget-table td.muted {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.budget-row-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.budget-icon-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: white;
+  color: var(--muted);
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.budget-summary-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.budget-summary-row.total {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-weight: 700;
+}
+.budget-summary-row.total span:last-child {
+  font-weight: 800;
+  font-size: 14px;
+}
+.budget-callout {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.budget-callout.under {
+  background: #e4ead9;
+  color: var(--mint);
+}
+.budget-callout.over {
+  background: #f9e0dc;
+  color: var(--danger);
+}
+.budget-bar-row {
+  margin-bottom: 7px;
+}
+.budget-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  margin-bottom: 3px;
+  color: var(--ink);
+}
+.budget-bar-label span:last-child {
+  color: var(--muted);
+}
+.budget-bar-track {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--cloud);
+  overflow: hidden;
+}
+.budget-bar-fill {
+  height: 100%;
+  background: var(--sunset);
+}
+.budget-item-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.budget-item-form .field {
+  margin-bottom: 0;
+}
+.budget-item-form .field.span-2 {
+  grid-column: span 2;
+}
