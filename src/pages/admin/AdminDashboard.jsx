@@ -7,11 +7,20 @@ import { formatEventDates } from '../../lib/date'
 // (not the mobile app-shell the rest of the app uses) — this is a desktop
 // tool for the person running the platform, not a screen a freelancer or
 // organizer ever sees.
+//
+// Three separate lists (organizers, freelancers, events) rather than one
+// combined "users" table — each has its own shape (an organizer has one
+// location, a freelancer can cover several, an event has its own), and
+// keeping them apart is what makes the location filter below mean the same
+// thing regardless of which tab you're on: "show me who/what is in X".
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('users') // 'users' | 'events'
-  const [users, setUsers] = useState([])
+  const [tab, setTab] = useState('organizers') // 'organizers' | 'freelancers' | 'events'
+  const [locationFilter, setLocationFilter] = useState('')
+  const [locationOptions, setLocationOptions] = useState([])
+  const [organizers, setOrganizers] = useState([])
+  const [freelancers, setFreelancers] = useState([])
   const [events, setEvents] = useState([])
   const [pendingApplications, setPendingApplications] = useState(0)
   const [emailsUnavailable, setEmailsUnavailable] = useState(false)
@@ -28,30 +37,32 @@ export default function AdminDashboard() {
       { data: freelancerRows, error: freelancerError },
       { data: organizerRows, error: organizerError },
       { data: jobRows, error: jobsError },
+      { data: locationRows, error: locationsError },
       { count: pendingCount, error: pendingError },
     ] = await Promise.all([
-      supabase.from('profiles').select('id, role, created_at'),
-      supabase.from('freelancer_profiles').select('id, name'),
-      supabase.from('organizer_profiles').select('id, org_name'),
+      supabase.from('profiles').select('id, created_at'),
+      supabase.from('freelancer_profiles').select('id, name, locations'),
+      supabase.from('organizer_profiles').select('id, org_name, location'),
       supabase
         .from('job_postings')
         .select(
           'id, title, location, event_start_date, event_end_date, created_at, organizer_id, organizer_profiles(org_name), job_divisions(id, skill, quantity, filled_count)'
         )
         .order('created_at', { ascending: false }),
+      supabase.from('locations').select('label').order('sort_order'),
       supabase.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
     if (profilesError) console.error(profilesError)
     if (freelancerError) console.error(freelancerError)
     if (organizerError) console.error(organizerError)
     if (jobsError) console.error(jobsError)
+    if (locationsError) console.error(locationsError)
     if (pendingError) console.error(pendingError)
     setPendingApplications(pendingCount || 0)
     setEvents(jobRows || [])
+    setLocationOptions((locationRows || []).map((l) => l.label))
 
-    const nameById = new Map()
-    ;(freelancerRows || []).forEach((f) => nameById.set(f.id, f.name))
-    ;(organizerRows || []).forEach((o) => nameById.set(o.id, o.org_name))
+    const createdAtById = new Map((profileRows || []).map((p) => [p.id, p.created_at]))
 
     // Email lives in auth.users, which the browser can never read directly —
     // only the admin-list-users Edge Function (running with the service
@@ -72,13 +83,22 @@ export default function AdminDashboard() {
     }
     setEmailsUnavailable(emailsFailed)
 
-    setUsers(
-      (profileRows || []).map((p) => ({
-        id: p.id,
-        role: p.role,
-        name: nameById.get(p.id) || null,
-        email: emailById.get(p.id) || null,
-        createdAt: p.created_at,
+    setOrganizers(
+      (organizerRows || []).map((o) => ({
+        id: o.id,
+        name: o.org_name,
+        location: o.location,
+        email: emailById.get(o.id) || null,
+        createdAt: createdAtById.get(o.id),
+      }))
+    )
+    setFreelancers(
+      (freelancerRows || []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        locations: f.locations || [],
+        email: emailById.get(f.id) || null,
+        createdAt: createdAtById.get(f.id),
       }))
     )
     setLoading(false)
@@ -126,8 +146,11 @@ export default function AdminDashboard() {
     setEvents((es) => es.filter((e) => e.id !== jobId))
   }
 
-  const freelancerCount = users.filter((u) => u.role === 'freelancer').length
-  const organizerCount = users.filter((u) => u.role === 'organizer').length
+  const filteredOrganizers = locationFilter ? organizers.filter((o) => o.location === locationFilter) : organizers
+  const filteredFreelancers = locationFilter
+    ? freelancers.filter((f) => f.locations.includes(locationFilter))
+    : freelancers
+  const filteredEvents = locationFilter ? events.filter((e) => e.location === locationFilter) : events
 
   return (
     <div className="admin-shell">
@@ -144,11 +167,11 @@ export default function AdminDashboard() {
       <div className="admin-stats">
         <div className="stat-tile">
           <span className="subtitle">Freelancers</span>
-          <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{freelancerCount}</span>
+          <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{freelancers.length}</span>
         </div>
         <div className="stat-tile">
           <span className="subtitle">Organizers</span>
-          <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{organizerCount}</span>
+          <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{organizers.length}</span>
         </div>
         <div className="stat-tile">
           <span className="subtitle">Events</span>
@@ -168,52 +191,117 @@ export default function AdminDashboard() {
       )}
       {actionError && <p className="error-text" style={{ marginBottom: 16 }}>{actionError}</p>}
 
-      <div className="segmented" style={{ maxWidth: 280, marginBottom: 16 }}>
-        <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>
-          Users
-        </button>
-        <button type="button" className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>
-          Events
-        </button>
+      <div className="row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+        <div className="segmented" style={{ maxWidth: 380 }}>
+          <button type="button" className={tab === 'organizers' ? 'active' : ''} onClick={() => setTab('organizers')}>
+            Organizers
+          </button>
+          <button type="button" className={tab === 'freelancers' ? 'active' : ''} onClick={() => setTab('freelancers')}>
+            Freelancers
+          </button>
+          <button type="button" className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>
+            Events
+          </button>
+        </div>
+        <select
+          value={locationFilter}
+          onChange={(e) => setLocationFilter(e.target.value)}
+          style={{ maxWidth: 220 }}
+        >
+          <option value="">All locations</option>
+          {locationOptions.map((loc) => (
+            <option key={loc} value={loc}>
+              {loc}
+            </option>
+          ))}
+        </select>
+        {locationFilter && (
+          <button type="button" className="btn btn-outline" style={{ padding: '6px 12px', fontSize: 12.5 }} onClick={() => setLocationFilter('')}>
+            Clear filter
+          </button>
+        )}
       </div>
 
       {loading && <p className="subtitle">Loading…</p>}
 
-      {!loading && tab === 'users' && (
+      {!loading && tab === 'organizers' && (
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
-                <th>Role</th>
-                <th>Name</th>
+                <th>Organizer</th>
+                <th>Location</th>
                 <th>Email</th>
                 <th>Joined</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
-                <tr key={u.id}>
-                  <td style={{ textTransform: 'capitalize' }}>{u.role}</td>
-                  <td>{u.name || <span style={{ color: 'var(--muted)' }}>Onboarding not finished</span>}</td>
-                  <td>{u.email || '—'}</td>
-                  <td>{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}</td>
+              {filteredOrganizers.map((o) => (
+                <tr key={o.id}>
+                  <td>{o.name || <span style={{ color: 'var(--muted)' }}>Onboarding not finished</span>}</td>
+                  <td>{o.location || '—'}</td>
+                  <td>{o.email || '—'}</td>
+                  <td>{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : '—'}</td>
                   <td>
                     <DeleteButton
-                      id={u.id}
+                      id={o.id}
                       confirmDeleteId={confirmDeleteId}
-                      busy={busyId === u.id}
-                      onArm={() => setConfirmDeleteId(u.id)}
+                      busy={busyId === o.id}
+                      onArm={() => setConfirmDeleteId(o.id)}
                       onCancel={() => setConfirmDeleteId(null)}
-                      onConfirm={() => handleDeleteUser(u.id)}
+                      onConfirm={() => handleDeleteUser(o.id)}
                     />
                   </td>
                 </tr>
               ))}
-              {users.length === 0 && (
+              {filteredOrganizers.length === 0 && (
                 <tr>
                   <td colSpan={5} className="subtitle" style={{ textAlign: 'center', padding: 20 }}>
-                    No accounts yet.
+                    {locationFilter ? `No organizers in ${locationFilter}.` : 'No organizers yet.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!loading && tab === 'freelancers' && (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Freelancer</th>
+                <th>Locations</th>
+                <th>Email</th>
+                <th>Joined</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFreelancers.map((f) => (
+                <tr key={f.id}>
+                  <td>{f.name || <span style={{ color: 'var(--muted)' }}>Onboarding not finished</span>}</td>
+                  <td>{f.locations.length > 0 ? f.locations.join(', ') : '—'}</td>
+                  <td>{f.email || '—'}</td>
+                  <td>{f.createdAt ? new Date(f.createdAt).toLocaleDateString() : '—'}</td>
+                  <td>
+                    <DeleteButton
+                      id={f.id}
+                      confirmDeleteId={confirmDeleteId}
+                      busy={busyId === f.id}
+                      onArm={() => setConfirmDeleteId(f.id)}
+                      onCancel={() => setConfirmDeleteId(null)}
+                      onConfirm={() => handleDeleteUser(f.id)}
+                    />
+                  </td>
+                </tr>
+              ))}
+              {filteredFreelancers.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="subtitle" style={{ textAlign: 'center', padding: 20 }}>
+                    {locationFilter ? `No freelancers covering ${locationFilter}.` : 'No freelancers yet.'}
                   </td>
                 </tr>
               )}
@@ -236,7 +324,7 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {events.map((job) => (
+              {filteredEvents.map((job) => (
                 <tr key={job.id}>
                   <td>{job.title}</td>
                   <td>{job.organizer_profiles?.org_name || '—'}</td>
@@ -255,10 +343,10 @@ export default function AdminDashboard() {
                   </td>
                 </tr>
               ))}
-              {events.length === 0 && (
+              {filteredEvents.length === 0 && (
                 <tr>
                   <td colSpan={6} className="subtitle" style={{ textAlign: 'center', padding: 20 }}>
-                    No events yet.
+                    {locationFilter ? `No events in ${locationFilter}.` : 'No events yet.'}
                   </td>
                 </tr>
               )}
