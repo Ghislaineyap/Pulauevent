@@ -23,7 +23,7 @@ export default function Landing() {
       </div>
       <div>
         <h1>Pulau Event</h1>
-        <p className="subtitle">Where event freelancers and organizers connect.</p>
+        <p className="subtitle">Freelancers and organizers, connected.</p>
       </div>
       <div className="stack" style={{ width: '100%', maxWidth: 320 }}>
         <button className="btn btn-accent btn-block" onClick={() => navigate('/login?role=freelancer')}>

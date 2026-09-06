@@ -543,8 +543,9 @@ textarea {
 
 .landing-hero p.subtitle {
   color: var(--muted);
-  max-width: 280px;
+  max-width: 320px;
   margin: 0 auto;
+  white-space: nowrap;
 }
 
 /* Smoother page-open feel — a quick fade+rise instead of an abrupt swap. */
