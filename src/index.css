@@ -945,13 +945,41 @@ textarea {
   .app-shell .tabbar {
     display: none;
   }
+
+  /* De-box the app-shell: the colored topbar sitting flush against a
+     differently-tinted page below it reads as one wide card no matter how
+     wide it gets — widening it just makes a bigger box. Drop both: the
+     topbar becomes a plain heading (brand name + sign out, no fill or
+     rounded corners) and the page sits directly on the same --cloud
+     background as the rest of the desktop shell, exactly like the
+     .desktop-workspace pages — individual .card/.stat-tile/.ws-panel
+     elements still provide whatever visual structure the content needs. */
   .app-shell .topbar {
-    border-radius: 16px 16px 0 0;
+    background: transparent;
+    color: var(--ink);
+    padding: 4px 0 18px;
+    border-radius: 0;
+  }
+  .app-shell .topbar .brand {
+    font-size: 21px;
+    font-weight: 700;
+  }
+  .app-shell .topbar button.link {
+    color: var(--muted);
+    font-weight: 600;
   }
   .app-shell .page {
-    padding: 26px 28px 24px;
-    background: var(--bg);
-    border-radius: 0 0 16px 16px;
+    padding: 0 0 24px;
+    background: transparent;
+    border-radius: 0;
+  }
+  /* The Home/List/Calendar (and similar) pill control loses its track
+     otherwise — .segmented's background is the same --cloud the page now
+     sits on. Scoped to .app-shell so this never touches the same control
+     rendered inside a white .ws-panel on the workspace pages. */
+  .app-shell .segmented {
+    background: var(--card);
+    max-width: 420px;
   }
 
   /* The Home dashboard's "+" is normally pinned to the viewport (so it
