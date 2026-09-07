@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
@@ -478,9 +478,24 @@ export default function MyEvents() {
 // reads from the same `jobs`/`teamMembers` the List/Calendar views use — no
 // separate data model — and tapping into an event reuses the same "Manage
 // event" modal those views already open.
+// 900px matches the .desktop-workspace/.app-shell breakpoint in index.css —
+// below it EventWorkspace isn't reachable from navigation at all, so the
+// mobile "Manage event" bottom sheet is still the only way in.
+const DESKTOP_BREAKPOINT = '(min-width: 900px)'
+
 function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, onCreate }) {
+  const navigate = useNavigate()
   const today = todayISO()
   const [selectedDay, setSelectedDay] = useState(today)
+
+  // On desktop, go straight to the real event workspace instead of the old
+  // mobile bottom-sheet modal — the modal reads like a stretched-phone
+  // overlay on a wide screen, and the workspace is what desktop is for.
+  // Mobile keeps opening the modal exactly as before.
+  function openEvent(jobId) {
+    if (window.matchMedia(DESKTOP_BREAKPOINT).matches) navigate(`/organizer/events/${jobId}`)
+    else onManage(jobId)
+  }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = startOfWeek(new Date())
@@ -521,7 +536,7 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
           type="button"
           className="card stack next-event-card"
           style={{ textAlign: 'left', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'inherit' }}
-          onClick={() => onManage(nextEvent.id)}
+          onClick={() => openEvent(nextEvent.id)}
         >
           <div className="stack next-event-info" style={{ gap: 4 }}>
             <p
@@ -574,7 +589,7 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
             </p>
           )}
           {agendaJobs.map((j) => (
-            <button key={j.id} type="button" className="row-card" onClick={() => onManage(j.id)}>
+            <button key={j.id} type="button" className="row-card" onClick={() => openEvent(j.id)}>
               <div className="icon-badge">
                 <SkillIcon skill={j.job_divisions[0]?.skill} />
               </div>
