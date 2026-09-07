@@ -11,6 +11,10 @@ import { ChatRail } from '../../components/ChatRail'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// Same idea as the organizer workspace: Tasks is the data-dense/scoped tab,
+// so its chat rail defaults collapsed; Overview and Rundown keep it open.
+const CHAT_COLLAPSED_BY_DEFAULT = { overview: false, rundown: false, tasks: true }
+
 function daysLabel(startDate, endDate) {
   const today = todayISO()
   if (endDate < today) return 'Completed'
@@ -37,6 +41,15 @@ export default function EventWorkspace() {
   const [rundownPreview, setRundownPreview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('overview') // 'overview' | 'rundown' | 'tasks'
+  const [chatCollapsed, setChatCollapsed] = useState(CHAT_COLLAPSED_BY_DEFAULT.overview)
+  const [chatTabSeen, setChatTabSeen] = useState('overview')
+  // See organizer/EventWorkspace.jsx: reset to the new tab's default only
+  // when the tab actually changes, adjusted during render rather than in
+  // an effect.
+  if (tab !== chatTabSeen) {
+    setChatTabSeen(tab)
+    setChatCollapsed(CHAT_COLLAPSED_BY_DEFAULT[tab] ?? false)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -164,17 +177,22 @@ export default function EventWorkspace() {
         <span className="chip chip-outline">You're booked as {job.skill}</span>
       </div>
 
-      <nav className="ws-tabs" style={{ marginTop: 18 }}>
-        <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
-          Overview
+      <div className="ws-tabs-row" style={{ marginTop: 18 }}>
+        <nav className="ws-tabs">
+          <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
+            Overview
+          </button>
+          <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
+            Rundown
+          </button>
+          <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
+            Tasks
+          </button>
+        </nav>
+        <button type="button" className="chat-toggle-btn" onClick={() => setChatCollapsed((c) => !c)}>
+          💬 {chatCollapsed ? 'Open chat' : 'Hide chat'}
         </button>
-        <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
-          Rundown
-        </button>
-        <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
-          Tasks
-        </button>
-      </nav>
+      </div>
 
       <div className="ws-body-row" style={{ marginTop: 20 }}>
         <div className="ws-main-col">
@@ -311,7 +329,7 @@ export default function EventWorkspace() {
           )}
         </div>
 
-        <ChatRail jobId={jobId} eventTitle={job.title} currentUserId={user.id} canOpenChat={false} />
+        <ChatRail jobId={jobId} eventTitle={job.title} currentUserId={user.id} canOpenChat={false} collapsed={chatCollapsed} />
       </div>
     </div>
   )
