@@ -1239,7 +1239,7 @@ textarea {
 }
 
 .ws-header h1 {
-  font-size: 26px;
+  font-size: 20px;
 }
 
 .ws-meta {
@@ -1248,37 +1248,74 @@ textarea {
   margin: 6px 0 0;
 }
 
-/* Underline tab strip — a proper desktop nav, distinct from the mobile
-   pill-segmented control (.segmented) used elsewhere in the app. */
+/* Compact segmented pill tab bar — replaces the old underline strip, which
+   read as a cluttered row of 7 equal-weight items once Budget/Vendors were
+   added. Grouping them into one pill (Linear/Notion-style) reads as a single
+   control instead of seven separate ones. */
 .ws-tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--border);
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--cloud);
+  border-radius: 10px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 .ws-tabs button {
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  padding: 10px 4px;
-  margin-right: 22px;
-  font-size: 13.5px;
+  border-radius: 7px;
+  padding: 7px 12px;
+  margin-right: 0;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--muted);
+  white-space: nowrap;
   cursor: pointer;
 }
 .ws-tabs button:hover {
   color: var(--ink);
 }
 .ws-tabs button.active {
-  color: var(--primary);
-  border-bottom-color: var(--primary);
+  color: var(--ink);
+  font-weight: 700;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(23, 26, 18, 0.08);
+}
+
+/* Row holding the tab pill plus the chat-rail toggle — lets the toggle sit
+   flush right of the tabs instead of stealing space from ws-header. */
+.ws-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-toggle-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chat-toggle-btn:hover {
+  border-color: var(--primary);
 }
 
 .ws-panel {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 24px;
+  border-radius: 16px;
+  padding: 16px;
   box-shadow: 0 1px 3px rgba(23, 26, 18, 0.06);
 }
 
@@ -1376,18 +1413,18 @@ textarea {
    .stat-tile (used by the mobile dashboards) is untouched. */
 .ws-stat-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 .ws-stat-tile {
   flex: 1;
   min-width: 0;
-  border-radius: 14px;
-  padding: 13px 15px;
+  border-radius: 12px;
+  padding: 10px 13px;
   background: var(--card);
   border: 1px solid var(--cloud);
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 .ws-stat-tile .ws-stat-label {
   font-size: 11px;
@@ -1395,7 +1432,7 @@ textarea {
   font-weight: 600;
 }
 .ws-stat-tile .ws-stat-value {
-  font-size: 21px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--ink);
 }
@@ -1411,7 +1448,7 @@ textarea {
    rail eating the right edge of the page. */
 .ws-two-col {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: flex-start;
 }
 .ws-col-main {
@@ -1419,14 +1456,14 @@ textarea {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 .ws-col-side {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .ws-kv-row {

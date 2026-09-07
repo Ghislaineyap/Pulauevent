@@ -19,6 +19,14 @@ import { TeamSelectView, RecruitForm, EventForm, RateForm } from './MyEvents'
 const ROLE_COLORS = ['var(--primary)', 'var(--sunset-dark)', 'var(--mint)', 'var(--primary-dark)', 'var(--sunset)']
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// Which tabs default to a collapsed chat rail: the data-dense/admin tabs
+// (Team, Budget, Vendors, Tasks, Share) free up the full main-column width
+// for tables and forms, while Overview and Rundown — where team context
+// actually matters while you work — keep the rail open. Matches the
+// "Pulau Event v2 — Desktop Workspace" design canvas. A manual toggle still
+// lets the organizer override this for whatever tab they're on.
+const CHAT_COLLAPSED_BY_DEFAULT = { overview: false, team: true, budget: true, rundown: false, vendors: true, tasks: true, share: true }
+
 function daysLabel(startDate, endDate) {
   const today = todayISO()
   if (endDate < today) return 'Completed'
@@ -53,6 +61,17 @@ export default function EventWorkspace() {
   const [tab, setTab] = useState('overview') // 'overview' | 'team' | 'rundown' | 'tasks' | 'share'
   const [editing, setEditing] = useState(false)
   const [divSub, setDivSub] = useState(null) // { type: 'team' | 'recruit', divisionId } | null
+  const [chatCollapsed, setChatCollapsed] = useState(CHAT_COLLAPSED_BY_DEFAULT.overview)
+  const [chatTabSeen, setChatTabSeen] = useState('overview')
+  // Reset to the new tab's default whenever the tab actually changes (a
+  // manual toggle click still wins for as long as you stay on that tab).
+  // Adjusting state during render like this — rather than in an effect —
+  // avoids an extra render pass; see the React docs on resetting state
+  // when a prop changes.
+  if (tab !== chatTabSeen) {
+    setChatTabSeen(tab)
+    setChatCollapsed(CHAT_COLLAPSED_BY_DEFAULT[tab] ?? false)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -271,29 +290,34 @@ export default function EventWorkspace() {
         </button>
       </div>
 
-      <nav className="ws-tabs" style={{ marginTop: 18 }}>
-        <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
-          Overview
+      <div className="ws-tabs-row" style={{ marginTop: 18 }}>
+        <nav className="ws-tabs">
+          <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
+            Overview
+          </button>
+          <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
+            Team
+          </button>
+          <button type="button" className={tab === 'budget' ? 'active' : ''} onClick={() => setTab('budget')}>
+            Budget
+          </button>
+          <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
+            Rundown
+          </button>
+          <button type="button" className={tab === 'vendors' ? 'active' : ''} onClick={() => setTab('vendors')}>
+            Vendors
+          </button>
+          <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
+            Tasks
+          </button>
+          <button type="button" className={tab === 'share' ? 'active' : ''} onClick={() => setTab('share')}>
+            Share
+          </button>
+        </nav>
+        <button type="button" className="chat-toggle-btn" onClick={() => setChatCollapsed((c) => !c)}>
+          💬 {chatCollapsed ? 'Open chat' : 'Hide chat'}
         </button>
-        <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
-          Team
-        </button>
-        <button type="button" className={tab === 'budget' ? 'active' : ''} onClick={() => setTab('budget')}>
-          Budget
-        </button>
-        <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
-          Rundown
-        </button>
-        <button type="button" className={tab === 'vendors' ? 'active' : ''} onClick={() => setTab('vendors')}>
-          Vendors
-        </button>
-        <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
-          Tasks
-        </button>
-        <button type="button" className={tab === 'share' ? 'active' : ''} onClick={() => setTab('share')}>
-          Share
-        </button>
-      </nav>
+      </div>
 
       <div className="ws-body-row" style={{ marginTop: 20 }}>
         <div className="ws-main-col">
@@ -552,7 +576,7 @@ export default function EventWorkspace() {
           )}
         </div>
 
-        <ChatRail jobId={job.id} eventTitle={job.title} currentUserId={user.id} canOpenChat onEnableChat={() => toggleEventChat(true)} />
+        <ChatRail jobId={job.id} eventTitle={job.title} currentUserId={user.id} canOpenChat onEnableChat={() => toggleEventChat(true)} collapsed={chatCollapsed} />
       </div>
     </div>
   )

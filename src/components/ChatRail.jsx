@@ -7,7 +7,7 @@ import { formatMessageTime } from '../lib/date'
 // every tab, instead of living behind a separate /event-chat/:jobId route).
 // Same job_chat_messages table + realtime subscription as pages/EventChat —
 // this is the same feature, just rendered as a rail instead of a page.
-export function ChatRail({ jobId, eventTitle, currentUserId, canOpenChat, onEnableChat }) {
+export function ChatRail({ jobId, eventTitle, currentUserId, canOpenChat, onEnableChat, collapsed }) {
   const [namesById, setNamesById] = useState(new Map())
   const [chatOpened, setChatOpened] = useState(null) // null = still loading
   const [messages, setMessages] = useState([])
@@ -97,7 +97,7 @@ export function ChatRail({ jobId, eventTitle, currentUserId, canOpenChat, onEnab
   }
 
   return (
-    <aside className="chat-rail">
+    <aside className="chat-rail" style={collapsed ? { display: 'none' } : undefined}>
       <div className="chat-head">
         <div>
           <div className="ct-name">Event chat</div>
