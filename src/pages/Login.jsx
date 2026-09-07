@@ -83,11 +83,6 @@ export default function Login() {
               placeholder="At least 6 characters"
             />
           </div>
-          {mode === 'signin' && (
-            <Link to="/forgot-password" className="subtitle" style={{ textAlign: 'right', fontWeight: 600 }}>
-              Forgot password?
-            </Link>
-          )}
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-primary btn-block" disabled={busy} type="submit">
             {busy ? 'Please wait…' : mode === 'signup' ? 'Create account' : 'Sign in'}
@@ -104,6 +99,14 @@ export default function Login() {
           >
             {mode === 'signup' ? 'Sign in' : 'Sign up'}
           </button>
+          {mode === 'signin' && (
+            <>
+              {' · '}
+              <Link to="/forgot-password" style={{ fontWeight: 700, color: 'var(--sunset-dark)' }}>
+                Forgot password?
+              </Link>
+            </>
+          )}
         </p>
       </div>
     </div>
