@@ -857,6 +857,16 @@ textarea {
   min-height: 100%;
 }
 
+/* Home dashboard row — same flex-column + 12px gap as .stack by default
+   (so mobile spacing between the week strip / agenda / stat row is exactly
+   what it was before this wrapper existed); becomes a two-column grid at
+   the desktop breakpoint below. */
+.home-dash-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 /* Base (mobile-reachable-by-URL) padding for the new workspace pages — at
    900px+ .desktop-content's flex layout takes over sizing (see below). */
 .desktop-workspace {
@@ -919,7 +929,7 @@ textarea {
      the desktop shell either. */
   .desktop-content > .app-shell {
     width: 100%;
-    max-width: 760px;
+    max-width: 920px;
     align-self: flex-start;
     background: transparent;
   }
@@ -939,9 +949,73 @@ textarea {
     border-radius: 16px 16px 0 0;
   }
   .app-shell .page {
-    padding: 26px 8px 24px;
+    padding: 26px 28px 24px;
     background: var(--bg);
     border-radius: 0 0 16px 16px;
+  }
+
+  /* The Home dashboard's "+" is normally pinned to the viewport (so it
+     tracks a phone's screen edge while scrolling); on desktop the viewport
+     edge and the app-shell card's edge are two different things once a
+     260px sidebar is in the way, so the fixed math above lands the button
+     in the middle of the stat row instead of the card's corner. Anchor it
+     to the card itself instead (.app-shell already establishes the
+     containing block via position: relative). */
+  .fab-btn {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+  }
+
+  /* Home dashboard desktop reflow — mobile keeps the exact single-column
+     stack (next event → week strip → today's agenda → stat row); at this
+     width the same four blocks, in the same DOM order, arrange into a real
+     two-column dashboard instead of just a wider version of the same
+     phone-shaped stack. The "Next event" card stays full-width as the
+     page's one hero element; the calendar strip + today's agenda become
+     the main column, and the at-a-glance stats sit alongside as a side
+     column — the same main/side vocabulary as the event workspace's
+     Overview tab. */
+  .home-dash-row {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .home-dash-row > .week-strip {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+  .home-dash-row > .home-agenda-block {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .home-dash-row > .home-stat-row {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+
+  /* The "Next event" hero card: a vertical stack of lines reads fine at
+     phone width, but at 920px it leaves a wide dead strip of white to the
+     right of the text. Turn it into a row and add a lightweight call to
+     action so the extra width is doing something. */
+  .next-event-card {
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .next-event-card::after {
+    content: 'Manage →';
+    flex-shrink: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--primary-dark);
+    background: var(--cloud);
+    padding: 8px 14px;
+    border-radius: 10px;
+    white-space: nowrap;
   }
 }
 

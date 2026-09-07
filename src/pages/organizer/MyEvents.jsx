@@ -519,87 +519,97 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
       {nextEvent ? (
         <button
           type="button"
-          className="card stack"
+          className="card stack next-event-card"
           style={{ textAlign: 'left', border: 'none', cursor: 'pointer', width: '100%', fontFamily: 'inherit' }}
           onClick={() => onManage(nextEvent.id)}
         >
-          <p
-            className="subtitle"
-            style={{ margin: 0, fontWeight: 700, color: 'var(--primary-dark)', textTransform: 'uppercase', fontSize: 10.5, letterSpacing: 0.4 }}
-          >
-            Next event
-          </p>
-          <h2 style={{ margin: 0 }}>{nextEvent.title}</h2>
-          <p className="subtitle" style={{ margin: 0 }}>
-            📍 {nextEvent.location} · {formatEventDates(nextEvent.event_start_date, nextEvent.event_end_date)}
-          </p>
-          <p className="subtitle" style={{ margin: 0 }}>
-            {nextEvent.confirmedTeam.length} confirmed
-            {nextEvent.job_divisions.some((d) => d.open_recruit) && ' · Open recruit on'}
-          </p>
+          <div className="stack next-event-info" style={{ gap: 4 }}>
+            <p
+              className="subtitle"
+              style={{ margin: 0, fontWeight: 700, color: 'var(--primary-dark)', textTransform: 'uppercase', fontSize: 10.5, letterSpacing: 0.4 }}
+            >
+              Next event
+            </p>
+            <h2 style={{ margin: 0 }}>{nextEvent.title}</h2>
+            <p className="subtitle" style={{ margin: 0 }}>
+              📍 {nextEvent.location} · {formatEventDates(nextEvent.event_start_date, nextEvent.event_end_date)}
+            </p>
+            <p className="subtitle" style={{ margin: 0 }}>
+              {nextEvent.confirmedTeam.length} confirmed
+              {nextEvent.job_divisions.some((d) => d.open_recruit) && ' · Open recruit on'}
+            </p>
+          </div>
         </button>
       ) : (
         <div className="empty-state">No upcoming events — create one to get started.</div>
       )}
 
-      <div className="week-strip">
-        {weekDays.map((d) => {
-          const dISO = isoDate(d)
-          const active = dISO === selectedDay
-          return (
-            <button key={dISO} type="button" className={`week-day${active ? ' active' : ''}`} onClick={() => setSelectedDay(dISO)}>
-              <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.75 }}>{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
-              <span style={{ fontSize: 13.5, fontWeight: 700 }}>{d.getDate()}</span>
-              <span className={hasEventOn(dISO) ? 'dot' : ''} style={{ width: 5, height: 5 }} />
+      {/* Wrapped in one row so the desktop breakpoint can lay these three
+          blocks out as a real two-column dashboard (calendar + agenda as
+          the main column, stats alongside) — see .home-dash-row. On mobile
+          this div has no layout of its own (a plain block), so the three
+          children just stack in this same DOM order exactly as before. */}
+      <div className="home-dash-row">
+        <div className="week-strip">
+          {weekDays.map((d) => {
+            const dISO = isoDate(d)
+            const active = dISO === selectedDay
+            return (
+              <button key={dISO} type="button" className={`week-day${active ? ' active' : ''}`} onClick={() => setSelectedDay(dISO)}>
+                <span style={{ fontSize: 10, fontWeight: 600, opacity: 0.75 }}>{d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 700 }}>{d.getDate()}</span>
+                <span className={hasEventOn(dISO) ? 'dot' : ''} style={{ width: 5, height: 5 }} />
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="stack home-agenda-block" style={{ gap: 8 }}>
+          <strong style={{ fontSize: 12.5 }}>
+            {selectedDay === today ? 'Today' : new Date(`${selectedDay}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          </strong>
+          {agendaJobs.length === 0 && (
+            <p className="subtitle" style={{ margin: 0 }}>
+              Nothing scheduled this day.
+            </p>
+          )}
+          {agendaJobs.map((j) => (
+            <button key={j.id} type="button" className="row-card" onClick={() => onManage(j.id)}>
+              <div className="icon-badge">
+                <SkillIcon skill={j.job_divisions[0]?.skill} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong style={{ fontSize: 13 }}>{j.title}</strong>
+                <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                  {j.job_divisions.map((d) => `${d.filled_count}/${d.quantity} ${d.skill}`).join(' · ')}
+                </p>
+              </div>
             </button>
-          )
-        })}
-      </div>
+          ))}
+        </div>
 
-      <div className="stack" style={{ gap: 8 }}>
-        <strong style={{ fontSize: 12.5 }}>
-          {selectedDay === today ? 'Today' : new Date(`${selectedDay}T00:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-        </strong>
-        {agendaJobs.length === 0 && (
-          <p className="subtitle" style={{ margin: 0 }}>
-            Nothing scheduled this day.
-          </p>
-        )}
-        {agendaJobs.map((j) => (
-          <button key={j.id} type="button" className="row-card" onClick={() => onManage(j.id)}>
-            <div className="icon-badge">
-              <SkillIcon skill={j.job_divisions[0]?.skill} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <strong style={{ fontSize: 13 }}>{j.title}</strong>
-              <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                {j.job_divisions.map((d) => `${d.filled_count}/${d.quantity} ${d.skill}`).join(' · ')}
-              </p>
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Same 4-across stat-row idiom as the desktop event workspace — on a
-          narrow phone this just wraps to two rows via CSS, so nothing here
-          is desktop-only markup; it's one row on any width wide enough to
-          fit it (see .home-stat-row's own wrap rule). */}
-      <div className="row home-stat-row" style={{ gap: 10, flexWrap: 'wrap' }}>
-        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-          <span className="subtitle">Open recruit</span>
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{openRecruitCount}</span>
-        </div>
-        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-          <span className="subtitle">Pending applicants</span>
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{pendingCount}</span>
-        </div>
-        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-          <span className="subtitle">Confirmed this month</span>
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{confirmedThisMonth}</span>
-        </div>
-        <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-          <span className="subtitle">Team roster</span>
-          <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{teamMembers.length}</span>
+        {/* Same 4-across stat idiom as the desktop event workspace — on a
+            narrow phone this just wraps to two rows via CSS, so nothing
+            here is desktop-only markup; it's one row on any width wide
+            enough to fit it (see .home-stat-row's own wrap rule), and on
+            the desktop grid it becomes the side column instead. */}
+        <div className="row home-stat-row" style={{ gap: 10, flexWrap: 'wrap' }}>
+          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
+            <span className="subtitle">Open recruit</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{openRecruitCount}</span>
+          </div>
+          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
+            <span className="subtitle">Pending applicants</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{pendingCount}</span>
+          </div>
+          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
+            <span className="subtitle">Confirmed this month</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{confirmedThisMonth}</span>
+          </div>
+          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
+            <span className="subtitle">Team roster</span>
+            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{teamMembers.length}</span>
+          </div>
         </div>
       </div>
 
