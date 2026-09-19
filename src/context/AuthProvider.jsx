@@ -46,8 +46,8 @@ export function AuthProvider({ children }) {
     }
     setProfile(data || null)
 
-    if (data?.role === 'freelancer' || data?.role === 'organizer') {
-      const table = data.role === 'freelancer' ? 'freelancer_profiles' : 'organizer_profiles'
+    if (data?.role === 'freelancer' || data?.role === 'organizer' || data?.role === 'vendor') {
+      const table = { freelancer: 'freelancer_profiles', organizer: 'organizer_profiles', vendor: 'vendor_profiles' }[data.role]
       const { data: detail, error: detailErr } = await supabase
         .from(table)
         .select('*')

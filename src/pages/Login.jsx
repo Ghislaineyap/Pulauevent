@@ -4,7 +4,11 @@ import { supabase } from '../lib/supabaseClient'
 
 export default function Login() {
   const [params] = useSearchParams()
-  const intendedRole = params.get('role') === 'organizer' ? 'organizer' : 'freelancer'
+  const roleParam = params.get('role')
+  const intendedRole = roleParam === 'organizer' ? 'organizer' : roleParam === 'vendor' ? 'vendor' : 'freelancer'
+  const ROLE_LABELS = { freelancer: 'a Freelancer', organizer: 'an Event Organizer', vendor: 'a Vendor' }
+  // Cycles freelancer -> organizer -> vendor -> freelancer for the "Not you? Switch" link.
+  const nextRole = { freelancer: 'organizer', organizer: 'vendor', vendor: 'freelancer' }[intendedRole]
   const [mode, setMode] = useState('signup') // 'signup' | 'signin'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -51,11 +55,8 @@ export default function Login() {
         <div>
           <h1>{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h1>
           <p className="subtitle">
-            Signing up as{' '}
-            <strong>{intendedRole === 'freelancer' ? 'a Freelancer' : 'an Event Organizer'}</strong>.{' '}
-            <Link to={`/login?role=${intendedRole === 'freelancer' ? 'organizer' : 'freelancer'}`}>
-              Not you? Switch
-            </Link>
+            Signing up as <strong>{ROLE_LABELS[intendedRole]}</strong>.{' '}
+            <Link to={`/login?role=${nextRole}`}>Not you? Switch</Link>
           </p>
         </div>
 

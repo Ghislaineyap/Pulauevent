@@ -7,15 +7,19 @@ export default function Landing() {
   const navigate = useNavigate()
   const { user, role, isOnboarded, isSuspended, loading } = useAuth()
 
+  const onboardingPath = { freelancer: '/freelancer/onboarding', organizer: '/organizer/onboarding', vendor: '/vendor/onboarding' }
+  const homePath = { freelancer: '/freelancer/jobs', organizer: '/organizer/my-events', vendor: '/vendor/jobs' }
+
   useEffect(() => {
     if (loading || !user || !role) return
     if (isSuspended) {
       navigate('/suspended', { replace: true })
     } else if (!isOnboarded) {
-      navigate(role === 'freelancer' ? '/freelancer/onboarding' : '/organizer/onboarding', { replace: true })
+      navigate(onboardingPath[role] || '/', { replace: true })
     } else {
-      navigate(role === 'freelancer' ? '/freelancer/jobs' : '/organizer/my-events', { replace: true })
+      navigate(homePath[role] || '/', { replace: true })
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user, role, isOnboarded, isSuspended, navigate])
 
   return (
@@ -33,6 +37,9 @@ export default function Landing() {
         </button>
         <button className="btn btn-outline btn-block" onClick={() => navigate('/login?role=organizer')}>
           I'm an Event Organizer
+        </button>
+        <button className="btn btn-outline btn-block" onClick={() => navigate('/login?role=vendor')}>
+          I'm a Vendor
         </button>
       </div>
     </div>

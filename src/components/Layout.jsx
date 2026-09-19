@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat, IconStore } from './TabIcons'
 
 export function Topbar({ title }) {
   const { signOut, user } = useAuth()
@@ -71,6 +71,37 @@ export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
         Post
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <span className="tab-icon-wrap">
+          <IconChat className="tab-icon" />
+          {connectCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{connectCount}</span>}
+        </span>
+        Connect
+      </NavLink>
+    </nav>
+  )
+}
+
+// myEventCount: vendor bookings waiting on a response (invited, not yet
+// accepted/declined). connectCount: unread messages across event chats —
+// vendors don't have a personal-chat/likes system yet, so Connect here is
+// event chats only (see VendorNotifications.jsx).
+export function VendorTabbar({ myEventCount = 0, connectCount = 0 }) {
+  return (
+    <nav className="tabbar">
+      <NavLink to="/vendor/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconStore className="tab-icon" />Profile
+      </NavLink>
+      <NavLink to="/vendor/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconClipboard className="tab-icon" />Opportunities
+      </NavLink>
+      <NavLink to="/vendor/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <span className="tab-icon-wrap">
+          <IconCalendar className="tab-icon" />
+          {myEventCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{myEventCount}</span>}
+        </span>
+        My Event
+      </NavLink>
+      <NavLink to="/vendor/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon-wrap">
           <IconChat className="tab-icon" />
           {connectCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{connectCount}</span>}
