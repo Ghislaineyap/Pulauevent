@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
-import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { PhotoFrame } from '../../components/PhotoFrame'
 import { GENDERS } from '../../lib/gender'
 import { EXPERIENCE_BANDS, experienceBandLabel } from '../../lib/experience'
 
 const emptyFilters = { genders: [], locations: [], experienceBands: [], skills: [] }
 
-export default function FreelancerBrowse() {
+// The "People" half of Discover (see Discover.jsx) — everything that used to
+// be the whole Discover tab before item 8 split it into People/Vendor. No
+// Topbar/app-shell/Tabbar of its own any more; Discover.jsx owns those and
+// renders this inside its shared "page" + segmented control.
+export function PeopleBrowse() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [rawFreelancers, setRawFreelancers] = useState([])
@@ -98,10 +101,8 @@ export default function FreelancerBrowse() {
   const top = freelancers[0]
 
   return (
-    <div className="app-shell">
-      <Topbar title="Discover" />
-      <div className="page">
-        <button
+    <>
+      <button
           className="btn btn-outline btn-block"
           style={{ justifyContent: 'space-between' }}
           onClick={() => setShowFilters((s) => !s)}
@@ -263,8 +264,6 @@ export default function FreelancerBrowse() {
             )}
           </div>
         )}
-      </div>
-      <OrganizerTabbar />
-    </div>
+    </>
   )
 }

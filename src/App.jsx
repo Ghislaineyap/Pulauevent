@@ -26,8 +26,9 @@ import FreelancerEventWorkspace from './pages/freelancer/EventWorkspace'
 import OrganizerOnboarding from './pages/organizer/OrganizerOnboarding'
 import OrganizerDashboard from './pages/organizer/OrganizerDashboard'
 import ApplicantReview from './pages/organizer/ApplicantReview'
-import FreelancerBrowse from './pages/organizer/FreelancerBrowse'
+import Discover from './pages/organizer/Discover'
 import FreelancerProfileDetail from './pages/organizer/FreelancerProfileDetail'
+import VendorProfileDetail from './pages/organizer/VendorProfileDetail'
 import OrganizerMyEvents from './pages/organizer/MyEvents'
 import OrganizerNotifications from './pages/organizer/OrganizerNotifications'
 import OrganizerEventWorkspace from './pages/organizer/EventWorkspace'
@@ -154,7 +155,7 @@ export default function App() {
             path="/organizer/browse"
             element={
               <Guard role="organizer">
-                <FreelancerBrowse />
+                <Discover />
               </Guard>
             }
           />
@@ -163,6 +164,14 @@ export default function App() {
             element={
               <Guard role="organizer">
                 <FreelancerProfileDetail />
+              </Guard>
+            }
+          />
+          <Route
+            path="/organizer/vendors-directory/:vendorId"
+            element={
+              <Guard role="organizer">
+                <VendorProfileDetail />
               </Guard>
             }
           />
