@@ -49,8 +49,9 @@ export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
 // pendingCount: applicants waiting on a decision, across every open-recruit
 // division — shown on Post, since that's the only place a division can be
 // public (and so the only source of a pending applicant) and where an
-// organizer reviews them.
-export function OrganizerTabbar({ pendingCount = 0 }) {
+// organizer reviews them. connectCount: unread messages across event and
+// personal chats.
+export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
       <NavLink to="/organizer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -70,7 +71,11 @@ export function OrganizerTabbar({ pendingCount = 0 }) {
         Post
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconChat className="tab-icon" />Connect
+        <span className="tab-icon-wrap">
+          <IconChat className="tab-icon" />
+          {connectCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{connectCount}</span>}
+        </span>
+        Connect
       </NavLink>
     </nav>
   )

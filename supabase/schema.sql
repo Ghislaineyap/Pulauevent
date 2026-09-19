@@ -505,6 +505,40 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
+-- One row per (user, chat) pair recording when that user last opened it —
+-- powers unread-message badges in Connect's chat lists and per-event chat
+-- buttons. Covers both chat kinds with one table: 'personal' rows point at
+-- a matches.id, 'event' rows point at a job_postings.id. A missing row means
+-- "never opened" — unread count then counts every message in that chat.
+-- ---------------------------------------------------------------------------
+create table if not exists public.chat_reads (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  chat_type text not null check (chat_type in ('personal', 'event')),
+  chat_id uuid not null,
+  last_read_at timestamptz not null default now(),
+  primary key (user_id, chat_type, chat_id)
+);
+
+alter table public.chat_reads enable row level security;
+
+create policy "a user can read their own chat_reads" on public.chat_reads
+  for select using (auth.uid() = user_id);
+create policy "a user can upsert their own chat_reads" on public.chat_reads
+  for insert with check (auth.uid() = user_id);
+create policy "a user can update their own chat_reads" on public.chat_reads
+  for update using (auth.uid() = user_id);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'chat_reads'
+  ) then
+    alter publication supabase_realtime add table public.chat_reads;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Ratings: an organizer can rate + recommend a freelancer once the event's
 -- end date has passed, for anyone who was actually confirmed on it. Unlocks
 -- automatically — no manual "mark as done" step needed.

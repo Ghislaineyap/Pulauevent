@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthProvider'
 import { ProfileAvatar } from '../components/ProfileAvatar'
 import { formatMessageTime } from '../lib/date'
+import { markChatRead } from '../lib/chatReads'
 
 export default function Chat() {
   const { matchId } = useParams()
@@ -66,6 +67,13 @@ export default function Chat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Mark this chat "read up to now" on open, and again every time a message
+  // lands while it's open — so the unread badge back in Connect's list
+  // never counts something the person already saw while it was on screen.
+  useEffect(() => {
+    if (user?.id) markChatRead(user.id, 'personal', matchId)
+  }, [user?.id, matchId, messages.length])
 
   async function handleSend(e) {
     e.preventDefault()

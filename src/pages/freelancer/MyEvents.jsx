@@ -11,6 +11,7 @@ import { Modal } from '../../components/Modal'
 import { RundownView } from '../../components/RundownView'
 import { TasksView } from '../../components/TasksView'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
+import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -35,6 +36,7 @@ export default function MyEvents() {
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
   const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'rundown' | 'tasks' } | null
   const [calendarJob, setCalendarJob] = useState(null) // confirmed event tapped from the Calendar view
+  const [eventUnread, setEventUnread] = useState(new Map())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -96,6 +98,24 @@ export default function MyEvents() {
         .map((a) => ({ id: a.job_divisions.job_postings.id, title: a.job_divisions.job_postings.title, ...a.job_divisions.job_postings })),
     [events]
   )
+
+  // Unread badges on every "Open event chat" button (List cards, the
+  // calendar-tapped summary) — same read-tracking as Connect's chat lists.
+  useEffect(() => {
+    const ids = confirmedEvents.filter((j) => j.chat_opened_at).map((j) => j.id)
+    if (ids.length === 0) {
+      setEventUnread(new Map())
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'event', ids }).then(setEventUnread)
+  }, [user.id, confirmedEvents])
+
+  useEffect(() => {
+    const unsubscribe = subscribeUnreadIncrements('event', user.id, (chatId) => {
+      setEventUnread((m) => new Map(m).set(chatId, (m.get(chatId) || 0) + 1))
+    })
+    return unsubscribe
+  }, [user.id])
 
   async function endorse(freelancerId, skill) {
     const key = `${freelancerId}:${skill}`
@@ -236,8 +256,13 @@ export default function MyEvents() {
           </div>
         )}
         {a.status === 'accepted' && job.chat_opened_at && (
-          <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
+          <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none', position: 'relative' }}>
             💬 Open event chat
+            {eventUnread.get(div.job_id) > 0 && (
+              <span className="badge" style={{ position: 'absolute', top: -8, right: -8 }}>
+                {eventUnread.get(div.job_id)}
+              </span>
+            )}
           </Link>
         )}
         {a.status === 'accepted' && !job.chat_opened_at && (
@@ -364,10 +389,15 @@ export default function MyEvents() {
               <Link
                 to={`/event-chat/${calendarJob.id}`}
                 className="btn btn-primary btn-block"
-                style={{ textDecoration: 'none' }}
+                style={{ textDecoration: 'none', position: 'relative' }}
                 onClick={() => setCalendarJob(null)}
               >
                 💬 Open event chat
+                {eventUnread.get(calendarJob.id) > 0 && (
+                  <span className="badge" style={{ position: 'absolute', top: -8, right: -8 }}>
+                    {eventUnread.get(calendarJob.id)}
+                  </span>
+                )}
               </Link>
             ) : (
               <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>

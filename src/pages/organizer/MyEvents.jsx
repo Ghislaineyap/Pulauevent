@@ -13,6 +13,7 @@ import { RundownView } from '../../components/RundownView'
 import { TasksView } from '../../components/TasksView'
 import { ShareView } from '../../components/ShareView'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
+import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
 const OTHER_SKILL = '__other__'
 const OTHER_LOCATION = '__other__'
@@ -697,8 +698,26 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
 }
 
 export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onOpenRundowns, onOpenTasks, onOpenShare, onAddToCalendar, onToggleChat, onSubmitRating }) {
+  const { user } = useAuth()
   const isPast = job.event_end_date < todayISO()
   const toRate = isPast ? job.confirmedTeam.filter((f) => !ratedKeys.has(`${job.id}:${f.id}`)) : []
+
+  // Unread count on this event's chat button — fetched fresh whenever this
+  // view mounts (opening "Manage event" for a job, or toggling chat on),
+  // plus kept live while it's open so an incoming message shows up right
+  // away instead of only after the next reopen.
+  const [chatUnread, setChatUnread] = useState(0)
+  useEffect(() => {
+    if (!job.chat_opened_at) {
+      setChatUnread(0)
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'event', ids: [job.id] }).then((counts) => setChatUnread(counts.get(job.id) || 0))
+    const unsubscribe = subscribeUnreadIncrements('event', user.id, (chatId) => {
+      if (chatId === job.id) setChatUnread((n) => n + 1)
+    })
+    return unsubscribe
+  }, [user.id, job.id, job.chat_opened_at])
 
   return (
     <div className="stack">
@@ -777,8 +796,13 @@ export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecr
             </InfoButton>
           </span>
           {job.chat_opened_at ? (
-            <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none' }}>
+            <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none', position: 'relative' }}>
               💬 {job.confirmedTeam.length + 1} people
+              {chatUnread > 0 && (
+                <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
+                  {chatUnread}
+                </span>
+              )}
             </Link>
           ) : (
             <span className="chip chip-outline">Off</span>
