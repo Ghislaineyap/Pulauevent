@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../context/AuthProvider'
 import { formatMessageTime } from '../lib/date'
+import { markChatRead } from '../lib/chatReads'
 
 // Group chat scoped to one event/job — everyone confirmed on it (the
 // organizer + every freelancer accepted into any of its divisions) shares
@@ -87,6 +88,11 @@ export default function EventChat() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Same "read up to now" tracking as the 1:1 chat — see Chat.jsx.
+  useEffect(() => {
+    if (user?.id && job?.chat_opened_at) markChatRead(user.id, 'event', jobId)
+  }, [user?.id, jobId, job?.chat_opened_at, messages.length])
 
   async function handleSend(e) {
     e.preventDefault()

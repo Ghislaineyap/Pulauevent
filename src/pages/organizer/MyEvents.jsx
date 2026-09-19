@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
@@ -9,10 +9,10 @@ import { Switch } from '../../components/Switch'
 import { InfoButton } from '../../components/InfoButton'
 import { Modal } from '../../components/Modal'
 import { SkillIcon } from '../../components/SkillIcon'
-import { RundownView } from '../../components/RundownView'
+import { DocumentsView } from '../../components/DocumentsView'
 import { TasksView } from '../../components/TasksView'
-import { ShareView } from '../../components/ShareView'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
+import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
 const OTHER_SKILL = '__other__'
 const OTHER_LOCATION = '__other__'
@@ -36,16 +36,18 @@ function startOfWeek(date) {
 // "Manage event"), the team chat, and post-event ratings. Post is just the
 // read-only, notification-driven board of whatever's currently open here.
 export default function MyEvents() {
-  const { user, roleProfile } = useAuth()
+  const { user } = useAuth()
+  const location = useLocation()
   const [jobs, setJobs] = useState([])
   const [ratedKeys, setRatedKeys] = useState(new Set())
   const [teamMembers, setTeamMembers] = useState([])
   const [skillOptions, setSkillOptions] = useState([])
   const [locationOptions, setLocationOptions] = useState([])
-  const [pendingCount, setPendingCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'list' | 'calendar'
+  const [view, setView] = useState('list') // 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showPastList, setShowPastList] = useState(false)
+  const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
 
   // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId }
   //   | { type: 'rundowns' } | { type: 'tasks' } | { type: 'share' } }
@@ -102,28 +104,19 @@ export default function MyEvents() {
       }))
     )
 
-    // Same count the Post tab badges — how many applicants are waiting on a
-    // decision across every division you've opened to public recruiting.
-    // Powers the "Pending applicants" tile on the dashboard.
-    const openRecruitDivisionIds = (jobRows || []).flatMap((j) => j.job_divisions.filter((d) => d.open_recruit).map((d) => d.id))
-    if (openRecruitDivisionIds.length > 0) {
-      const { count, error: pendingError } = await supabase
-        .from('applications')
-        .select('id', { count: 'exact', head: true })
-        .in('division_id', openRecruitDivisionIds)
-        .eq('status', 'pending')
-      if (pendingError) console.error(pendingError)
-      setPendingCount(count || 0)
-    } else {
-      setPendingCount(0)
-    }
-
     setLoading(false)
   }, [user.id])
 
   useEffect(() => {
     load()
   }, [load])
+
+  // The Profile dashboard's "+" button lands here with this flag instead of
+  // duplicating the create-event form on that page — one extra tap, but no
+  // second copy of EventForm/the modal machinery to keep in sync.
+  useEffect(() => {
+    if (location.state?.openCreate) setShowCreateForm(true)
+  }, [location.state])
 
   useEffect(() => {
     supabase
@@ -225,25 +218,26 @@ export default function MyEvents() {
     return true
   }
 
-  // Add to calendar lives at the My Event / overview level, not inside the
-  // Rundown tab — it pulls the current rundown (if any) so the calendar
-  // entry has real times, and falls back to the event's date span if no
-  // rundown has been built yet.
-  async function addToCalendar(job) {
-    const { data: rundowns, error: rundownError } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', job.id)
-    if (rundownError) console.error(rundownError)
-    let items = []
-    const rundownIds = (rundowns || []).map((r) => r.id)
-    if (rundownIds.length > 0) {
-      const { data: itemRows, error: itemError } = await supabase
-        .from('event_rundown_items')
-        .select('rundown_id, sort_order, start_time, duration_minutes')
-        .in('rundown_id', rundownIds)
-      if (itemError) console.error(itemError)
-      items = itemRows || []
-    }
-    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  // Add to calendar lives at the My Event / overview level — a single
+  // all-day-ish event covering the event's date span (eventsFromJobSchedule
+  // falls back to this whenever there's no rundown data, which is now
+  // always, since the Rundown feature was replaced by Documents).
+  function addToCalendar(job) {
+    downloadICS(job.title, eventsFromJobSchedule(job, [], []))
   }
+
+  // Keep wrapped-up events out of the way on the List tab, same as the
+  // Connect chat lists already do — an event's card moves under a collapsed
+  // "Show past events" toggle once its end date has passed instead of
+  // sitting in the main list forever.
+  const sortByDate = (list) =>
+    [...list].sort((a, b) =>
+      listSort === 'upcoming'
+        ? a.event_start_date.localeCompare(b.event_start_date)
+        : b.event_start_date.localeCompare(a.event_start_date)
+    )
+  const activeListJobs = sortByDate(jobs.filter((j) => j.event_end_date >= todayISO()))
+  const pastListJobs = sortByDate(jobs.filter((j) => j.event_end_date < todayISO()))
 
   const manageJob = manageModal && jobs.find((j) => j.id === manageModal.jobId)
   const manageDivision =
@@ -255,9 +249,8 @@ export default function MyEvents() {
   if (manageModal?.sub?.type === 'edit') manageTitle = `Edit — ${manageJob.title}`
   if (manageModal?.sub?.type === 'team' && manageDivision) manageTitle = `Select team — ${manageDivision.skill}`
   if (manageModal?.sub?.type === 'recruit' && manageDivision) manageTitle = `Recruiting — ${manageDivision.skill}`
-  if (manageModal?.sub?.type === 'rundowns') manageTitle = `Rundown — ${manageJob.title}`
+  if (manageModal?.sub?.type === 'documents') manageTitle = `Documents — ${manageJob.title}`
   if (manageModal?.sub?.type === 'tasks') manageTitle = `Tasks — ${manageJob.title}`
-  if (manageModal?.sub?.type === 'share') manageTitle = `Share — ${manageJob.title}`
 
   return (
     <div className="app-shell">
@@ -279,19 +272,14 @@ export default function MyEvents() {
             />
           </div>
         ) : (
-          view !== 'dashboard' && (
-            <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
-              + Create a new event
-            </button>
-          )
+          <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
+            + Create a new event
+          </button>
         )}
 
         {!showCreateForm && (
           <>
             <div className="segmented">
-              <button type="button" className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}>
-                Home
-              </button>
               <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
                 List
               </button>
@@ -302,25 +290,30 @@ export default function MyEvents() {
 
             {loading && <p className="subtitle">Loading…</p>}
 
-            {!loading && view === 'dashboard' && (
-              <EventDashboard
-                jobs={jobs}
-                teamMembers={teamMembers}
-                pendingCount={pendingCount}
-                orgName={roleProfile?.org_name}
-                onManage={(jobId) => setManageModal({ jobId, sub: null })}
-                onCreate={() => setShowCreateForm(true)}
-              />
+            {view === 'calendar' && (
+              <EventCalendar events={jobs} onSelectEvent={(job) => setManageModal({ jobId: job.id, sub: null })} />
             )}
-
-            {view === 'calendar' && <EventCalendar events={jobs} />}
 
             {view === 'list' && !loading && jobs.length === 0 && (
               <div className="empty-state">No events yet — create one to get started.</div>
             )}
+            {view === 'list' && jobs.length > 0 && (
+              <div className="row" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+                <label htmlFor="my-events-sort" className="subtitle" style={{ margin: 0 }}>
+                  Sort
+                </label>
+                <select id="my-events-sort" style={{ width: 'auto' }} value={listSort} onChange={(e) => setListSort(e.target.value)}>
+                  <option value="upcoming">Upcoming first</option>
+                  <option value="latest">Latest first</option>
+                </select>
+              </div>
+            )}
+            {view === 'list' && activeListJobs.length === 0 && pastListJobs.length > 0 && (
+              <div className="empty-state">No upcoming events — see past events below.</div>
+            )}
             {view === 'list' && (
               <div className="stack">
-                {jobs.map((job) => (
+                {activeListJobs.map((job) => (
                   <div key={job.id} className="card stack">
                     <div>
                       <h2 style={{ margin: 0 }}>{job.title}</h2>
@@ -341,6 +334,36 @@ export default function MyEvents() {
                 ))}
               </div>
             )}
+            {view === 'list' && pastListJobs.length > 0 && (
+              <>
+                <button type="button" className="btn btn-outline btn-block" onClick={() => setShowPastList((s) => !s)}>
+                  {showPastList ? 'Hide' : 'Show'} past events ({pastListJobs.length})
+                </button>
+                {showPastList && (
+                  <div className="stack">
+                    {pastListJobs.map((job) => (
+                      <div key={job.id} className="card stack" style={{ opacity: 0.75 }}>
+                        <div>
+                          <h2 style={{ margin: 0 }}>{job.title}</h2>
+                          <p className="subtitle" style={{ margin: '4px 0 0' }}>
+                            📍 {job.location}
+                            {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                          </p>
+                        </div>
+                        <div className="row">
+                          <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setManageModal({ jobId: job.id, sub: null })}>
+                            Manage event
+                          </button>
+                          <Link to={`/organizer/events/${job.id}`} className="btn btn-outline desktop-only-inline" style={{ flex: 1, textDecoration: 'none' }}>
+                            Open workspace
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </>
         )}
       </div>
@@ -354,9 +377,8 @@ export default function MyEvents() {
               onEdit={() => setManageModal((m) => ({ ...m, sub: { type: 'edit' } }))}
               onOpenTeam={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'team', divisionId } }))}
               onOpenRecruit={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'recruit', divisionId } }))}
-              onOpenRundowns={() => setManageModal((m) => ({ ...m, sub: { type: 'rundowns' } }))}
+              onOpenDocuments={() => setManageModal((m) => ({ ...m, sub: { type: 'documents' } }))}
               onOpenTasks={() => setManageModal((m) => ({ ...m, sub: { type: 'tasks' } }))}
-              onOpenShare={() => setManageModal((m) => ({ ...m, sub: { type: 'share' } }))}
               onAddToCalendar={() => addToCalendar(manageJob)}
               onToggleChat={toggleEventChat}
               onSubmitRating={submitRating}
@@ -423,7 +445,7 @@ export default function MyEvents() {
             </div>
           )}
 
-          {manageModal.sub?.type === 'rundowns' && (
+          {manageModal.sub?.type === 'documents' && (
             <div className="stack">
               <button
                 type="button"
@@ -433,7 +455,7 @@ export default function MyEvents() {
               >
                 ← Back
               </button>
-              <RundownView jobId={manageJob.id} canEdit />
+              <DocumentsView jobId={manageJob.id} canEdit />
             </div>
           )}
 
@@ -451,19 +473,6 @@ export default function MyEvents() {
             </div>
           )}
 
-          {manageModal.sub?.type === 'share' && (
-            <div className="stack">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
-                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
-              >
-                ← Back
-              </button>
-              <ShareView jobId={manageJob.id} eventTitle={manageJob.title} />
-            </div>
-          )}
         </Modal>
       )}
 
@@ -472,29 +481,21 @@ export default function MyEvents() {
   )
 }
 
-// The Home tab — a quick "what's going on" view instead of jumping straight
-// into the create form or a flat list: what's coming up next, a week strip
-// to jump to a day's agenda, and a few at-a-glance numbers. Everything here
-// reads from the same `jobs`/`teamMembers` the List/Calendar views use — no
-// separate data model — and tapping into an event reuses the same "Manage
-// event" modal those views already open.
-// 900px matches the .desktop-workspace/.app-shell breakpoint in index.css —
-// below it EventWorkspace isn't reachable from navigation at all, so the
-// mobile "Manage event" bottom sheet is still the only way in.
-const DESKTOP_BREAKPOINT = '(min-width: 900px)'
-
-function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, onCreate }) {
+// Now the Profile page's dashboard (see OrganizerOnboarding.jsx) rather than
+// a My Event tab — a quick "what's going on" view instead of jumping
+// straight into a flat list: what's coming up next, a week strip to jump to
+// a day's agenda, and a few at-a-glance numbers. Reads from the same
+// `jobs`/`teamMembers` shape My Event's List/Calendar views use — no
+// separate data model — but since Profile has none of My Event's own
+// modal machinery, tapping into an event here always goes straight to the
+// full event workspace route instead.
+export function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onCreate }) {
   const navigate = useNavigate()
   const today = todayISO()
   const [selectedDay, setSelectedDay] = useState(today)
 
-  // On desktop, go straight to the real event workspace instead of the old
-  // mobile bottom-sheet modal — the modal reads like a stretched-phone
-  // overlay on a wide screen, and the workspace is what desktop is for.
-  // Mobile keeps opening the modal exactly as before.
   function openEvent(jobId) {
-    if (window.matchMedia(DESKTOP_BREAKPOINT).matches) navigate(`/organizer/events/${jobId}`)
-    else onManage(jobId)
+    navigate(`/organizer/events/${jobId}`)
   }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -635,9 +636,27 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
   )
 }
 
-export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onOpenRundowns, onOpenTasks, onOpenShare, onAddToCalendar, onToggleChat, onSubmitRating }) {
+export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onOpenDocuments, onOpenTasks, onAddToCalendar, onToggleChat, onSubmitRating }) {
+  const { user } = useAuth()
   const isPast = job.event_end_date < todayISO()
   const toRate = isPast ? job.confirmedTeam.filter((f) => !ratedKeys.has(`${job.id}:${f.id}`)) : []
+
+  // Unread count on this event's chat button — fetched fresh whenever this
+  // view mounts (opening "Manage event" for a job, or toggling chat on),
+  // plus kept live while it's open so an incoming message shows up right
+  // away instead of only after the next reopen.
+  const [chatUnread, setChatUnread] = useState(0)
+  useEffect(() => {
+    if (!job.chat_opened_at) {
+      setChatUnread(0)
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'event', ids: [job.id] }).then((counts) => setChatUnread(counts.get(job.id) || 0))
+    const unsubscribe = subscribeUnreadIncrements('event', user.id, (chatId) => {
+      if (chatId === job.id) setChatUnread((n) => n + 1)
+    })
+    return unsubscribe
+  }, [user.id, job.id, job.chat_opened_at])
 
   return (
     <div className="stack">
@@ -651,23 +670,18 @@ export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecr
         </button>
       </div>
 
-      {(onOpenRundowns || onOpenTasks || onOpenShare || onAddToCalendar) && (
+      {(onOpenDocuments || onOpenTasks || onAddToCalendar) && (
         <div className="stack" style={{ gap: 8, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '10px 0' }}>
           <strong style={{ fontSize: 12.5 }}>Event tools</strong>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            {onOpenRundowns && (
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenRundowns}>
-                Rundown
+            {onOpenDocuments && (
+              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenDocuments}>
+                Documents
               </button>
             )}
             {onOpenTasks && (
               <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenTasks}>
                 Tasks
-              </button>
-            )}
-            {onOpenShare && (
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenShare}>
-                Share with client
               </button>
             )}
             {onAddToCalendar && (
@@ -711,13 +725,19 @@ export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecr
           <span style={{ display: 'flex', alignItems: 'center' }}>
             <Switch checked={Boolean(job.chat_opened_at)} onChange={(v) => onToggleChat(job.id, v)} label="Event chat" />
             <InfoButton title="Event chat">
-              Turning this on opens a group chat for you + everyone confirmed on this event. Turn it back off any
-              time — handy if a cancellation means you need to swap someone out first.
+              Opens automatically the moment your first team member is confirmed, so everyone lands straight in the
+              group chat instead of waiting on you. Turn it off any time — handy if a cancellation means you need to
+              swap someone out first.
             </InfoButton>
           </span>
           {job.chat_opened_at ? (
-            <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none' }}>
+            <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none', position: 'relative' }}>
               💬 {job.confirmedTeam.length + 1} people
+              {chatUnread > 0 && (
+                <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
+                  {chatUnread}
+                </span>
+              )}
             </Link>
           ) : (
             <span className="chip chip-outline">Off</span>

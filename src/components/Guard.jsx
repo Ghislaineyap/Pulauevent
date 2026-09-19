@@ -1,6 +1,12 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
 
+// Every role's own "home" once signed in — used both to bounce a signed-in
+// user off a route that belongs to a different role, and to send them
+// onward to build their profile first if they haven't yet.
+const HOME_BY_ROLE = { freelancer: '/freelancer/jobs', organizer: '/organizer/my-events', vendor: '/vendor/jobs' }
+const ONBOARDING_BY_ROLE = { freelancer: '/freelancer/onboarding', organizer: '/organizer/onboarding', vendor: '/vendor/onboarding' }
+
 // Wrap a route element with this to require: signed in, correct role, and
 // (unless skipOnboardedCheck) an onboarding profile already filled in.
 // Usage: <Route path="/freelancer/jobs" element={<Guard role="freelancer"><JobFeed /></Guard>} />
@@ -17,19 +23,14 @@ export function Guard({ children, role, skipOnboardedCheck = false }) {
   if (isSuspended) return <Navigate to="/suspended" replace />
 
   if (role && userRole && userRole !== role) {
-    // Signed in as the other role — send them to their own home.
-    return <Navigate to={userRole === 'freelancer' ? '/freelancer/jobs' : '/organizer/my-events'} replace />
+    // Signed in as another role — send them to their own home.
+    return <Navigate to={HOME_BY_ROLE[userRole] || '/'} replace />
   }
 
   if (!userRole) return <Navigate to="/login" replace />
 
   if (!skipOnboardedCheck && !isOnboarded) {
-    return (
-      <Navigate
-        to={userRole === 'freelancer' ? '/freelancer/onboarding' : '/organizer/onboarding'}
-        replace
-      />
-    )
+    return <Navigate to={ONBOARDING_BY_ROLE[userRole] || '/'} replace />
   }
 
   return children

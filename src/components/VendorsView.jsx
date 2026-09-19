@@ -126,6 +126,214 @@ export function VendorsView({ jobId }) {
           ))}
         </div>
       )}
+
+      <VendorRecruitPanel jobId={jobId} />
+    </div>
+  )
+}
+
+// Second, separate capability on this same tab: instead of booking from
+// your private roster, post an open call that platform Vendor accounts can
+// apply to (or invite one directly by application) — mirrors Team/Recruiting
+// for freelancers, just against vendor_slots/vendor_applications. This is a
+// first cut at the organizer side of the vendor booking loop; item 9's Team
+// tab is expected to absorb/relocate this once Post is retired.
+function VendorRecruitPanel({ jobId }) {
+  const [slots, setSlots] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('vendor_slots')
+      .select(
+        'id, category, quantity, filled_count, budget_amount, budget_type, notes, open_recruit, vendor_applications(id, status, vendor_profiles(id, vendor_name, category, logo_url, locations))'
+      )
+      .eq('job_id', jobId)
+      .order('created_at', { ascending: false })
+    if (error) console.error(error)
+    setSlots(data || [])
+    setLoading(false)
+  }, [jobId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  async function createSlot(payload) {
+    const { error } = await supabase.from('vendor_slots').insert({ ...payload, job_id: jobId })
+    if (error) {
+      console.error(error)
+      return
+    }
+    setShowForm(false)
+    load()
+  }
+
+  async function deleteSlot(id) {
+    const { error } = await supabase.from('vendor_slots').delete().eq('id', id)
+    if (error) {
+      console.error(error)
+      return
+    }
+    load()
+  }
+
+  async function toggleOpenRecruit(id, value) {
+    const { error } = await supabase.from('vendor_slots').update({ open_recruit: value }).eq('id', id)
+    if (error) {
+      console.error(error)
+      return
+    }
+    load()
+  }
+
+  async function respondApplication(applicationId, status) {
+    const { error } = await supabase.from('vendor_applications').update({ status }).eq('id', applicationId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    load()
+  }
+
+  return (
+    <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <p className="subtitle" style={{ margin: 0, display: 'flex', alignItems: 'center' }}>
+          Recruit vendors
+          <InfoButton title="Recruit vendors">
+            Post an open call for a category and any Vendor account on Pulau Event can apply — separate from your
+            private roster above. Accepting an application opens this event's team chat, same as accepting a
+            freelancer.
+          </InfoButton>
+        </p>
+        <button type="button" className="btn btn-outline" style={{ padding: '7px 14px', fontSize: 12.5 }} onClick={() => setShowForm((s) => !s)}>
+          {showForm ? 'Cancel' : '+ Post a vendor need'}
+        </button>
+      </div>
+
+      {showForm && <VendorSlotForm onSave={createSlot} onCancel={() => setShowForm(false)} />}
+
+      {loading && <p className="subtitle">Loading…</p>}
+      {!loading && slots.length === 0 && !showForm && <div className="empty-state">No open calls posted for this event yet.</div>}
+
+      <div className="stack" style={{ gap: 12 }}>
+        {slots.map((slot) => {
+          const pending = (slot.vendor_applications || []).filter((a) => a.status === 'pending' || a.status === 'invited')
+          return (
+            <div key={slot.id} className="ws-panel" style={{ background: 'var(--bg)' }}>
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <strong style={{ fontSize: 13 }}>{slot.category}</strong>
+                  <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                    {slot.filled_count}/{slot.quantity} filled
+                    {slot.budget_amount && ` · Rp ${Number(slot.budget_amount).toLocaleString('id-ID')}${slot.budget_type === 'flat' ? ' flat' : ` / ${slot.budget_type}`}`}
+                    {slot.open_recruit ? ' · Open' : ' · Closed'}
+                  </p>
+                </div>
+                <div className="row" style={{ gap: 6 }}>
+                  <button type="button" className="btn btn-outline" style={{ padding: '5px 10px', fontSize: 11.5 }} onClick={() => toggleOpenRecruit(slot.id, !slot.open_recruit)}>
+                    {slot.open_recruit ? 'Close' : 'Reopen'}
+                  </button>
+                  <button type="button" className="budget-icon-btn" onClick={() => deleteSlot(slot.id)} aria-label="Delete">
+                    ✕
+                  </button>
+                </div>
+              </div>
+              {slot.notes && <p className="subtitle" style={{ margin: '6px 0 0' }}>{slot.notes}</p>}
+
+              {pending.length > 0 && (
+                <div className="stack" style={{ gap: 8, marginTop: 10 }}>
+                  {pending.map((app) => (
+                    <div key={app.id} className="row" style={{ justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                      <div>
+                        <strong style={{ fontSize: 12.5 }}>{app.vendor_profiles.vendor_name}</strong>
+                        <p className="subtitle" style={{ margin: '2px 0 0' }}>
+                          {app.vendor_profiles.category || 'Uncategorized'}
+                          {(app.vendor_profiles.locations || []).length > 0 && ` · ${app.vendor_profiles.locations.join(', ')}`}
+                        </p>
+                      </div>
+                      <div className="row" style={{ gap: 6 }}>
+                        <button type="button" className="btn btn-outline" style={{ padding: '5px 10px', fontSize: 11.5 }} onClick={() => respondApplication(app.id, 'declined')}>
+                          Decline
+                        </button>
+                        <button type="button" className="btn btn-primary" style={{ padding: '5px 10px', fontSize: 11.5 }} onClick={() => respondApplication(app.id, 'accepted')}>
+                          Accept
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function VendorSlotForm({ onSave, onCancel }) {
+  const [category, setCategory] = useState('')
+  const [quantity, setQuantity] = useState('1')
+  const [notes, setNotes] = useState('')
+  const [budgetAmount, setBudgetAmount] = useState('')
+  const [budgetType, setBudgetType] = useState('flat')
+  const [busy, setBusy] = useState(false)
+
+  async function submit() {
+    if (!category.trim()) return
+    setBusy(true)
+    await onSave({
+      category: category.trim(),
+      quantity: Number(quantity) || 1,
+      notes: notes.trim() || null,
+      budget_amount: budgetAmount ? Number(budgetAmount) : null,
+      budget_type: budgetAmount ? budgetType : null,
+    })
+    setBusy(false)
+  }
+
+  return (
+    <div className="card stack" style={{ padding: 14, marginBottom: 12 }}>
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label>Category</label>
+        <input type="text" placeholder="e.g. Catering" value={category} onChange={(e) => setCategory(e.target.value)} />
+      </div>
+      <div className="row">
+        <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <label>How many</label>
+          <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+        </div>
+        <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <label>Budget (optional)</label>
+          <input type="number" min="0" placeholder="Amount (IDR)" value={budgetAmount} onChange={(e) => setBudgetAmount(e.target.value)} />
+        </div>
+      </div>
+      {budgetAmount && (
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Budget type</label>
+          <select value={budgetType} onChange={(e) => setBudgetType(e.target.value)}>
+            <option value="flat">flat</option>
+            <option value="hourly">per hour</option>
+            <option value="daily">per day</option>
+          </select>
+        </div>
+      )}
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label>Notes (optional)</label>
+        <textarea placeholder="What do you need from this vendor?" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </div>
+      <div className="row">
+        <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onCancel}>
+          Cancel
+        </button>
+        <button type="button" className="btn btn-primary" style={{ flex: 1 }} disabled={busy || !category.trim()} onClick={submit}>
+          {busy ? 'Posting…' : 'Post'}
+        </button>
+      </div>
     </div>
   )
 }

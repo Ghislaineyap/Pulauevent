@@ -8,9 +8,12 @@ import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/ap
 import { EventCalendar } from '../../components/EventCalendar'
 import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
 import { Modal } from '../../components/Modal'
-import { RundownView } from '../../components/RundownView'
+import { DocumentsView } from '../../components/DocumentsView'
 import { TasksView } from '../../components/TasksView'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
+import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
+
+const todayISO = () => new Date().toISOString().slice(0, 10)
 
 // "My Event" — every job this freelancer has applied to or been invited to,
 // so they can see at a glance whether each one needs a response, is still
@@ -28,8 +31,12 @@ export default function MyEvents() {
   const [busyKey, setBusyKey] = useState(null)
   const [respondingId, setRespondingId] = useState(null)
   const [view, setView] = useState('list') // 'list' | 'calendar'
+  const [showPastEvents, setShowPastEvents] = useState(false)
+  const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
-  const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'rundown' | 'tasks' } | null
+  const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'documents' | 'tasks' } | null
+  const [calendarJob, setCalendarJob] = useState(null) // confirmed event tapped from the Calendar view
+  const [eventUnread, setEventUnread] = useState(new Map())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -92,6 +99,24 @@ export default function MyEvents() {
     [events]
   )
 
+  // Unread badges on every "Open event chat" button (List cards, the
+  // calendar-tapped summary) — same read-tracking as Connect's chat lists.
+  useEffect(() => {
+    const ids = confirmedEvents.filter((j) => j.chat_opened_at).map((j) => j.id)
+    if (ids.length === 0) {
+      setEventUnread(new Map())
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'event', ids }).then(setEventUnread)
+  }, [user.id, confirmedEvents])
+
+  useEffect(() => {
+    const unsubscribe = subscribeUnreadIncrements('event', user.id, (chatId) => {
+      setEventUnread((m) => new Map(m).set(chatId, (m.get(chatId) || 0) + 1))
+    })
+    return unsubscribe
+  }, [user.id])
+
   async function endorse(freelancerId, skill) {
     const key = `${freelancerId}:${skill}`
     if (endorsed.has(key)) return
@@ -122,23 +147,172 @@ export default function MyEvents() {
 
   const invitedCount = events.filter((a) => a.status === 'invited').length
 
-  // Add to calendar lives at the My Event level (not inside the Rundown
-  // tab) for freelancers too — same reasoning and same helper as the
-  // organizer side.
-  async function addToCalendar(job) {
-    const { data: rundowns, error: rundownError } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', job.id)
-    if (rundownError) console.error(rundownError)
-    let items = []
-    const rundownIds = (rundowns || []).map((r) => r.id)
-    if (rundownIds.length > 0) {
-      const { data: itemRows, error: itemError } = await supabase
-        .from('event_rundown_items')
-        .select('rundown_id, sort_order, start_time, duration_minutes')
-        .in('rundown_id', rundownIds)
-      if (itemError) console.error(itemError)
-      items = itemRows || []
-    }
-    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  // Keep wrapped-up events out of the way once they're done, same as the
+  // Connect chat lists already do — an application whose job has ended moves
+  // under a collapsed "Show past events" toggle instead of sitting in the
+  // main list forever. An invite/application with no end date yet (job data
+  // still loading) stays active rather than disappearing.
+  const isPastEvent = (a) => {
+    const end = a.job_divisions?.job_postings?.event_end_date
+    return !!end && end < todayISO()
+  }
+  // Invited (needs a response) still comes first regardless of sort choice —
+  // that's an urgency ordering, not a date one. Within that, the chosen
+  // date order applies.
+  const byDate = (a, b) => {
+    const rank = { invited: 0 }
+    const rankDiff = (rank[a.status] ?? 1) - (rank[b.status] ?? 1)
+    if (rankDiff !== 0) return rankDiff
+    const dateA = a.job_divisions?.job_postings?.event_start_date || ''
+    const dateB = b.job_divisions?.job_postings?.event_start_date || ''
+    return listSort === 'upcoming' ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA)
+  }
+  const activeEvents = events.filter((a) => !isPastEvent(a)).sort(byDate)
+  const pastEvents = events.filter(isPastEvent).sort(byDate)
+
+  // Add to calendar lives at the My Event level for freelancers too — same
+  // helper as the organizer side, an all-day-ish event covering the event's
+  // date span.
+  function addToCalendar(job) {
+    downloadICS(job.title, eventsFromJobSchedule(job, [], []))
+  }
+
+  function renderEventCard(a, { past = false } = {}) {
+    const div = a.job_divisions
+    const job = div.job_postings
+    const teammates = teammatesByJob.get(div.job_id) || []
+    return (
+      <div key={a.id} className="card stack" style={past ? { opacity: 0.75 } : undefined}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>{job.title}</h2>
+            <button
+              type="button"
+              className="subtitle"
+              style={{ background: 'none', border: 'none', padding: 0, margin: '4px 0 0', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
+              onClick={() => setAboutOrganizer({ ...job.organizer_profiles, id: job.organizer_id })}
+            >
+              {job.organizer_profiles.org_name}
+            </button>
+            <p className="subtitle" style={{ margin: '2px 0 0' }}>
+              📍 {job.location}
+              {a.status === 'accepted' && job.location_detail && ` — ${job.location_detail}`} ·{' '}
+              {formatEventDates(job.event_start_date, job.event_end_date)}
+            </p>
+          </div>
+          <span className={applicationStatusChipClass(a.status)}>{applicationStatusLabel(a.status)}</span>
+        </div>
+        {div.jobdesk && (
+          <p className="subtitle" style={{ margin: 0 }}>
+            {div.jobdesk}
+          </p>
+        )}
+        <div className="chip-row">
+          <span className="chip chip-outline">Role: {div.skill}</span>
+          {div.budget_amount && (
+            <span className="chip chip-outline">
+              Rp {Number(div.budget_amount).toLocaleString('id-ID')}{' '}
+              {div.budget_type === 'flat' ? 'flat' : `/ ${div.budget_type}`}
+            </span>
+          )}
+          {div.fee_type === 'plus_transport' && (
+            <span className="chip chip-outline">
+              + Transport{div.transport_max_amount ? `, up to Rp ${Number(div.transport_max_amount).toLocaleString('id-ID')}` : ' reimbursed'}
+            </span>
+          )}
+        </div>
+        {a.status === 'invited' && (
+          <div className="row">
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ flex: 1 }}
+              disabled={respondingId === a.id}
+              onClick={() => respondInvite(a.id, 'declined')}
+            >
+              Decline
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              disabled={respondingId === a.id}
+              onClick={() => respondInvite(a.id, 'accepted')}
+            >
+              {respondingId === a.id ? 'Saving…' : 'Accept'}
+            </button>
+          </div>
+        )}
+        {a.status === 'accepted' && job.chat_opened_at && (
+          <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none', position: 'relative' }}>
+            💬 Open event chat
+            {eventUnread.get(div.job_id) > 0 && (
+              <span className="badge" style={{ position: 'absolute', top: -8, right: -8 }}>
+                {eventUnread.get(div.job_id)}
+              </span>
+            )}
+          </Link>
+        )}
+        {a.status === 'accepted' && !job.chat_opened_at && (
+          <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
+        )}
+
+        {a.status === 'accepted' && (
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+              onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'documents' })}
+            >
+              View documents
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+              onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'tasks' })}
+            >
+              My tasks
+            </button>
+            <button type="button" className="btn btn-outline btn-block" style={{ padding: '8px 10px', fontSize: 12.5 }} onClick={() => addToCalendar(job)}>
+              Add to calendar
+            </button>
+            <Link to={`/freelancer/events/${div.job_id}`} className="btn btn-outline btn-block desktop-only-inline" style={{ padding: '8px 10px', fontSize: 12.5, textDecoration: 'none' }}>
+              Open workspace
+            </Link>
+          </div>
+        )}
+
+        {a.status === 'accepted' && teammates.length > 0 && (
+          <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 8 }}>
+            <strong style={{ fontSize: 13 }}>Your teammates on this event</strong>
+            {teammates.map((t) => (
+              <div key={t.id} className="stack" style={{ gap: 4 }}>
+                <p className="subtitle" style={{ margin: 0 }}>{t.name}</p>
+                <div className="chip-row">
+                  {(t.skills || []).map((s) => {
+                    const key = `${t.id}:${s}`
+                    const done = endorsed.has(key)
+                    return (
+                      <span
+                        key={s}
+                        className={`chip chip-toggle ${done ? 'active' : ''}`}
+                        style={{ cursor: done ? 'default' : 'pointer', opacity: busyKey === key ? 0.6 : 1 }}
+                        onClick={() => endorse(t.id, s)}
+                      >
+                        {done ? '✓ ' : '+ '}
+                        {s}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -154,155 +328,115 @@ export default function MyEvents() {
           </button>
         </div>
 
-        {view === 'calendar' && <EventCalendar events={confirmedEvents} />}
+        {view === 'calendar' && <EventCalendar events={confirmedEvents} onSelectEvent={setCalendarJob} />}
 
         {loading && <p className="subtitle">Loading…</p>}
         {view === 'list' && !loading && events.length === 0 && (
           <div className="empty-state">Nothing here yet — jobs you apply to, or get invited to, will show up here.</div>
         )}
+        {view === 'list' && events.length > 0 && (
+          <div className="row" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+            <label htmlFor="my-events-sort" className="subtitle" style={{ margin: 0 }}>
+              Sort
+            </label>
+            <select id="my-events-sort" style={{ width: 'auto' }} value={listSort} onChange={(e) => setListSort(e.target.value)}>
+              <option value="upcoming">Upcoming first</option>
+              <option value="latest">Latest first</option>
+            </select>
+          </div>
+        )}
+        {view === 'list' && activeEvents.length === 0 && pastEvents.length > 0 && (
+          <div className="empty-state">No active events — see past events below.</div>
+        )}
         {view === 'list' && (
-        <div className="stack">
-          {events.map((a) => {
-            const div = a.job_divisions
-            const job = div.job_postings
-            const teammates = teammatesByJob.get(div.job_id) || []
-            return (
-              <div key={a.id} className="card stack">
-                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h2 style={{ margin: 0 }}>{job.title}</h2>
-                    <button
-                      type="button"
-                      className="subtitle"
-                      style={{ background: 'none', border: 'none', padding: 0, margin: '4px 0 0', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
-                      onClick={() => setAboutOrganizer({ ...job.organizer_profiles, id: job.organizer_id })}
-                    >
-                      {job.organizer_profiles.org_name}
-                    </button>
-                    <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                      📍 {job.location}
-                      {a.status === 'accepted' && job.location_detail && ` — ${job.location_detail}`} ·{' '}
-                      {formatEventDates(job.event_start_date, job.event_end_date)}
-                    </p>
-                  </div>
-                  <span className={applicationStatusChipClass(a.status)}>{applicationStatusLabel(a.status)}</span>
-                </div>
-                {div.jobdesk && (
-                  <p className="subtitle" style={{ margin: 0 }}>
-                    {div.jobdesk}
-                  </p>
-                )}
-                <div className="chip-row">
-                  <span className="chip chip-outline">Role: {div.skill}</span>
-                  {div.budget_amount && (
-                    <span className="chip chip-outline">
-                      Rp {Number(div.budget_amount).toLocaleString('id-ID')}{' '}
-                      {div.budget_type === 'flat' ? 'flat' : `/ ${div.budget_type}`}
-                    </span>
-                  )}
-                  {div.fee_type === 'plus_transport' && (
-                    <span className="chip chip-outline">
-                      + Transport{div.transport_max_amount ? `, up to Rp ${Number(div.transport_max_amount).toLocaleString('id-ID')}` : ' reimbursed'}
-                    </span>
-                  )}
-                </div>
-                {a.status === 'invited' && (
-                  <div className="row">
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ flex: 1 }}
-                      disabled={respondingId === a.id}
-                      onClick={() => respondInvite(a.id, 'declined')}
-                    >
-                      Decline
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ flex: 1 }}
-                      disabled={respondingId === a.id}
-                      onClick={() => respondInvite(a.id, 'accepted')}
-                    >
-                      {respondingId === a.id ? 'Saving…' : 'Accept'}
-                    </button>
-                  </div>
-                )}
-                {a.status === 'accepted' && job.chat_opened_at && (
-                  <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
-                    💬 Open event chat
-                  </Link>
-                )}
-                {a.status === 'accepted' && !job.chat_opened_at && (
-                  <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
-                )}
-
-                {a.status === 'accepted' && (
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
-                      onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'rundown' })}
-                    >
-                      View rundown
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
-                      onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'tasks' })}
-                    >
-                      My tasks
-                    </button>
-                    <button type="button" className="btn btn-outline btn-block" style={{ padding: '8px 10px', fontSize: 12.5 }} onClick={() => addToCalendar(job)}>
-                      Add to calendar
-                    </button>
-                    <Link to={`/freelancer/events/${div.job_id}`} className="btn btn-outline btn-block desktop-only-inline" style={{ padding: '8px 10px', fontSize: 12.5, textDecoration: 'none' }}>
-                      Open workspace
-                    </Link>
-                  </div>
-                )}
-
-                {a.status === 'accepted' && teammates.length > 0 && (
-                  <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 8 }}>
-                    <strong style={{ fontSize: 13 }}>Your teammates on this event</strong>
-                    {teammates.map((t) => (
-                      <div key={t.id} className="stack" style={{ gap: 4 }}>
-                        <p className="subtitle" style={{ margin: 0 }}>{t.name}</p>
-                        <div className="chip-row">
-                          {(t.skills || []).map((s) => {
-                            const key = `${t.id}:${s}`
-                            const done = endorsed.has(key)
-                            return (
-                              <span
-                                key={s}
-                                className={`chip chip-toggle ${done ? 'active' : ''}`}
-                                style={{ cursor: done ? 'default' : 'pointer', opacity: busyKey === key ? 0.6 : 1 }}
-                                onClick={() => endorse(t.id, s)}
-                              >
-                                {done ? '✓ ' : '+ '}
-                                {s}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+          <div className="stack">{activeEvents.map((a) => renderEventCard(a))}</div>
+        )}
+        {view === 'list' && pastEvents.length > 0 && (
+          <>
+            <button type="button" className="btn btn-outline btn-block" onClick={() => setShowPastEvents((s) => !s)}>
+              {showPastEvents ? 'Hide' : 'Show'} past events ({pastEvents.length})
+            </button>
+            {showPastEvents && (
+              <div className="stack">{pastEvents.map((a) => renderEventCard(a, { past: true }))}</div>
+            )}
+          </>
         )}
       </div>
 
       {aboutOrganizer && <OrganizerAboutModal organizer={aboutOrganizer} onClose={() => setAboutOrganizer(null)} />}
 
+      {calendarJob && (
+        <Modal title={calendarJob.title} onClose={() => setCalendarJob(null)}>
+          <div className="stack">
+            <p className="subtitle" style={{ margin: 0 }}>
+              📍 {calendarJob.location}
+              {calendarJob.location_detail && ` — ${calendarJob.location_detail}`} ·{' '}
+              {formatEventDates(calendarJob.event_start_date, calendarJob.event_end_date)}
+            </p>
+            {calendarJob.chat_opened_at ? (
+              <Link
+                to={`/event-chat/${calendarJob.id}`}
+                className="btn btn-primary btn-block"
+                style={{ textDecoration: 'none', position: 'relative' }}
+                onClick={() => setCalendarJob(null)}
+              >
+                💬 Open event chat
+                {eventUnread.get(calendarJob.id) > 0 && (
+                  <span className="badge" style={{ position: 'absolute', top: -8, right: -8 }}>
+                    {eventUnread.get(calendarJob.id)}
+                  </span>
+                )}
+              </Link>
+            ) : (
+              <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
+            )}
+            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+                onClick={() => {
+                  setEventTool({ jobId: calendarJob.id, title: calendarJob.title, type: 'documents' })
+                  setCalendarJob(null)
+                }}
+              >
+                View documents
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+                onClick={() => {
+                  setEventTool({ jobId: calendarJob.id, title: calendarJob.title, type: 'tasks' })
+                  setCalendarJob(null)
+                }}
+              >
+                My tasks
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-block"
+                style={{ padding: '8px 10px', fontSize: 12.5 }}
+                onClick={() => addToCalendar(calendarJob)}
+              >
+                Add to calendar
+              </button>
+              <Link
+                to={`/freelancer/events/${calendarJob.id}`}
+                className="btn btn-outline btn-block desktop-only-inline"
+                style={{ padding: '8px 10px', fontSize: 12.5, textDecoration: 'none' }}
+                onClick={() => setCalendarJob(null)}
+              >
+                Open workspace
+              </Link>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       {eventTool && (
-        <Modal title={`${eventTool.type === 'rundown' ? 'Rundown' : 'Tasks'} — ${eventTool.title}`} onClose={() => setEventTool(null)}>
-          {eventTool.type === 'rundown' && <RundownView jobId={eventTool.jobId} canEdit={false} />}
+        <Modal title={`${eventTool.type === 'documents' ? 'Documents' : 'Tasks'} — ${eventTool.title}`} onClose={() => setEventTool(null)}>
+          {eventTool.type === 'documents' && <DocumentsView jobId={eventTool.jobId} canEdit={false} />}
           {eventTool.type === 'tasks' && (
             <TasksView
               jobId={eventTool.jobId}

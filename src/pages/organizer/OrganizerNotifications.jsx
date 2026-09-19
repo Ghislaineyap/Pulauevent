@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
 import { InfoButton } from '../../components/InfoButton'
+import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -15,6 +16,8 @@ export default function OrganizerNotifications() {
   const [eventTeams, setEventTeams] = useState([])
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
+  const [personalUnread, setPersonalUnread] = useState(new Map())
+  const [eventUnread, setEventUnread] = useState(new Map())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -66,10 +69,45 @@ export default function OrganizerNotifications() {
     load()
   }, [load])
 
+  // Unread badges for both chat lists — see the freelancer side's
+  // FreelancerNotifications.jsx for the same pattern.
+  useEffect(() => {
+    const ids = likeMatches.map((m) => m.id)
+    if (ids.length === 0) {
+      setPersonalUnread(new Map())
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'personal', ids }).then(setPersonalUnread)
+  }, [user.id, likeMatches])
+
+  useEffect(() => {
+    const ids = eventTeams.filter((j) => j.chatOpened).map((j) => j.id)
+    if (ids.length === 0) {
+      setEventUnread(new Map())
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'event', ids }).then(setEventUnread)
+  }, [user.id, eventTeams])
+
+  useEffect(() => {
+    const unsubscribe = subscribeUnreadIncrements('personal', user.id, (chatId) => {
+      setPersonalUnread((m) => new Map(m).set(chatId, (m.get(chatId) || 0) + 1))
+    })
+    return unsubscribe
+  }, [user.id])
+
+  useEffect(() => {
+    const unsubscribe = subscribeUnreadIncrements('event', user.id, (chatId) => {
+      setEventUnread((m) => new Map(m).set(chatId, (m.get(chatId) || 0) + 1))
+    })
+    return unsubscribe
+  }, [user.id])
+
   // Keep finished events out of the way once they've wrapped up, so this
   // list stays about what's current instead of growing forever.
   const activeEvents = useMemo(() => eventTeams.filter((j) => !j.eventEndDate || j.eventEndDate >= todayISO()), [eventTeams])
   const archivedEvents = useMemo(() => eventTeams.filter((j) => j.eventEndDate && j.eventEndDate < todayISO()), [eventTeams])
+  const totalUnreadMessages = [...personalUnread.values(), ...eventUnread.values()].reduce((sum, n) => sum + n, 0)
 
   return (
     <div className="app-shell">
@@ -79,9 +117,15 @@ export default function OrganizerNotifications() {
           <div className="segmented" style={{ flex: 1 }}>
             <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
               Event chat
+              {[...eventUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
+                <span className="badge" style={{ marginLeft: 6 }}>{[...eventUnread.values()].reduce((s, n) => s + n, 0)}</span>
+              )}
             </button>
             <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
               My team chat
+              {[...personalUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
+                <span className="badge" style={{ marginLeft: 6 }}>{[...personalUnread.values()].reduce((s, n) => s + n, 0)}</span>
+              )}
             </button>
           </div>
           <InfoButton title={tab === 'event' ? 'Event chat' : 'My team chat'}>
@@ -107,8 +151,13 @@ export default function OrganizerNotifications() {
                     <p className="subtitle" style={{ margin: '2px 0 0' }}>{job.memberCount} in chat</p>
                   </div>
                   {job.chatOpened ? (
-                    <Link to={`/event-chat/${job.id}`} className="circle-icon-btn" style={{ textDecoration: 'none' }} aria-label="Open event chat">
+                    <Link to={`/event-chat/${job.id}`} className="circle-icon-btn" style={{ textDecoration: 'none', position: 'relative' }} aria-label="Open event chat">
                       <ChatIcon />
+                      {eventUnread.get(job.id) > 0 && (
+                        <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
+                          {eventUnread.get(job.id)}
+                        </span>
+                      )}
                     </Link>
                   ) : (
                     <span className="chip chip-outline" style={{ fontSize: 10.5, whiteSpace: 'nowrap' }}>
@@ -164,8 +213,13 @@ export default function OrganizerNotifications() {
                         <p className="subtitle" style={{ margin: '2px 0 0' }}>📍 {(f.locations || []).join(', ')}</p>
                       </div>
                     </Link>
-                    <Link to={`/chat/${m.id}`} className="circle-icon-btn" style={{ textDecoration: 'none' }} aria-label="Open chat">
+                    <Link to={`/chat/${m.id}`} className="circle-icon-btn" style={{ textDecoration: 'none', position: 'relative' }} aria-label="Open chat">
                       <ChatIcon />
+                      {personalUnread.get(m.id) > 0 && (
+                        <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
+                          {personalUnread.get(m.id)}
+                        </span>
+                      )}
                     </Link>
                   </div>
                 )
@@ -174,7 +228,7 @@ export default function OrganizerNotifications() {
           </>
         )}
       </div>
-      <OrganizerTabbar />
+      <OrganizerTabbar connectCount={totalUnreadMessages} />
     </div>
   )
 }

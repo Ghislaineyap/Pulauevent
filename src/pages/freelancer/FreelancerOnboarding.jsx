@@ -10,7 +10,7 @@ import { RatingsSummary } from '../../components/RatingsSummary'
 import { Modal } from '../../components/Modal'
 
 export default function FreelancerOnboarding() {
-  const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
+  const { user, roleProfile, isOnboarded, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [skillOptions, setSkillOptions] = useState([])
   const [locationOptions, setLocationOptions] = useState([])
@@ -465,6 +465,10 @@ export default function FreelancerOnboarding() {
             {busy ? 'Saving…' : isOnboarded ? 'Save changes' : 'Save profile & start browsing'}
           </button>
         </form>
+
+        <button type="button" className="btn btn-outline btn-block" style={{ marginTop: 12 }} onClick={signOut}>
+          Sign out
+        </button>
       </div>
       <FreelancerTabbar />
     </div>

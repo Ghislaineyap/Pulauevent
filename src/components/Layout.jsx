@@ -1,16 +1,24 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+import { IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+
+// Where "Profile" (no longer its own tabbar entry — see FreelancerTabbar/
+// OrganizerTabbar/VendorTabbar below) is reached from now: a link in the
+// topbar's corner, present on every screen. Signing out moved the other
+// way — off the topbar and onto the profile page itself (see
+// FreelancerOnboarding/OrganizerOnboarding/VendorOnboarding).
+const PROFILE_PATH_BY_ROLE = { freelancer: '/freelancer/onboarding', organizer: '/organizer/onboarding', vendor: '/vendor/onboarding' }
 
 export function Topbar({ title }) {
-  const { signOut, user } = useAuth()
+  const { user, role } = useAuth()
+  const profilePath = PROFILE_PATH_BY_ROLE[role]
   return (
     <div className="topbar">
       <span className="brand">{title || 'Pulau Event'}</span>
-      {user && (
-        <button className="link" onClick={signOut}>
-          Sign out
-        </button>
+      {user && profilePath && (
+        <Link to={profilePath} className="link">
+          Profile
+        </Link>
       )}
     </div>
   )
@@ -22,9 +30,6 @@ export function Topbar({ title }) {
 export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
-      <NavLink to="/freelancer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconUser className="tab-icon" />Profile
-      </NavLink>
       <NavLink to="/freelancer/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconClipboard className="tab-icon" />Job
       </NavLink>
@@ -49,13 +54,11 @@ export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
 // pendingCount: applicants waiting on a decision, across every open-recruit
 // division — shown on Post, since that's the only place a division can be
 // public (and so the only source of a pending applicant) and where an
-// organizer reviews them.
-export function OrganizerTabbar({ pendingCount = 0 }) {
+// organizer reviews them. connectCount: unread messages across event and
+// personal chats.
+export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
-      <NavLink to="/organizer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconUser className="tab-icon" />Profile
-      </NavLink>
       <NavLink to="/organizer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconCalendar className="tab-icon" />My Event
       </NavLink>
@@ -70,7 +73,39 @@ export function OrganizerTabbar({ pendingCount = 0 }) {
         Post
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconChat className="tab-icon" />Connect
+        <span className="tab-icon-wrap">
+          <IconChat className="tab-icon" />
+          {connectCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{connectCount}</span>}
+        </span>
+        Connect
+      </NavLink>
+    </nav>
+  )
+}
+
+// myEventCount: vendor bookings waiting on a response (invited, not yet
+// accepted/declined). connectCount: unread messages across event chats —
+// vendors don't have a personal-chat/likes system yet, so Connect here is
+// event chats only (see VendorNotifications.jsx).
+export function VendorTabbar({ myEventCount = 0, connectCount = 0 }) {
+  return (
+    <nav className="tabbar">
+      <NavLink to="/vendor/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconClipboard className="tab-icon" />Opportunities
+      </NavLink>
+      <NavLink to="/vendor/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <span className="tab-icon-wrap">
+          <IconCalendar className="tab-icon" />
+          {myEventCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{myEventCount}</span>}
+        </span>
+        My Event
+      </NavLink>
+      <NavLink to="/vendor/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <span className="tab-icon-wrap">
+          <IconChat className="tab-icon" />
+          {connectCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{connectCount}</span>}
+        </span>
+        Connect
       </NavLink>
     </nav>
   )

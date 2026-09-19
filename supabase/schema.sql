@@ -44,11 +44,11 @@ on conflict (label) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- One row per authenticated user (auth.users), holds just the role.
--- Freelancer/organizer detail lives in its own table below.
+-- Freelancer/organizer/vendor detail lives in its own table below.
 -- ---------------------------------------------------------------------------
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  role text not null check (role in ('freelancer', 'organizer')),
+  role text not null check (role in ('freelancer', 'organizer', 'vendor')),
   created_at timestamptz not null default now()
 );
 
@@ -140,6 +140,179 @@ create table if not exists public.applications (
 );
 
 -- ---------------------------------------------------------------------------
+-- Two small security-definer helpers — they only ever check auth.uid()
+-- against a job_id the caller supplies, so it's safe to let them bypass RLS
+-- on job_postings/job_divisions/applications/vendor_slots/vendor_applications
+-- to answer "does this person belong to this job, and how." Defined here
+-- (rather than down by event_documents, where they were first introduced)
+-- since job_chat_messages and vendor_slots/vendor_applications below also
+-- need them, and both come before event_documents in the file.
+-- ---------------------------------------------------------------------------
+create or replace function public.is_job_organizer(p_job_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.job_postings jp
+    where jp.id = p_job_id and jp.organizer_id = auth.uid()
+  );
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Vendor account type: its own profile (name, logo, portfolio images, a
+-- link to their site, location, an optional price range) plus its own
+-- parallel apply/get-booked tables (vendor_slots/vendor_applications,
+-- mirroring job_divisions/applications) since a vendor booking doesn't
+-- carry a jobdesk/rate-negotiation the same way a freelancer role does.
+-- ---------------------------------------------------------------------------
+create table if not exists public.vendor_profiles (
+  id uuid primary key references public.profiles(id) on delete cascade,
+  vendor_name text not null,
+  category text, -- free text, same vocabulary as VENDOR_CATEGORIES in VendorRoster.jsx — not a foreign key, same reasoning
+  logo_url text, -- public URL in the "avatars" storage bucket, same pattern as freelancer/organizer logos
+  portfolio_urls text[] not null default '{}', -- public URLs in the "vendor-portfolio" bucket
+  website_url text, -- "Details" field from the spec — a link to their site/portfolio, not a free-text bio
+  locations text[] not null default '{}', -- same multi-location convention as freelancer_profiles
+  price_range text, -- free text ("Rp 5jt–15jt", "Contact for quote") — deliberately not a number, ranges vary too much to force into one, and it's optional
+  created_at timestamptz not null default now()
+);
+
+alter table public.vendor_profiles enable row level security;
+
+create policy "vendor profiles are browsable by signed-in users" on public.vendor_profiles
+  for select using (auth.role() = 'authenticated');
+create policy "a vendor can insert their own profile" on public.vendor_profiles
+  for insert with check (auth.uid() = id);
+create policy "a vendor can update their own profile" on public.vendor_profiles
+  for update using (auth.uid() = id);
+
+create table if not exists public.vendor_slots (
+  id uuid primary key default uuid_generate_v4(),
+  job_id uuid not null references public.job_postings(id) on delete cascade,
+  category text not null,
+  quantity integer not null default 1,
+  notes text, -- what the organizer needs from this vendor, shown to applicants
+  budget_amount numeric,
+  budget_type text check (budget_type in ('hourly', 'daily', 'flat')),
+  filled_count integer not null default 0,
+  open_recruit boolean not null default true, -- private (invite-only) until opened up to public applicants, same as job_divisions
+  created_at timestamptz not null default now()
+);
+
+create index if not exists vendor_slots_job_id_idx on public.vendor_slots (job_id);
+
+alter table public.vendor_slots enable row level security;
+
+create policy "organizer manages their own vendor slots" on public.vendor_slots
+  for all using (public.is_job_organizer(job_id)) with check (public.is_job_organizer(job_id));
+create policy "vendors can browse open vendor slots" on public.vendor_slots
+  for select using (open_recruit = true);
+
+create table if not exists public.vendor_applications (
+  id uuid primary key default uuid_generate_v4(),
+  slot_id uuid not null references public.vendor_slots(id) on delete cascade,
+  vendor_id uuid not null references public.vendor_profiles(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined', 'invited', 'cancelled')),
+  source text not null default 'applied' check (source in ('applied', 'invited')),
+  created_at timestamptz not null default now(),
+  unique (slot_id, vendor_id)
+);
+
+create index if not exists vendor_applications_vendor_id_idx on public.vendor_applications (vendor_id);
+
+alter table public.vendor_applications enable row level security;
+
+create policy "organizer manages applications on their own vendor slots" on public.vendor_applications
+  for all using (
+    exists (select 1 from public.vendor_slots s where s.id = slot_id and public.is_job_organizer(s.job_id))
+  ) with check (
+    exists (select 1 from public.vendor_slots s where s.id = slot_id and public.is_job_organizer(s.job_id))
+  );
+create policy "a vendor can read their own applications" on public.vendor_applications
+  for select using (auth.uid() = vendor_id);
+create policy "a vendor can apply to an open slot" on public.vendor_applications
+  for insert with check (
+    auth.uid() = vendor_id
+    and status = 'pending'
+    and exists (select 1 from public.vendor_slots s where s.id = slot_id and s.open_recruit = true)
+  );
+-- A vendor can only withdraw (cancel) — accepting/declining an invite is a
+-- separate, deliberately narrower update than "any field, any status" so a
+-- vendor can't self-accept a booking.
+create policy "a vendor can respond to their own applications" on public.vendor_applications
+  for update using (auth.uid() = vendor_id) with check (auth.uid() = vendor_id and status in ('accepted', 'declined', 'cancelled'));
+
+-- Depends on vendor_slots/vendor_applications above, so it's defined here
+-- rather than alongside is_job_organizer.
+create or replace function public.is_confirmed_on_job(p_job_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.applications a
+    join public.job_divisions jd on jd.id = a.division_id
+    where jd.job_id = p_job_id
+      and a.freelancer_id = auth.uid()
+      and a.status = 'accepted'
+  ) or exists (
+    select 1 from public.vendor_applications va
+    join public.vendor_slots vs on vs.id = va.slot_id
+    where vs.job_id = p_job_id
+      and va.vendor_id = auth.uid()
+      and va.status = 'accepted'
+  );
+$$;
+
+-- Same effects as handle_application_accepted() below, but for
+-- vendor_applications/vendor_slots: open the event's team chat, fill the
+-- slot, auto-decline the rest once it's full.
+create or replace function public.handle_vendor_application_accepted()
+returns trigger as $$
+declare
+  v_job_id uuid;
+  v_quantity integer;
+  v_filled_count integer;
+begin
+  if new.status = 'accepted' and old.status is distinct from 'accepted' then
+    select s.job_id, s.quantity into v_job_id, v_quantity
+    from public.vendor_slots s
+    where s.id = new.slot_id;
+
+    update public.job_postings
+    set chat_opened_at = coalesce(chat_opened_at, now())
+    where id = v_job_id;
+
+    update public.vendor_slots
+    set filled_count = filled_count + 1
+    where id = new.slot_id
+    returning filled_count into v_filled_count;
+
+    if v_filled_count >= v_quantity then
+      update public.vendor_applications
+      set status = 'declined'
+      where slot_id = new.slot_id and status in ('pending', 'invited') and id <> new.id;
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists on_vendor_application_accepted on public.vendor_applications;
+create trigger on_vendor_application_accepted
+  after update on public.vendor_applications
+  for each row execute function public.handle_vendor_application_accepted();
+
+grant select, insert, update, delete on public.vendor_profiles to authenticated;
+grant select, insert, update, delete on public.vendor_slots to authenticated;
+grant select, insert, update, delete on public.vendor_applications to authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Path B: organizer browses freelancer profiles directly and "likes" one.
 -- The freelancer sees it as a pending like and accepts or declines.
 -- ---------------------------------------------------------------------------
@@ -174,11 +347,12 @@ create or replace function public.handle_application_accepted()
 returns trigger as $$
 declare
   v_organizer_id uuid;
+  v_job_id uuid;
   v_quantity integer;
   v_filled_count integer;
 begin
   if new.status = 'accepted' and old.status is distinct from 'accepted' then
-    select jp.organizer_id, jd.quantity into v_organizer_id, v_quantity
+    select jp.organizer_id, jp.id, jd.quantity into v_organizer_id, v_job_id, v_quantity
     from public.job_divisions jd
     join public.job_postings jp on jp.id = jd.job_id
     where jd.id = new.division_id;
@@ -190,6 +364,12 @@ begin
     insert into public.team_members (organizer_id, freelancer_id, source)
     values (v_organizer_id, new.freelancer_id, 'connection')
     on conflict (organizer_id, freelancer_id) do nothing;
+
+    -- Being accepted means you're on the team — get straight into the group
+    -- chat instead of waiting on the organizer to remember to switch it on.
+    update public.job_postings
+    set chat_opened_at = coalesce(chat_opened_at, now())
+    where id = v_job_id;
 
     update public.job_divisions
     set filled_count = filled_count + 1
@@ -456,21 +636,17 @@ alter table public.job_chat_messages enable row level security;
 -- Reading/sending is gated on chat_opened_at — the organizer's "Event
 -- Manager" control — not just on being organizer/accepted-team. This keeps
 -- the chat from appearing before the organizer has actually locked in the
--- team (giving room for a last-minute swap first).
+-- team (giving room for a last-minute swap first). is_confirmed_on_job
+-- covers both an accepted freelancer and an accepted vendor.
 create policy "job team members can read the event chat" on public.job_chat_messages
   for select using (
     exists (
       select 1 from public.job_postings jp
       where jp.id = job_chat_messages.job_id and jp.organizer_id = auth.uid() and jp.chat_opened_at is not null
     )
-    or exists (
-      select 1 from public.applications a
-      join public.job_divisions jd on jd.id = a.division_id
-      join public.job_postings jp on jp.id = jd.job_id
-      where jd.job_id = job_chat_messages.job_id
-        and a.freelancer_id = auth.uid()
-        and a.status = 'accepted'
-        and jp.chat_opened_at is not null
+    or (
+      public.is_confirmed_on_job(job_chat_messages.job_id)
+      and exists (select 1 from public.job_postings jp where jp.id = job_chat_messages.job_id and jp.chat_opened_at is not null)
     )
   );
 
@@ -482,14 +658,9 @@ create policy "job team members can send an event chat message" on public.job_ch
         select 1 from public.job_postings jp
         where jp.id = job_chat_messages.job_id and jp.organizer_id = auth.uid() and jp.chat_opened_at is not null
       )
-      or exists (
-        select 1 from public.applications a
-        join public.job_divisions jd on jd.id = a.division_id
-        join public.job_postings jp on jp.id = jd.job_id
-        where jd.job_id = job_chat_messages.job_id
-          and a.freelancer_id = auth.uid()
-          and a.status = 'accepted'
-          and jp.chat_opened_at is not null
+      or (
+        public.is_confirmed_on_job(job_chat_messages.job_id)
+        and exists (select 1 from public.job_postings jp where jp.id = job_chat_messages.job_id and jp.chat_opened_at is not null)
       )
     )
   );
@@ -501,6 +672,40 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'job_chat_messages'
   ) then
     alter publication supabase_realtime add table public.job_chat_messages;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- One row per (user, chat) pair recording when that user last opened it —
+-- powers unread-message badges in Connect's chat lists and per-event chat
+-- buttons. Covers both chat kinds with one table: 'personal' rows point at
+-- a matches.id, 'event' rows point at a job_postings.id. A missing row means
+-- "never opened" — unread count then counts every message in that chat.
+-- ---------------------------------------------------------------------------
+create table if not exists public.chat_reads (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  chat_type text not null check (chat_type in ('personal', 'event')),
+  chat_id uuid not null,
+  last_read_at timestamptz not null default now(),
+  primary key (user_id, chat_type, chat_id)
+);
+
+alter table public.chat_reads enable row level security;
+
+create policy "a user can read their own chat_reads" on public.chat_reads
+  for select using (auth.uid() = user_id);
+create policy "a user can upsert their own chat_reads" on public.chat_reads
+  for insert with check (auth.uid() = user_id);
+create policy "a user can update their own chat_reads" on public.chat_reads
+  for update using (auth.uid() = user_id);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'chat_reads'
+  ) then
+    alter publication supabase_realtime add table public.chat_reads;
   end if;
 end $$;
 
@@ -616,3 +821,70 @@ create policy "a user can replace their own avatar photo"
 create policy "a user can delete their own avatar photo"
   on storage.objects for delete
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------------
+-- Event documents (organizer uploads, confirmed team can view/download —
+-- see migration_event_documents.sql). Uses is_job_organizer/
+-- is_confirmed_on_job, both already defined earlier in this file (right
+-- after job_divisions/applications, since job_chat_messages and the vendor
+-- tables need them too).
+-- ---------------------------------------------------------------------------
+create table if not exists public.event_documents (
+  id uuid primary key default uuid_generate_v4(),
+  job_id uuid not null references public.job_postings(id) on delete cascade,
+  storage_path text not null unique, -- "{job_id}/{uuid}-{filename}" in the "event-docs" bucket
+  file_name text not null, -- original filename, for display
+  mime_type text,
+  file_size bigint,
+  uploaded_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists event_documents_job_id_idx on public.event_documents (job_id);
+
+alter table public.event_documents enable row level security;
+
+create policy "organizer manages their event documents" on public.event_documents
+  for all using (public.is_job_organizer(job_id)) with check (public.is_job_organizer(job_id));
+
+create policy "confirmed team can read event documents" on public.event_documents
+  for select using (public.is_confirmed_on_job(job_id));
+
+grant select, insert, update, delete on public.event_documents to authenticated;
+
+-- Private bucket — unlike "avatars", these can be contracts/invoices/floor
+-- plans, so access is via short-lived signed URLs, only issued if the
+-- requesting user's storage policy below grants them select on the object.
+insert into storage.buckets (id, name, public)
+values ('event-docs', 'event-docs', false)
+on conflict (id) do nothing;
+
+create policy "organizer manages their event document files" on storage.objects
+  for all
+  using (bucket_id = 'event-docs' and public.is_job_organizer(((storage.foldername(name))[1])::uuid))
+  with check (bucket_id = 'event-docs' and public.is_job_organizer(((storage.foldername(name))[1])::uuid));
+
+create policy "confirmed team can read event document files" on storage.objects
+  for select
+  using (bucket_id = 'event-docs' and public.is_confirmed_on_job(((storage.foldername(name))[1])::uuid));
+
+-- ---------------------------------------------------------------------------
+-- Vendor portfolio images — vendor logo reuses the "avatars" bucket above
+-- (same shape as a freelancer/organizer logo); portfolio images get their
+-- own public bucket since there can be several per vendor.
+-- ---------------------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('vendor-portfolio', 'vendor-portfolio', true)
+on conflict (id) do nothing;
+
+create policy "vendor portfolio images are publicly readable" on storage.objects
+  for select using (bucket_id = 'vendor-portfolio');
+
+create policy "a vendor can upload their own portfolio images" on storage.objects
+  for insert with check (bucket_id = 'vendor-portfolio' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "a vendor can replace their own portfolio images" on storage.objects
+  for update using (bucket_id = 'vendor-portfolio' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "a vendor can delete their own portfolio images" on storage.objects
+  for delete using (bucket_id = 'vendor-portfolio' and (storage.foldername(name))[1] = auth.uid()::text);

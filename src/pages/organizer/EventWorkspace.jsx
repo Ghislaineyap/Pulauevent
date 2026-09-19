@@ -4,10 +4,9 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { formatEventDates } from '../../lib/date'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
-import { formatTime } from '../../lib/schedule'
-import { RundownView } from '../../components/RundownView'
+import { DocumentsView } from '../../components/DocumentsView'
+import { listEventDocuments } from '../../lib/eventDocs'
 import { TasksView } from '../../components/TasksView'
-import { ShareView } from '../../components/ShareView'
 import { BudgetView } from '../../components/BudgetView'
 import { VendorsView } from '../../components/VendorsView'
 import { ChatRail } from '../../components/ChatRail'
@@ -20,12 +19,12 @@ const ROLE_COLORS = ['var(--primary)', 'var(--sunset-dark)', 'var(--mint)', 'var
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
 // Which tabs default to a collapsed chat rail: the data-dense/admin tabs
-// (Team, Budget, Vendors, Tasks, Share) free up the full main-column width
-// for tables and forms, while Overview and Rundown — where team context
-// actually matters while you work — keep the rail open. Matches the
-// "Pulau Event v2 — Desktop Workspace" design canvas. A manual toggle still
-// lets the organizer override this for whatever tab they're on.
-const CHAT_COLLAPSED_BY_DEFAULT = { overview: false, team: true, budget: true, rundown: false, vendors: true, tasks: true, share: true }
+// (Team, Budget, Vendors, Tasks, Documents) free up the full main-column
+// width for tables and forms, while Overview — where team context actually
+// matters while you work — keeps the rail open. Matches the "Pulau Event
+// v2 — Desktop Workspace" design canvas. A manual toggle still lets the
+// organizer override this for whatever tab they're on.
+const CHAT_COLLAPSED_BY_DEFAULT = { overview: false, team: true, budget: true, documents: true, vendors: true, tasks: true }
 
 function daysLabel(startDate, endDate) {
   const today = todayISO()
@@ -56,9 +55,9 @@ export default function EventWorkspace() {
   const [teamMembers, setTeamMembers] = useState([])
   const [skillOptions, setSkillOptions] = useState([])
   const [locationOptions, setLocationOptions] = useState([])
-  const [rundownPreview, setRundownPreview] = useState(null) // { title, dateLabel, rows } | null
+  const [docCount, setDocCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('overview') // 'overview' | 'team' | 'rundown' | 'tasks' | 'share'
+  const [tab, setTab] = useState('overview') // 'overview' | 'team' | 'budget' | 'documents' | 'vendors' | 'tasks'
   const [editing, setEditing] = useState(false)
   const [divSub, setDivSub] = useState(null) // { type: 'team' | 'recruit', divisionId } | null
   const [chatCollapsed, setChatCollapsed] = useState(CHAT_COLLAPSED_BY_DEFAULT.overview)
@@ -129,32 +128,14 @@ export default function EventWorkspace() {
     load()
   }, [load])
 
+  // Refetched whenever Overview is the active tab, so a doc uploaded from
+  // the Documents tab shows up here without needing a full page reload.
   useEffect(() => {
-    supabase
-      .from('event_rundowns')
-      .select('id, title, event_date')
-      .eq('job_id', jobId)
-      .order('event_date', { ascending: true })
-      .limit(1)
-      .then(async ({ data: rundowns }) => {
-        const first = (rundowns || [])[0]
-        if (!first) {
-          setRundownPreview(null)
-          return
-        }
-        const { data: items } = await supabase
-          .from('event_rundown_items')
-          .select('segment, start_time')
-          .eq('rundown_id', first.id)
-          .order('sort_order', { ascending: true })
-          .limit(4)
-        setRundownPreview({
-          title: first.title,
-          dateLabel: first.event_date ? formatEventDates(first.event_date) : '',
-          rows: (items || []).map((i) => ({ time: formatTime(i.start_time), label: i.segment })),
-        })
-      })
-  }, [jobId])
+    if (tab !== 'overview') return
+    listEventDocuments(jobId)
+      .then((docs) => setDocCount(docs.length))
+      .catch((err) => console.error(err))
+  }, [jobId, tab])
 
   useEffect(() => {
     supabase.from('skills').select('label').order('sort_order').then(({ data }) => setSkillOptions((data || []).map((s) => s.label)))
@@ -233,18 +214,8 @@ export default function EventWorkspace() {
     return true
   }
 
-  async function addToCalendar() {
-    const { data: rundowns } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', jobId)
-    let items = []
-    const rundownIds = (rundowns || []).map((r) => r.id)
-    if (rundownIds.length > 0) {
-      const { data: itemRows } = await supabase
-        .from('event_rundown_items')
-        .select('rundown_id, sort_order, start_time, duration_minutes')
-        .in('rundown_id', rundownIds)
-      items = itemRows || []
-    }
-    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  function addToCalendar() {
+    downloadICS(job.title, eventsFromJobSchedule(job, [], []))
   }
 
   if (loading) {
@@ -301,17 +272,14 @@ export default function EventWorkspace() {
           <button type="button" className={tab === 'budget' ? 'active' : ''} onClick={() => setTab('budget')}>
             Budget
           </button>
-          <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
-            Rundown
+          <button type="button" className={tab === 'documents' ? 'active' : ''} onClick={() => setTab('documents')}>
+            Documents
           </button>
           <button type="button" className={tab === 'vendors' ? 'active' : ''} onClick={() => setTab('vendors')}>
             Vendors
           </button>
           <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
             Tasks
-          </button>
-          <button type="button" className={tab === 'share' ? 'active' : ''} onClick={() => setTab('share')}>
-            Share
           </button>
         </nav>
         <button type="button" className="chat-toggle-btn" onClick={() => setChatCollapsed((c) => !c)}>
@@ -374,35 +342,25 @@ export default function EventWorkspace() {
                     <div className="ws-panel">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <p className="ws-section-title" style={{ margin: 0 }}>
-                          {rundownPreview ? `Run-of-show — ${rundownPreview.title}` : 'Run-of-show'}
+                          Documents
                         </p>
                         <button type="button" className="ws-icon-btn" onClick={addToCalendar}>
                           <span className="ws-icon-dot" style={{ background: 'var(--sunset-dark)' }} />
                           Add to calendar
                         </button>
                       </div>
-                      {rundownPreview && rundownPreview.rows.length > 0 ? (
-                        <div className="stack" style={{ gap: 9, marginTop: 10 }}>
-                          {rundownPreview.rows.map((r, i) => (
-                            <div key={i} className="ws-kv-row">
-                              <span style={{ fontWeight: 600 }}>{r.time}</span>
-                              <span style={{ color: 'var(--muted)' }}>{r.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="subtitle" style={{ marginTop: 10 }}>
-                          No rundown yet —{' '}
-                          <button
-                            type="button"
-                            onClick={() => setTab('rundown')}
-                            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary-dark)', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
-                          >
-                            build one
-                          </button>
-                          .
-                        </p>
-                      )}
+                      <p className="subtitle" style={{ marginTop: 10 }}>
+                        {docCount > 0
+                          ? `${docCount} document${docCount === 1 ? '' : 's'} shared with your team.`
+                          : 'No documents yet.'}{' '}
+                        <button
+                          type="button"
+                          onClick={() => setTab('documents')}
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary-dark)', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
+                        >
+                          {docCount > 0 ? 'Open Documents' : 'Upload one'}
+                        </button>
+                      </p>
                     </div>
                   </div>
 
@@ -557,9 +515,9 @@ export default function EventWorkspace() {
 
           {tab === 'budget' && <BudgetView jobId={job.id} />}
 
-          {tab === 'rundown' && (
+          {tab === 'documents' && (
             <div className="ws-panel">
-              <RundownView jobId={job.id} canEdit />
+              <DocumentsView jobId={job.id} canEdit />
             </div>
           )}
           {tab === 'vendors' && <VendorsView jobId={job.id} />}
@@ -567,11 +525,6 @@ export default function EventWorkspace() {
           {tab === 'tasks' && (
             <div className="ws-panel">
               <TasksView jobId={job.id} canManage currentUserId={user.id} teamMembers={job.confirmedTeam} />
-            </div>
-          )}
-          {tab === 'share' && (
-            <div className="ws-panel">
-              <ShareView jobId={job.id} eventTitle={job.title} />
             </div>
           )}
         </div>

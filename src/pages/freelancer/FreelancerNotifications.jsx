@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthProvider'
 import { Topbar, FreelancerTabbar } from '../../components/Layout'
 import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
 import { InfoButton } from '../../components/InfoButton'
+import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -21,6 +22,8 @@ export default function FreelancerNotifications() {
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
+  const [personalUnread, setPersonalUnread] = useState(new Map())
+  const [eventUnread, setEventUnread] = useState(new Map())
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -83,12 +86,48 @@ export default function FreelancerNotifications() {
     load()
   }, [load])
 
+  // Unread badges for both chat lists — fetched once the chats themselves
+  // are known, then kept live so a message that arrives while this page is
+  // open shows up without a manual refresh.
+  useEffect(() => {
+    const ids = likeMatches.map((m) => m.id)
+    if (ids.length === 0) {
+      setPersonalUnread(new Map())
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'personal', ids }).then(setPersonalUnread)
+  }, [user.id, likeMatches])
+
+  useEffect(() => {
+    const ids = eventTeams.filter((j) => j.chat_opened_at).map((j) => j.id)
+    if (ids.length === 0) {
+      setEventUnread(new Map())
+      return
+    }
+    fetchUnreadCounts({ userId: user.id, chatType: 'event', ids }).then(setEventUnread)
+  }, [user.id, eventTeams])
+
+  useEffect(() => {
+    const unsubscribe = subscribeUnreadIncrements('personal', user.id, (chatId) => {
+      setPersonalUnread((m) => new Map(m).set(chatId, (m.get(chatId) || 0) + 1))
+    })
+    return unsubscribe
+  }, [user.id])
+
+  useEffect(() => {
+    const unsubscribe = subscribeUnreadIncrements('event', user.id, (chatId) => {
+      setEventUnread((m) => new Map(m).set(chatId, (m.get(chatId) || 0) + 1))
+    })
+    return unsubscribe
+  }, [user.id])
+
   async function respondLike(likeId, status) {
     await supabase.from('likes').update({ status }).eq('id', likeId)
     load()
   }
 
   const pendingCount = pendingLikes.length
+  const totalUnreadMessages = [...personalUnread.values(), ...eventUnread.values()].reduce((sum, n) => sum + n, 0)
 
   // Keep finished events out of the way once they've wrapped up, so the
   // chat list stays about what's current instead of growing forever.
@@ -102,10 +141,17 @@ export default function FreelancerNotifications() {
         <div className="segmented">
           <button type="button" className={tab === 'chat' ? 'active' : ''} onClick={() => setTab('chat')}>
             Chat
-            {pendingCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{pendingCount}</span>}
+            {pendingCount + [...personalUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
+              <span className="badge" style={{ marginLeft: 6 }}>
+                {pendingCount + [...personalUnread.values()].reduce((s, n) => s + n, 0)}
+              </span>
+            )}
           </button>
           <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
             Event Chat
+            {[...eventUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
+              <span className="badge" style={{ marginLeft: 6 }}>{[...eventUnread.values()].reduce((s, n) => s + n, 0)}</span>
+            )}
           </button>
         </div>
 
@@ -158,8 +204,13 @@ export default function FreelancerNotifications() {
               {likeMatches.map((m) => (
                 <div key={m.id} className="card row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                   <strong>{m.organizer_profiles.org_name}</strong>
-                  <Link to={`/chat/${m.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open chat">
+                  <Link to={`/chat/${m.id}`} className="chip" style={{ textDecoration: 'none', position: 'relative' }} aria-label="Open chat">
                     💬
+                    {personalUnread.get(m.id) > 0 && (
+                      <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
+                        {personalUnread.get(m.id)}
+                      </span>
+                    )}
                   </Link>
                 </div>
               ))}
@@ -190,8 +241,13 @@ export default function FreelancerNotifications() {
                       </p>
                     </div>
                     {job.chat_opened_at ? (
-                      <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none' }} aria-label="Open event chat">
+                      <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none', position: 'relative' }} aria-label="Open event chat">
                         💬
+                        {eventUnread.get(job.id) > 0 && (
+                          <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
+                            {eventUnread.get(job.id)}
+                          </span>
+                        )}
                       </Link>
                     ) : (
                       <span className="chip chip-outline" style={{ fontSize: 11 }}>Not started</span>
@@ -241,7 +297,7 @@ export default function FreelancerNotifications() {
 
       {aboutOrganizer && <OrganizerAboutModal organizer={aboutOrganizer} onClose={() => setAboutOrganizer(null)} />}
 
-      <FreelancerTabbar connectCount={pendingCount} />
+      <FreelancerTabbar connectCount={pendingCount + totalUnreadMessages} />
     </div>
   )
 }
