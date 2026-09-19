@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
 const AuthContext = createContext(null)
@@ -8,15 +8,25 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null) // { id, role } or null once we know there's none yet
   const [roleProfile, setRoleProfile] = useState(null) // freelancer_profiles or organizer_profiles row, or null
   const [loadingProfile, setLoadingProfile] = useState(true)
+  // Supabase's client re-fires onAuthStateChange (a token refresh check)
+  // every time the browser tab/window regains focus, even though the
+  // session hasn't actually changed. Without this guard, that re-fetch set
+  // loadingProfile back to true on every alt-tab, which flips Guard.jsx's
+  // "loading" screen back on and unmounts whatever page — and whatever
+  // half-filled form on it — was showing. Only the very first profile load
+  // should show that full-page loading state; a background refresh of an
+  // already-known session updates profile/roleProfile quietly instead.
+  const initializedRef = useRef(false)
 
   const loadProfile = useCallback(async (userId) => {
     if (!userId) {
       setProfile(null)
       setRoleProfile(null)
       setLoadingProfile(false)
+      initializedRef.current = true
       return
     }
-    setLoadingProfile(true)
+    if (!initializedRef.current) setLoadingProfile(true)
     let { data, error } = await supabase
       .from('profiles')
       .select('id, role, status, suspended_reason')
@@ -51,6 +61,7 @@ export function AuthProvider({ children }) {
       setRoleProfile(null)
     }
     setLoadingProfile(false)
+    initializedRef.current = true
   }, [])
 
   useEffect(() => {
