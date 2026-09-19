@@ -16,7 +16,7 @@ import { Modal } from '../../components/Modal'
 // Discover can filter vendors by it later the same way it filters
 // freelancers by skill.
 export default function VendorOnboarding() {
-  const { user, roleProfile, isOnboarded, refreshProfile } = useAuth()
+  const { user, roleProfile, isOnboarded, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [locationOptions, setLocationOptions] = useState([])
   const [form, setForm] = useState({
@@ -362,6 +362,10 @@ export default function VendorOnboarding() {
             {busy ? 'Saving…' : isOnboarded ? 'Save changes' : 'Save profile & start browsing'}
           </button>
         </form>
+
+        <button type="button" className="btn btn-outline btn-block" style={{ marginTop: 12 }} onClick={signOut}>
+          Sign out
+        </button>
       </div>
       <VendorTabbar />
     </div>

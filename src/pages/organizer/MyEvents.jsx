@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
@@ -36,15 +36,15 @@ function startOfWeek(date) {
 // "Manage event"), the team chat, and post-event ratings. Post is just the
 // read-only, notification-driven board of whatever's currently open here.
 export default function MyEvents() {
-  const { user, roleProfile } = useAuth()
+  const { user } = useAuth()
+  const location = useLocation()
   const [jobs, setJobs] = useState([])
   const [ratedKeys, setRatedKeys] = useState(new Set())
   const [teamMembers, setTeamMembers] = useState([])
   const [skillOptions, setSkillOptions] = useState([])
   const [locationOptions, setLocationOptions] = useState([])
-  const [pendingCount, setPendingCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'list' | 'calendar'
+  const [view, setView] = useState('list') // 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showPastList, setShowPastList] = useState(false)
   const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
@@ -104,28 +104,19 @@ export default function MyEvents() {
       }))
     )
 
-    // Same count the Post tab badges — how many applicants are waiting on a
-    // decision across every division you've opened to public recruiting.
-    // Powers the "Pending applicants" tile on the dashboard.
-    const openRecruitDivisionIds = (jobRows || []).flatMap((j) => j.job_divisions.filter((d) => d.open_recruit).map((d) => d.id))
-    if (openRecruitDivisionIds.length > 0) {
-      const { count, error: pendingError } = await supabase
-        .from('applications')
-        .select('id', { count: 'exact', head: true })
-        .in('division_id', openRecruitDivisionIds)
-        .eq('status', 'pending')
-      if (pendingError) console.error(pendingError)
-      setPendingCount(count || 0)
-    } else {
-      setPendingCount(0)
-    }
-
     setLoading(false)
   }, [user.id])
 
   useEffect(() => {
     load()
   }, [load])
+
+  // The Profile dashboard's "+" button lands here with this flag instead of
+  // duplicating the create-event form on that page — one extra tap, but no
+  // second copy of EventForm/the modal machinery to keep in sync.
+  useEffect(() => {
+    if (location.state?.openCreate) setShowCreateForm(true)
+  }, [location.state])
 
   useEffect(() => {
     supabase
@@ -281,19 +272,14 @@ export default function MyEvents() {
             />
           </div>
         ) : (
-          view !== 'dashboard' && (
-            <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
-              + Create a new event
-            </button>
-          )
+          <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
+            + Create a new event
+          </button>
         )}
 
         {!showCreateForm && (
           <>
             <div className="segmented">
-              <button type="button" className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}>
-                Home
-              </button>
               <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
                 List
               </button>
@@ -303,17 +289,6 @@ export default function MyEvents() {
             </div>
 
             {loading && <p className="subtitle">Loading…</p>}
-
-            {!loading && view === 'dashboard' && (
-              <EventDashboard
-                jobs={jobs}
-                teamMembers={teamMembers}
-                pendingCount={pendingCount}
-                orgName={roleProfile?.org_name}
-                onManage={(jobId) => setManageModal({ jobId, sub: null })}
-                onCreate={() => setShowCreateForm(true)}
-              />
-            )}
 
             {view === 'calendar' && (
               <EventCalendar events={jobs} onSelectEvent={(job) => setManageModal({ jobId: job.id, sub: null })} />
@@ -506,29 +481,21 @@ export default function MyEvents() {
   )
 }
 
-// The Home tab — a quick "what's going on" view instead of jumping straight
-// into the create form or a flat list: what's coming up next, a week strip
-// to jump to a day's agenda, and a few at-a-glance numbers. Everything here
-// reads from the same `jobs`/`teamMembers` the List/Calendar views use — no
-// separate data model — and tapping into an event reuses the same "Manage
-// event" modal those views already open.
-// 900px matches the .desktop-workspace/.app-shell breakpoint in index.css —
-// below it EventWorkspace isn't reachable from navigation at all, so the
-// mobile "Manage event" bottom sheet is still the only way in.
-const DESKTOP_BREAKPOINT = '(min-width: 900px)'
-
-function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, onCreate }) {
+// Now the Profile page's dashboard (see OrganizerOnboarding.jsx) rather than
+// a My Event tab — a quick "what's going on" view instead of jumping
+// straight into a flat list: what's coming up next, a week strip to jump to
+// a day's agenda, and a few at-a-glance numbers. Reads from the same
+// `jobs`/`teamMembers` shape My Event's List/Calendar views use — no
+// separate data model — but since Profile has none of My Event's own
+// modal machinery, tapping into an event here always goes straight to the
+// full event workspace route instead.
+export function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onCreate }) {
   const navigate = useNavigate()
   const today = todayISO()
   const [selectedDay, setSelectedDay] = useState(today)
 
-  // On desktop, go straight to the real event workspace instead of the old
-  // mobile bottom-sheet modal — the modal reads like a stretched-phone
-  // overlay on a wide screen, and the workspace is what desktop is for.
-  // Mobile keeps opening the modal exactly as before.
   function openEvent(jobId) {
-    if (window.matchMedia(DESKTOP_BREAKPOINT).matches) navigate(`/organizer/events/${jobId}`)
-    else onManage(jobId)
+    navigate(`/organizer/events/${jobId}`)
   }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {

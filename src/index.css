@@ -62,12 +62,14 @@ a {
   letter-spacing: 0.2px;
 }
 
-.topbar button.link {
+.topbar button.link,
+.topbar a.link {
   background: none;
   border: none;
   color: #f7e9d2;
   font-size: 13px;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .page {
@@ -964,7 +966,8 @@ textarea {
     font-size: 21px;
     font-weight: 700;
   }
-  .app-shell .topbar button.link {
+  .app-shell .topbar button.link,
+  .app-shell .topbar a.link {
     color: var(--muted);
     font-weight: 600;
   }

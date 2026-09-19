@@ -1,16 +1,24 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat, IconStore } from './TabIcons'
+import { IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+
+// Where "Profile" (no longer its own tabbar entry — see FreelancerTabbar/
+// OrganizerTabbar/VendorTabbar below) is reached from now: a link in the
+// topbar's corner, present on every screen. Signing out moved the other
+// way — off the topbar and onto the profile page itself (see
+// FreelancerOnboarding/OrganizerOnboarding/VendorOnboarding).
+const PROFILE_PATH_BY_ROLE = { freelancer: '/freelancer/onboarding', organizer: '/organizer/onboarding', vendor: '/vendor/onboarding' }
 
 export function Topbar({ title }) {
-  const { signOut, user } = useAuth()
+  const { user, role } = useAuth()
+  const profilePath = PROFILE_PATH_BY_ROLE[role]
   return (
     <div className="topbar">
       <span className="brand">{title || 'Pulau Event'}</span>
-      {user && (
-        <button className="link" onClick={signOut}>
-          Sign out
-        </button>
+      {user && profilePath && (
+        <Link to={profilePath} className="link">
+          Profile
+        </Link>
       )}
     </div>
   )
@@ -22,9 +30,6 @@ export function Topbar({ title }) {
 export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
-      <NavLink to="/freelancer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconUser className="tab-icon" />Profile
-      </NavLink>
       <NavLink to="/freelancer/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconClipboard className="tab-icon" />Job
       </NavLink>
@@ -54,9 +59,6 @@ export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
 export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
-      <NavLink to="/organizer/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconUser className="tab-icon" />Profile
-      </NavLink>
       <NavLink to="/organizer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconCalendar className="tab-icon" />My Event
       </NavLink>
@@ -88,9 +90,6 @@ export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
 export function VendorTabbar({ myEventCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
-      <NavLink to="/vendor/onboarding" end className={({ isActive }) => (isActive ? 'active' : '')}>
-        <IconStore className="tab-icon" />Profile
-      </NavLink>
       <NavLink to="/vendor/jobs" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconClipboard className="tab-icon" />Opportunities
       </NavLink>
