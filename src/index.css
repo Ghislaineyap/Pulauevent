@@ -976,10 +976,11 @@ textarea {
   /* The Home/List/Calendar (and similar) pill control loses its track
      otherwise — .segmented's background is the same --cloud the page now
      sits on. Scoped to .app-shell so this never touches the same control
-     rendered inside a white .ws-panel on the workspace pages. */
+     rendered inside a white .ws-panel on the workspace pages. No max-width:
+     on the wide desktop page it should span the row like the rest of the
+     dashboard's blocks, not sit as a narrow pill with dead space beside it. */
   .app-shell .segmented {
     background: var(--card);
-    max-width: 420px;
   }
 
   /* The Home dashboard's "+" is normally pinned to the viewport (so it
