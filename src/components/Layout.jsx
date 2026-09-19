@@ -65,10 +65,9 @@ export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
 }
 
 // pendingCount: applicants waiting on a decision, across every open-recruit
-// division — shown on Post, since that's the only place a division can be
-// public (and so the only source of a pending applicant) and where an
-// organizer reviews them. connectCount: unread messages across event and
-// personal chats.
+// division/vendor slot — shown on Team, since that's now the only place
+// either kind of application is reviewed (item 9 — Post retired). connectCount:
+// unread messages across event and personal chats.
 export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
@@ -78,12 +77,12 @@ export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
       <NavLink to="/organizer/browse" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconSearch className="tab-icon" />Discover
       </NavLink>
-      <NavLink to="/organizer/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+      <NavLink to="/organizer/team" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon-wrap">
-          <IconClipboard className="tab-icon" />
+          <IconUser className="tab-icon" />
           {pendingCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{pendingCount}</span>}
         </span>
-        Post
+        Team
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon-wrap">

@@ -24,7 +24,7 @@ import FreelancerNotifications from './pages/freelancer/FreelancerNotifications'
 import FreelancerEventWorkspace from './pages/freelancer/EventWorkspace'
 
 import OrganizerOnboarding from './pages/organizer/OrganizerOnboarding'
-import OrganizerDashboard from './pages/organizer/OrganizerDashboard'
+import Team from './pages/organizer/Team'
 import ApplicantReview from './pages/organizer/ApplicantReview'
 import Discover from './pages/organizer/Discover'
 import FreelancerProfileDetail from './pages/organizer/FreelancerProfileDetail'
@@ -136,10 +136,10 @@ export default function App() {
             }
           />
           <Route
-            path="/organizer/dashboard"
+            path="/organizer/team"
             element={
               <Guard role="organizer">
-                <OrganizerDashboard />
+                <Team />
               </Guard>
             }
           />

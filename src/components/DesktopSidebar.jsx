@@ -33,9 +33,9 @@ export function DesktopSidebar({ role }) {
             <IconSearch className="ds-icon" />
             Discover
           </NavLink>
-          <NavLink to="/organizer/dashboard" className={linkClass}>
-            <IconClipboard className="ds-icon" />
-            Post
+          <NavLink to="/organizer/team" className={linkClass}>
+            <IconUser className="ds-icon" />
+            Team
           </NavLink>
           <NavLink to="/organizer/notifications" className={linkClass}>
             <IconChat className="ds-icon" />
