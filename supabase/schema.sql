@@ -174,11 +174,12 @@ create or replace function public.handle_application_accepted()
 returns trigger as $$
 declare
   v_organizer_id uuid;
+  v_job_id uuid;
   v_quantity integer;
   v_filled_count integer;
 begin
   if new.status = 'accepted' and old.status is distinct from 'accepted' then
-    select jp.organizer_id, jd.quantity into v_organizer_id, v_quantity
+    select jp.organizer_id, jp.id, jd.quantity into v_organizer_id, v_job_id, v_quantity
     from public.job_divisions jd
     join public.job_postings jp on jp.id = jd.job_id
     where jd.id = new.division_id;
@@ -190,6 +191,12 @@ begin
     insert into public.team_members (organizer_id, freelancer_id, source)
     values (v_organizer_id, new.freelancer_id, 'connection')
     on conflict (organizer_id, freelancer_id) do nothing;
+
+    -- Being accepted means you're on the team — get straight into the group
+    -- chat instead of waiting on the organizer to remember to switch it on.
+    update public.job_postings
+    set chat_opened_at = coalesce(chat_opened_at, now())
+    where id = v_job_id;
 
     update public.job_divisions
     set filled_count = filled_count + 1

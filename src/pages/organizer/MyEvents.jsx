@@ -791,8 +791,9 @@ export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecr
           <span style={{ display: 'flex', alignItems: 'center' }}>
             <Switch checked={Boolean(job.chat_opened_at)} onChange={(v) => onToggleChat(job.id, v)} label="Event chat" />
             <InfoButton title="Event chat">
-              Turning this on opens a group chat for you + everyone confirmed on this event. Turn it back off any
-              time — handy if a cancellation means you need to swap someone out first.
+              Opens automatically the moment your first team member is confirmed, so everyone lands straight in the
+              group chat instead of waiting on you. Turn it off any time — handy if a cancellation means you need to
+              swap someone out first.
             </InfoButton>
           </span>
           {job.chat_opened_at ? (
