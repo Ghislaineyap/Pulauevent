@@ -46,6 +46,7 @@ export default function MyEvents() {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('dashboard') // 'dashboard' | 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
+  const [showPastList, setShowPastList] = useState(false)
 
   // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId }
   //   | { type: 'rundowns' } | { type: 'tasks' } | { type: 'share' } }
@@ -245,6 +246,13 @@ export default function MyEvents() {
     downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
   }
 
+  // Keep wrapped-up events out of the way on the List tab, same as the
+  // Connect chat lists already do — an event's card moves under a collapsed
+  // "Show past events" toggle once its end date has passed instead of
+  // sitting in the main list forever.
+  const activeListJobs = jobs.filter((j) => j.event_end_date >= todayISO())
+  const pastListJobs = jobs.filter((j) => j.event_end_date < todayISO())
+
   const manageJob = manageModal && jobs.find((j) => j.id === manageModal.jobId)
   const manageDivision =
     manageJob && (manageModal.sub?.type === 'team' || manageModal.sub?.type === 'recruit')
@@ -318,9 +326,12 @@ export default function MyEvents() {
             {view === 'list' && !loading && jobs.length === 0 && (
               <div className="empty-state">No events yet — create one to get started.</div>
             )}
+            {view === 'list' && activeListJobs.length === 0 && pastListJobs.length > 0 && (
+              <div className="empty-state">No upcoming events — see past events below.</div>
+            )}
             {view === 'list' && (
               <div className="stack">
-                {jobs.map((job) => (
+                {activeListJobs.map((job) => (
                   <div key={job.id} className="card stack">
                     <div>
                       <h2 style={{ margin: 0 }}>{job.title}</h2>
@@ -340,6 +351,36 @@ export default function MyEvents() {
                   </div>
                 ))}
               </div>
+            )}
+            {view === 'list' && pastListJobs.length > 0 && (
+              <>
+                <button type="button" className="btn btn-outline btn-block" onClick={() => setShowPastList((s) => !s)}>
+                  {showPastList ? 'Hide' : 'Show'} past events ({pastListJobs.length})
+                </button>
+                {showPastList && (
+                  <div className="stack">
+                    {pastListJobs.map((job) => (
+                      <div key={job.id} className="card stack" style={{ opacity: 0.75 }}>
+                        <div>
+                          <h2 style={{ margin: 0 }}>{job.title}</h2>
+                          <p className="subtitle" style={{ margin: '4px 0 0' }}>
+                            📍 {job.location}
+                            {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                          </p>
+                        </div>
+                        <div className="row">
+                          <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setManageModal({ jobId: job.id, sub: null })}>
+                            Manage event
+                          </button>
+                          <Link to={`/organizer/events/${job.id}`} className="btn btn-outline desktop-only-inline" style={{ flex: 1, textDecoration: 'none' }}>
+                            Open workspace
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}

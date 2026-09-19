@@ -12,6 +12,8 @@ import { RundownView } from '../../components/RundownView'
 import { TasksView } from '../../components/TasksView'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
 
+const todayISO = () => new Date().toISOString().slice(0, 10)
+
 // "My Event" — every job this freelancer has applied to or been invited to,
 // so they can see at a glance whether each one needs a response, is still
 // pending, confirmed, or didn't work out this time. A direct invite from an
@@ -28,6 +30,7 @@ export default function MyEvents() {
   const [busyKey, setBusyKey] = useState(null)
   const [respondingId, setRespondingId] = useState(null)
   const [view, setView] = useState('list') // 'list' | 'calendar'
+  const [showPastEvents, setShowPastEvents] = useState(false)
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
   const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'rundown' | 'tasks' } | null
 
@@ -122,6 +125,18 @@ export default function MyEvents() {
 
   const invitedCount = events.filter((a) => a.status === 'invited').length
 
+  // Keep wrapped-up events out of the way once they're done, same as the
+  // Connect chat lists already do — an application whose job has ended moves
+  // under a collapsed "Show past events" toggle instead of sitting in the
+  // main list forever. An invite/application with no end date yet (job data
+  // still loading) stays active rather than disappearing.
+  const isPastEvent = (a) => {
+    const end = a.job_divisions?.job_postings?.event_end_date
+    return !!end && end < todayISO()
+  }
+  const activeEvents = events.filter((a) => !isPastEvent(a))
+  const pastEvents = events.filter(isPastEvent)
+
   // Add to calendar lives at the My Event level (not inside the Rundown
   // tab) for freelancers too — same reasoning and same helper as the
   // organizer side.
@@ -139,6 +154,139 @@ export default function MyEvents() {
       items = itemRows || []
     }
     downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  }
+
+  function renderEventCard(a, { past = false } = {}) {
+    const div = a.job_divisions
+    const job = div.job_postings
+    const teammates = teammatesByJob.get(div.job_id) || []
+    return (
+      <div key={a.id} className="card stack" style={past ? { opacity: 0.75 } : undefined}>
+        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>{job.title}</h2>
+            <button
+              type="button"
+              className="subtitle"
+              style={{ background: 'none', border: 'none', padding: 0, margin: '4px 0 0', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
+              onClick={() => setAboutOrganizer({ ...job.organizer_profiles, id: job.organizer_id })}
+            >
+              {job.organizer_profiles.org_name}
+            </button>
+            <p className="subtitle" style={{ margin: '2px 0 0' }}>
+              📍 {job.location}
+              {a.status === 'accepted' && job.location_detail && ` — ${job.location_detail}`} ·{' '}
+              {formatEventDates(job.event_start_date, job.event_end_date)}
+            </p>
+          </div>
+          <span className={applicationStatusChipClass(a.status)}>{applicationStatusLabel(a.status)}</span>
+        </div>
+        {div.jobdesk && (
+          <p className="subtitle" style={{ margin: 0 }}>
+            {div.jobdesk}
+          </p>
+        )}
+        <div className="chip-row">
+          <span className="chip chip-outline">Role: {div.skill}</span>
+          {div.budget_amount && (
+            <span className="chip chip-outline">
+              Rp {Number(div.budget_amount).toLocaleString('id-ID')}{' '}
+              {div.budget_type === 'flat' ? 'flat' : `/ ${div.budget_type}`}
+            </span>
+          )}
+          {div.fee_type === 'plus_transport' && (
+            <span className="chip chip-outline">
+              + Transport{div.transport_max_amount ? `, up to Rp ${Number(div.transport_max_amount).toLocaleString('id-ID')}` : ' reimbursed'}
+            </span>
+          )}
+        </div>
+        {a.status === 'invited' && (
+          <div className="row">
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ flex: 1 }}
+              disabled={respondingId === a.id}
+              onClick={() => respondInvite(a.id, 'declined')}
+            >
+              Decline
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+              disabled={respondingId === a.id}
+              onClick={() => respondInvite(a.id, 'accepted')}
+            >
+              {respondingId === a.id ? 'Saving…' : 'Accept'}
+            </button>
+          </div>
+        )}
+        {a.status === 'accepted' && job.chat_opened_at && (
+          <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
+            💬 Open event chat
+          </Link>
+        )}
+        {a.status === 'accepted' && !job.chat_opened_at && (
+          <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
+        )}
+
+        {a.status === 'accepted' && (
+          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+              onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'rundown' })}
+            >
+              View rundown
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline"
+              style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+              onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'tasks' })}
+            >
+              My tasks
+            </button>
+            <button type="button" className="btn btn-outline btn-block" style={{ padding: '8px 10px', fontSize: 12.5 }} onClick={() => addToCalendar(job)}>
+              Add to calendar
+            </button>
+            <Link to={`/freelancer/events/${div.job_id}`} className="btn btn-outline btn-block desktop-only-inline" style={{ padding: '8px 10px', fontSize: 12.5, textDecoration: 'none' }}>
+              Open workspace
+            </Link>
+          </div>
+        )}
+
+        {a.status === 'accepted' && teammates.length > 0 && (
+          <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 8 }}>
+            <strong style={{ fontSize: 13 }}>Your teammates on this event</strong>
+            {teammates.map((t) => (
+              <div key={t.id} className="stack" style={{ gap: 4 }}>
+                <p className="subtitle" style={{ margin: 0 }}>{t.name}</p>
+                <div className="chip-row">
+                  {(t.skills || []).map((s) => {
+                    const key = `${t.id}:${s}`
+                    const done = endorsed.has(key)
+                    return (
+                      <span
+                        key={s}
+                        className={`chip chip-toggle ${done ? 'active' : ''}`}
+                        style={{ cursor: done ? 'default' : 'pointer', opacity: busyKey === key ? 0.6 : 1 }}
+                        onClick={() => endorse(t.id, s)}
+                      >
+                        {done ? '✓ ' : '+ '}
+                        {s}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -160,141 +308,21 @@ export default function MyEvents() {
         {view === 'list' && !loading && events.length === 0 && (
           <div className="empty-state">Nothing here yet — jobs you apply to, or get invited to, will show up here.</div>
         )}
+        {view === 'list' && activeEvents.length === 0 && pastEvents.length > 0 && (
+          <div className="empty-state">No active events — see past events below.</div>
+        )}
         {view === 'list' && (
-        <div className="stack">
-          {events.map((a) => {
-            const div = a.job_divisions
-            const job = div.job_postings
-            const teammates = teammatesByJob.get(div.job_id) || []
-            return (
-              <div key={a.id} className="card stack">
-                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h2 style={{ margin: 0 }}>{job.title}</h2>
-                    <button
-                      type="button"
-                      className="subtitle"
-                      style={{ background: 'none', border: 'none', padding: 0, margin: '4px 0 0', cursor: 'pointer', color: 'var(--primary-dark)', fontWeight: 600, textAlign: 'left' }}
-                      onClick={() => setAboutOrganizer({ ...job.organizer_profiles, id: job.organizer_id })}
-                    >
-                      {job.organizer_profiles.org_name}
-                    </button>
-                    <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                      📍 {job.location}
-                      {a.status === 'accepted' && job.location_detail && ` — ${job.location_detail}`} ·{' '}
-                      {formatEventDates(job.event_start_date, job.event_end_date)}
-                    </p>
-                  </div>
-                  <span className={applicationStatusChipClass(a.status)}>{applicationStatusLabel(a.status)}</span>
-                </div>
-                {div.jobdesk && (
-                  <p className="subtitle" style={{ margin: 0 }}>
-                    {div.jobdesk}
-                  </p>
-                )}
-                <div className="chip-row">
-                  <span className="chip chip-outline">Role: {div.skill}</span>
-                  {div.budget_amount && (
-                    <span className="chip chip-outline">
-                      Rp {Number(div.budget_amount).toLocaleString('id-ID')}{' '}
-                      {div.budget_type === 'flat' ? 'flat' : `/ ${div.budget_type}`}
-                    </span>
-                  )}
-                  {div.fee_type === 'plus_transport' && (
-                    <span className="chip chip-outline">
-                      + Transport{div.transport_max_amount ? `, up to Rp ${Number(div.transport_max_amount).toLocaleString('id-ID')}` : ' reimbursed'}
-                    </span>
-                  )}
-                </div>
-                {a.status === 'invited' && (
-                  <div className="row">
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ flex: 1 }}
-                      disabled={respondingId === a.id}
-                      onClick={() => respondInvite(a.id, 'declined')}
-                    >
-                      Decline
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      style={{ flex: 1 }}
-                      disabled={respondingId === a.id}
-                      onClick={() => respondInvite(a.id, 'accepted')}
-                    >
-                      {respondingId === a.id ? 'Saving…' : 'Accept'}
-                    </button>
-                  </div>
-                )}
-                {a.status === 'accepted' && job.chat_opened_at && (
-                  <Link to={`/event-chat/${div.job_id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
-                    💬 Open event chat
-                  </Link>
-                )}
-                {a.status === 'accepted' && !job.chat_opened_at && (
-                  <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
-                )}
-
-                {a.status === 'accepted' && (
-                  <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
-                      onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'rundown' })}
-                    >
-                      View rundown
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
-                      style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
-                      onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'tasks' })}
-                    >
-                      My tasks
-                    </button>
-                    <button type="button" className="btn btn-outline btn-block" style={{ padding: '8px 10px', fontSize: 12.5 }} onClick={() => addToCalendar(job)}>
-                      Add to calendar
-                    </button>
-                    <Link to={`/freelancer/events/${div.job_id}`} className="btn btn-outline btn-block desktop-only-inline" style={{ padding: '8px 10px', fontSize: 12.5, textDecoration: 'none' }}>
-                      Open workspace
-                    </Link>
-                  </div>
-                )}
-
-                {a.status === 'accepted' && teammates.length > 0 && (
-                  <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 8 }}>
-                    <strong style={{ fontSize: 13 }}>Your teammates on this event</strong>
-                    {teammates.map((t) => (
-                      <div key={t.id} className="stack" style={{ gap: 4 }}>
-                        <p className="subtitle" style={{ margin: 0 }}>{t.name}</p>
-                        <div className="chip-row">
-                          {(t.skills || []).map((s) => {
-                            const key = `${t.id}:${s}`
-                            const done = endorsed.has(key)
-                            return (
-                              <span
-                                key={s}
-                                className={`chip chip-toggle ${done ? 'active' : ''}`}
-                                style={{ cursor: done ? 'default' : 'pointer', opacity: busyKey === key ? 0.6 : 1 }}
-                                onClick={() => endorse(t.id, s)}
-                              >
-                                {done ? '✓ ' : '+ '}
-                                {s}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+          <div className="stack">{activeEvents.map((a) => renderEventCard(a))}</div>
+        )}
+        {view === 'list' && pastEvents.length > 0 && (
+          <>
+            <button type="button" className="btn btn-outline btn-block" onClick={() => setShowPastEvents((s) => !s)}>
+              {showPastEvents ? 'Hide' : 'Show'} past events ({pastEvents.length})
+            </button>
+            {showPastEvents && (
+              <div className="stack">{pastEvents.map((a) => renderEventCard(a, { past: true }))}</div>
+            )}
+          </>
         )}
       </div>
 
