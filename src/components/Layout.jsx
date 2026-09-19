@@ -1,23 +1,36 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
 
 // Where "Profile" (no longer its own tabbar entry — see FreelancerTabbar/
-// OrganizerTabbar/VendorTabbar below) is reached from now: a link in the
-// topbar's corner, present on every screen. Signing out moved the other
-// way — off the topbar and onto the profile page itself (see
+// OrganizerTabbar/VendorTabbar below) is reached from now: a round avatar
+// in the topbar's corner, present on every screen. Signing out moved the
+// other way — off the topbar and onto the profile page itself (see
 // FreelancerOnboarding/OrganizerOnboarding/VendorOnboarding).
 const PROFILE_PATH_BY_ROLE = { freelancer: '/freelancer/onboarding', organizer: '/organizer/onboarding', vendor: '/vendor/onboarding' }
+// Each role keeps its "photo" under a different field — freelancers pick
+// from a gallery (photo_urls), organizers/vendors have one logo — so the
+// avatar shown here is whichever one that role actually has.
+const AVATAR_URL_BY_ROLE = {
+  freelancer: (p) => p?.photo_urls?.[0],
+  organizer: (p) => p?.logo_url,
+  vendor: (p) => p?.logo_url,
+}
 
 export function Topbar({ title }) {
-  const { user, role } = useAuth()
+  const { user, role, roleProfile } = useAuth()
   const profilePath = PROFILE_PATH_BY_ROLE[role]
+  const avatarUrl = AVATAR_URL_BY_ROLE[role]?.(roleProfile)
   return (
     <div className="topbar">
       <span className="brand">{title || 'Pulau Event'}</span>
       {user && profilePath && (
-        <Link to={profilePath} className="link">
-          Profile
+        <Link to={profilePath} className="topbar-avatar" aria-label="Profile">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="topbar-avatar-img" />
+          ) : (
+            <IconUser className="topbar-avatar-icon" />
+          )}
         </Link>
       )}
     </div>
