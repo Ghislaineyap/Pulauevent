@@ -4,16 +4,16 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { formatEventDates } from '../../lib/date'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
-import { formatTime } from '../../lib/schedule'
-import { RundownView } from '../../components/RundownView'
+import { DocumentsView } from '../../components/DocumentsView'
+import { listEventDocuments } from '../../lib/eventDocs'
 import { TasksView } from '../../components/TasksView'
 import { ChatRail } from '../../components/ChatRail'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
-// Same idea as the organizer workspace: Tasks is the data-dense/scoped tab,
-// so its chat rail defaults collapsed; Overview and Rundown keep it open.
-const CHAT_COLLAPSED_BY_DEFAULT = { overview: false, rundown: false, tasks: true }
+// Same idea as the organizer workspace: Tasks/Documents are the data-dense/
+// scoped tabs, so their chat rail defaults collapsed; Overview keeps it open.
+const CHAT_COLLAPSED_BY_DEFAULT = { overview: false, documents: true, tasks: true }
 
 function daysLabel(startDate, endDate) {
   const today = todayISO()
@@ -29,18 +29,18 @@ function formatFee(d) {
 }
 
 // Desktop-only, read-scoped counterpart to organizer/EventWorkspace — a
-// freelancer confirmed on this job gets the same Rundown/Tasks views, just
-// without the edit/manage affordances (RundownView/TasksView already know
-// how to render themselves read-only via canEdit/canManage=false).
+// freelancer confirmed on this job gets the same Documents/Tasks views,
+// just without the edit/manage affordances (DocumentsView/TasksView already
+// know how to render themselves read-only via canEdit/canManage=false).
 export default function EventWorkspace() {
   const { jobId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [job, setJob] = useState(null)
   const [teammates, setTeammates] = useState([])
-  const [rundownPreview, setRundownPreview] = useState(null)
+  const [docCount, setDocCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('overview') // 'overview' | 'rundown' | 'tasks'
+  const [tab, setTab] = useState('overview') // 'overview' | 'documents' | 'tasks'
   const [chatCollapsed, setChatCollapsed] = useState(CHAT_COLLAPSED_BY_DEFAULT.overview)
   const [chatTabSeen, setChatTabSeen] = useState('overview')
   // See organizer/EventWorkspace.jsx: reset to the new tab's default only
@@ -99,44 +99,17 @@ export default function EventWorkspace() {
     load()
   }, [load])
 
+  // Refetched whenever Overview is the active tab, so a doc the organizer
+  // just uploaded shows up here without needing a full page reload.
   useEffect(() => {
-    supabase
-      .from('event_rundowns')
-      .select('id, title, event_date')
-      .eq('job_id', jobId)
-      .order('event_date', { ascending: true })
-      .limit(1)
-      .then(async ({ data: rundowns }) => {
-        const first = (rundowns || [])[0]
-        if (!first) {
-          setRundownPreview(null)
-          return
-        }
-        const { data: items } = await supabase
-          .from('event_rundown_items')
-          .select('segment, start_time')
-          .eq('rundown_id', first.id)
-          .order('sort_order', { ascending: true })
-          .limit(4)
-        setRundownPreview({
-          title: first.title,
-          rows: (items || []).map((i) => ({ time: formatTime(i.start_time), label: i.segment })),
-        })
-      })
-  }, [jobId])
+    if (tab !== 'overview') return
+    listEventDocuments(jobId)
+      .then((docs) => setDocCount(docs.length))
+      .catch((err) => console.error(err))
+  }, [jobId, tab])
 
-  async function addToCalendar() {
-    const { data: rundowns } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', jobId)
-    let items = []
-    const rundownIds = (rundowns || []).map((r) => r.id)
-    if (rundownIds.length > 0) {
-      const { data: itemRows } = await supabase
-        .from('event_rundown_items')
-        .select('rundown_id, sort_order, start_time, duration_minutes')
-        .in('rundown_id', rundownIds)
-      items = itemRows || []
-    }
-    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  function addToCalendar() {
+    downloadICS(job.title, eventsFromJobSchedule(job, [], []))
   }
 
   if (loading) {
@@ -182,8 +155,8 @@ export default function EventWorkspace() {
           <button type="button" className={tab === 'overview' ? 'active' : ''} onClick={() => setTab('overview')}>
             Overview
           </button>
-          <button type="button" className={tab === 'rundown' ? 'active' : ''} onClick={() => setTab('rundown')}>
-            Rundown
+          <button type="button" className={tab === 'documents' ? 'active' : ''} onClick={() => setTab('documents')}>
+            Documents
           </button>
           <button type="button" className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}>
             Tasks
@@ -237,7 +210,7 @@ export default function EventWorkspace() {
                   <div className="ws-panel">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <p className="ws-section-title" style={{ margin: 0 }}>
-                        {rundownPreview ? `Your schedule — ${rundownPreview.title}` : 'Your schedule'}
+                        Documents
                       </p>
                       <button type="button" className="ws-icon-btn" onClick={addToCalendar}>
                         <span className="ws-icon-dot" style={{ background: 'var(--sunset-dark)' }} />
@@ -249,20 +222,20 @@ export default function EventWorkspace() {
                         {job.jobdesk}
                       </p>
                     )}
-                    {rundownPreview && rundownPreview.rows.length > 0 ? (
-                      <div className="stack" style={{ gap: 9, marginTop: 10 }}>
-                        {rundownPreview.rows.map((r, i) => (
-                          <div key={i} className="ws-kv-row">
-                            <span style={{ fontWeight: 600 }}>{r.time}</span>
-                            <span style={{ color: 'var(--muted)' }}>{r.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="subtitle" style={{ marginTop: 10 }}>
-                        The organizer hasn't published a rundown yet — check the Rundown tab closer to the event.
-                      </p>
-                    )}
+                    <p className="subtitle" style={{ marginTop: 10 }}>
+                      {docCount > 0
+                        ? `${docCount} document${docCount === 1 ? '' : 's'} shared for this event.`
+                        : "The organizer hasn't shared any documents yet."}{' '}
+                      {docCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setTab('documents')}
+                          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary-dark)', fontWeight: 700, cursor: 'pointer', font: 'inherit' }}
+                        >
+                          Open Documents
+                        </button>
+                      )}
+                    </p>
                   </div>
                 </div>
 
@@ -317,9 +290,9 @@ export default function EventWorkspace() {
             </div>
           )}
 
-          {tab === 'rundown' && (
+          {tab === 'documents' && (
             <div className="ws-panel">
-              <RundownView jobId={jobId} canEdit={false} />
+              <DocumentsView jobId={jobId} canEdit={false} />
             </div>
           )}
           {tab === 'tasks' && (

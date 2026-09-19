@@ -9,9 +9,8 @@ import { Switch } from '../../components/Switch'
 import { InfoButton } from '../../components/InfoButton'
 import { Modal } from '../../components/Modal'
 import { SkillIcon } from '../../components/SkillIcon'
-import { RundownView } from '../../components/RundownView'
+import { DocumentsView } from '../../components/DocumentsView'
 import { TasksView } from '../../components/TasksView'
-import { ShareView } from '../../components/ShareView'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
 import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
@@ -228,24 +227,12 @@ export default function MyEvents() {
     return true
   }
 
-  // Add to calendar lives at the My Event / overview level, not inside the
-  // Rundown tab — it pulls the current rundown (if any) so the calendar
-  // entry has real times, and falls back to the event's date span if no
-  // rundown has been built yet.
-  async function addToCalendar(job) {
-    const { data: rundowns, error: rundownError } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', job.id)
-    if (rundownError) console.error(rundownError)
-    let items = []
-    const rundownIds = (rundowns || []).map((r) => r.id)
-    if (rundownIds.length > 0) {
-      const { data: itemRows, error: itemError } = await supabase
-        .from('event_rundown_items')
-        .select('rundown_id, sort_order, start_time, duration_minutes')
-        .in('rundown_id', rundownIds)
-      if (itemError) console.error(itemError)
-      items = itemRows || []
-    }
-    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  // Add to calendar lives at the My Event / overview level — a single
+  // all-day-ish event covering the event's date span (eventsFromJobSchedule
+  // falls back to this whenever there's no rundown data, which is now
+  // always, since the Rundown feature was replaced by Documents).
+  function addToCalendar(job) {
+    downloadICS(job.title, eventsFromJobSchedule(job, [], []))
   }
 
   // Keep wrapped-up events out of the way on the List tab, same as the
@@ -271,9 +258,8 @@ export default function MyEvents() {
   if (manageModal?.sub?.type === 'edit') manageTitle = `Edit — ${manageJob.title}`
   if (manageModal?.sub?.type === 'team' && manageDivision) manageTitle = `Select team — ${manageDivision.skill}`
   if (manageModal?.sub?.type === 'recruit' && manageDivision) manageTitle = `Recruiting — ${manageDivision.skill}`
-  if (manageModal?.sub?.type === 'rundowns') manageTitle = `Rundown — ${manageJob.title}`
+  if (manageModal?.sub?.type === 'documents') manageTitle = `Documents — ${manageJob.title}`
   if (manageModal?.sub?.type === 'tasks') manageTitle = `Tasks — ${manageJob.title}`
-  if (manageModal?.sub?.type === 'share') manageTitle = `Share — ${manageJob.title}`
 
   return (
     <div className="app-shell">
@@ -416,9 +402,8 @@ export default function MyEvents() {
               onEdit={() => setManageModal((m) => ({ ...m, sub: { type: 'edit' } }))}
               onOpenTeam={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'team', divisionId } }))}
               onOpenRecruit={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'recruit', divisionId } }))}
-              onOpenRundowns={() => setManageModal((m) => ({ ...m, sub: { type: 'rundowns' } }))}
+              onOpenDocuments={() => setManageModal((m) => ({ ...m, sub: { type: 'documents' } }))}
               onOpenTasks={() => setManageModal((m) => ({ ...m, sub: { type: 'tasks' } }))}
-              onOpenShare={() => setManageModal((m) => ({ ...m, sub: { type: 'share' } }))}
               onAddToCalendar={() => addToCalendar(manageJob)}
               onToggleChat={toggleEventChat}
               onSubmitRating={submitRating}
@@ -485,7 +470,7 @@ export default function MyEvents() {
             </div>
           )}
 
-          {manageModal.sub?.type === 'rundowns' && (
+          {manageModal.sub?.type === 'documents' && (
             <div className="stack">
               <button
                 type="button"
@@ -495,7 +480,7 @@ export default function MyEvents() {
               >
                 ← Back
               </button>
-              <RundownView jobId={manageJob.id} canEdit />
+              <DocumentsView jobId={manageJob.id} canEdit />
             </div>
           )}
 
@@ -513,19 +498,6 @@ export default function MyEvents() {
             </div>
           )}
 
-          {manageModal.sub?.type === 'share' && (
-            <div className="stack">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
-                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
-              >
-                ← Back
-              </button>
-              <ShareView jobId={manageJob.id} eventTitle={manageJob.title} />
-            </div>
-          )}
         </Modal>
       )}
 
@@ -697,7 +669,7 @@ function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, on
   )
 }
 
-export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onOpenRundowns, onOpenTasks, onOpenShare, onAddToCalendar, onToggleChat, onSubmitRating }) {
+export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onOpenDocuments, onOpenTasks, onAddToCalendar, onToggleChat, onSubmitRating }) {
   const { user } = useAuth()
   const isPast = job.event_end_date < todayISO()
   const toRate = isPast ? job.confirmedTeam.filter((f) => !ratedKeys.has(`${job.id}:${f.id}`)) : []
@@ -731,23 +703,18 @@ export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecr
         </button>
       </div>
 
-      {(onOpenRundowns || onOpenTasks || onOpenShare || onAddToCalendar) && (
+      {(onOpenDocuments || onOpenTasks || onAddToCalendar) && (
         <div className="stack" style={{ gap: 8, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '10px 0' }}>
           <strong style={{ fontSize: 12.5 }}>Event tools</strong>
           <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            {onOpenRundowns && (
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenRundowns}>
-                Rundown
+            {onOpenDocuments && (
+              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenDocuments}>
+                Documents
               </button>
             )}
             {onOpenTasks && (
               <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenTasks}>
                 Tasks
-              </button>
-            )}
-            {onOpenShare && (
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenShare}>
-                Share with client
               </button>
             )}
             {onAddToCalendar && (

@@ -12,7 +12,6 @@ import CheckEmail from './pages/CheckEmail'
 import SuspendedAccount from './pages/SuspendedAccount'
 import Chat from './pages/Chat'
 import EventChat from './pages/EventChat'
-import PublicSchedule from './pages/PublicSchedule'
 
 import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -46,10 +45,6 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/suspended" element={<SuspendedAccount />} />
-          {/* The one unauthenticated, no-chrome route — a client's schedule
-              link, not gated by Guard since the person opening it has no
-              account. */}
-          <Route path="/schedule/:token" element={<PublicSchedule />} />
 
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route

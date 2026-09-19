@@ -657,3 +657,79 @@ create policy "a user can replace their own avatar photo"
 create policy "a user can delete their own avatar photo"
   on storage.objects for delete
   using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------------
+-- Event documents (organizer uploads, confirmed team can view/download —
+-- see migration_event_documents.sql). Two small security-definer helpers
+-- first, same pattern as public.is_admin() — they only ever check auth.uid()
+-- against a job_id the caller supplies, so it's safe to let them bypass RLS
+-- on job_postings/job_divisions/applications to answer "does this person
+-- belong to this job, and how."
+-- ---------------------------------------------------------------------------
+create or replace function public.is_job_organizer(p_job_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.job_postings jp
+    where jp.id = p_job_id and jp.organizer_id = auth.uid()
+  );
+$$;
+
+create or replace function public.is_confirmed_on_job(p_job_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.applications a
+    join public.job_divisions jd on jd.id = a.division_id
+    where jd.job_id = p_job_id
+      and a.freelancer_id = auth.uid()
+      and a.status = 'accepted'
+  );
+$$;
+
+create table if not exists public.event_documents (
+  id uuid primary key default uuid_generate_v4(),
+  job_id uuid not null references public.job_postings(id) on delete cascade,
+  storage_path text not null unique, -- "{job_id}/{uuid}-{filename}" in the "event-docs" bucket
+  file_name text not null, -- original filename, for display
+  mime_type text,
+  file_size bigint,
+  uploaded_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists event_documents_job_id_idx on public.event_documents (job_id);
+
+alter table public.event_documents enable row level security;
+
+create policy "organizer manages their event documents" on public.event_documents
+  for all using (public.is_job_organizer(job_id)) with check (public.is_job_organizer(job_id));
+
+create policy "confirmed team can read event documents" on public.event_documents
+  for select using (public.is_confirmed_on_job(job_id));
+
+grant select, insert, update, delete on public.event_documents to authenticated;
+
+-- Private bucket — unlike "avatars", these can be contracts/invoices/floor
+-- plans, so access is via short-lived signed URLs, only issued if the
+-- requesting user's storage policy below grants them select on the object.
+insert into storage.buckets (id, name, public)
+values ('event-docs', 'event-docs', false)
+on conflict (id) do nothing;
+
+create policy "organizer manages their event document files" on storage.objects
+  for all
+  using (bucket_id = 'event-docs' and public.is_job_organizer(((storage.foldername(name))[1])::uuid))
+  with check (bucket_id = 'event-docs' and public.is_job_organizer(((storage.foldername(name))[1])::uuid));
+
+create policy "confirmed team can read event document files" on storage.objects
+  for select
+  using (bucket_id = 'event-docs' and public.is_confirmed_on_job(((storage.foldername(name))[1])::uuid));

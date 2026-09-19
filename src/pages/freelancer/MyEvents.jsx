@@ -8,7 +8,7 @@ import { applicationStatusLabel, applicationStatusChipClass } from '../../lib/ap
 import { EventCalendar } from '../../components/EventCalendar'
 import { OrganizerAboutModal } from '../../components/OrganizerAboutModal'
 import { Modal } from '../../components/Modal'
-import { RundownView } from '../../components/RundownView'
+import { DocumentsView } from '../../components/DocumentsView'
 import { TasksView } from '../../components/TasksView'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
 import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
@@ -34,7 +34,7 @@ export default function MyEvents() {
   const [showPastEvents, setShowPastEvents] = useState(false)
   const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
-  const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'rundown' | 'tasks' } | null
+  const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'documents' | 'tasks' } | null
   const [calendarJob, setCalendarJob] = useState(null) // confirmed event tapped from the Calendar view
   const [eventUnread, setEventUnread] = useState(new Map())
 
@@ -170,23 +170,11 @@ export default function MyEvents() {
   const activeEvents = events.filter((a) => !isPastEvent(a)).sort(byDate)
   const pastEvents = events.filter(isPastEvent).sort(byDate)
 
-  // Add to calendar lives at the My Event level (not inside the Rundown
-  // tab) for freelancers too — same reasoning and same helper as the
-  // organizer side.
-  async function addToCalendar(job) {
-    const { data: rundowns, error: rundownError } = await supabase.from('event_rundowns').select('id, title, event_date').eq('job_id', job.id)
-    if (rundownError) console.error(rundownError)
-    let items = []
-    const rundownIds = (rundowns || []).map((r) => r.id)
-    if (rundownIds.length > 0) {
-      const { data: itemRows, error: itemError } = await supabase
-        .from('event_rundown_items')
-        .select('rundown_id, sort_order, start_time, duration_minutes')
-        .in('rundown_id', rundownIds)
-      if (itemError) console.error(itemError)
-      items = itemRows || []
-    }
-    downloadICS(job.title, eventsFromJobSchedule(job, rundowns || [], items))
+  // Add to calendar lives at the My Event level for freelancers too — same
+  // helper as the organizer side, an all-day-ish event covering the event's
+  // date span.
+  function addToCalendar(job) {
+    downloadICS(job.title, eventsFromJobSchedule(job, [], []))
   }
 
   function renderEventCard(a, { past = false } = {}) {
@@ -275,9 +263,9 @@ export default function MyEvents() {
               type="button"
               className="btn btn-outline"
               style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
-              onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'rundown' })}
+              onClick={() => setEventTool({ jobId: div.job_id, title: job.title, type: 'documents' })}
             >
-              View rundown
+              View documents
             </button>
             <button
               type="button"
@@ -408,11 +396,11 @@ export default function MyEvents() {
                 className="btn btn-outline"
                 style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
                 onClick={() => {
-                  setEventTool({ jobId: calendarJob.id, title: calendarJob.title, type: 'rundown' })
+                  setEventTool({ jobId: calendarJob.id, title: calendarJob.title, type: 'documents' })
                   setCalendarJob(null)
                 }}
               >
-                View rundown
+                View documents
               </button>
               <button
                 type="button"
@@ -447,8 +435,8 @@ export default function MyEvents() {
       )}
 
       {eventTool && (
-        <Modal title={`${eventTool.type === 'rundown' ? 'Rundown' : 'Tasks'} — ${eventTool.title}`} onClose={() => setEventTool(null)}>
-          {eventTool.type === 'rundown' && <RundownView jobId={eventTool.jobId} canEdit={false} />}
+        <Modal title={`${eventTool.type === 'documents' ? 'Documents' : 'Tasks'} — ${eventTool.title}`} onClose={() => setEventTool(null)}>
+          {eventTool.type === 'documents' && <DocumentsView jobId={eventTool.jobId} canEdit={false} />}
           {eventTool.type === 'tasks' && (
             <TasksView
               jobId={eventTool.jobId}
