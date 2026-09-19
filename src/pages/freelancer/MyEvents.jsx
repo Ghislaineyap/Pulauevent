@@ -33,6 +33,7 @@ export default function MyEvents() {
   const [showPastEvents, setShowPastEvents] = useState(false)
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
   const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'rundown' | 'tasks' } | null
+  const [calendarJob, setCalendarJob] = useState(null) // confirmed event tapped from the Calendar view
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -302,7 +303,7 @@ export default function MyEvents() {
           </button>
         </div>
 
-        {view === 'calendar' && <EventCalendar events={confirmedEvents} />}
+        {view === 'calendar' && <EventCalendar events={confirmedEvents} onSelectEvent={setCalendarJob} />}
 
         {loading && <p className="subtitle">Loading…</p>}
         {view === 'list' && !loading && events.length === 0 && (
@@ -327,6 +328,70 @@ export default function MyEvents() {
       </div>
 
       {aboutOrganizer && <OrganizerAboutModal organizer={aboutOrganizer} onClose={() => setAboutOrganizer(null)} />}
+
+      {calendarJob && (
+        <Modal title={calendarJob.title} onClose={() => setCalendarJob(null)}>
+          <div className="stack">
+            <p className="subtitle" style={{ margin: 0 }}>
+              📍 {calendarJob.location}
+              {calendarJob.location_detail && ` — ${calendarJob.location_detail}`} ·{' '}
+              {formatEventDates(calendarJob.event_start_date, calendarJob.event_end_date)}
+            </p>
+            {calendarJob.chat_opened_at ? (
+              <Link
+                to={`/event-chat/${calendarJob.id}`}
+                className="btn btn-primary btn-block"
+                style={{ textDecoration: 'none' }}
+                onClick={() => setCalendarJob(null)}
+              >
+                💬 Open event chat
+              </Link>
+            ) : (
+              <p className="helper-text" style={{ margin: 0 }}>The organizer hasn't started this event's group chat yet.</p>
+            )}
+            <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+                onClick={() => {
+                  setEventTool({ jobId: calendarJob.id, title: calendarJob.title, type: 'rundown' })
+                  setCalendarJob(null)
+                }}
+              >
+                View rundown
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }}
+                onClick={() => {
+                  setEventTool({ jobId: calendarJob.id, title: calendarJob.title, type: 'tasks' })
+                  setCalendarJob(null)
+                }}
+              >
+                My tasks
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-block"
+                style={{ padding: '8px 10px', fontSize: 12.5 }}
+                onClick={() => addToCalendar(calendarJob)}
+              >
+                Add to calendar
+              </button>
+              <Link
+                to={`/freelancer/events/${calendarJob.id}`}
+                className="btn btn-outline btn-block desktop-only-inline"
+                style={{ padding: '8px 10px', fontSize: 12.5, textDecoration: 'none' }}
+                onClick={() => setCalendarJob(null)}
+              >
+                Open workspace
+              </Link>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {eventTool && (
         <Modal title={`${eventTool.type === 'rundown' ? 'Rundown' : 'Tasks'} — ${eventTool.title}`} onClose={() => setEventTool(null)}>

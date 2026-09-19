@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Modal } from './Modal'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -8,13 +9,15 @@ function isoDay(year, month, day) {
   return `${year}-${mm}-${dd}`
 }
 
-// Small month-grid calendar highlighting the freelancer's confirmed
-// (accepted) event dates, so they can see at a glance what they're already
-// booked for before applying to something else on the same day(s).
-export function EventCalendar({ events }) {
+// Small month-grid calendar. Booked days show the event's name right on the
+// cell (instead of a separate bullet list below the grid), and tapping a
+// booked day opens it — either straight into the event (one event that day)
+// or a quick picker when more than one event lands on the same date.
+export function EventCalendar({ events, onSelectEvent }) {
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth()) // 0-11
+  const [dayPicker, setDayPicker] = useState(null) // array of events sharing a date, or null
 
   const eventsByDay = useMemo(() => {
     const map = new Map()
@@ -53,7 +56,19 @@ export function EventCalendar({ events }) {
     setViewYear(y)
   }
 
-  const monthEvents = [...new Set([...eventsByDay.entries()].filter(([day]) => day.startsWith(`${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`)).flatMap(([, evs]) => evs))]
+  function handleDayClick(dayEvents) {
+    if (!onSelectEvent || dayEvents.length === 0) return
+    if (dayEvents.length === 1) {
+      onSelectEvent(dayEvents[0])
+    } else {
+      setDayPicker(dayEvents)
+    }
+  }
+
+  function pickEvent(ev) {
+    setDayPicker(null)
+    onSelectEvent?.(ev)
+  }
 
   return (
     <div className="card stack">
@@ -79,36 +94,68 @@ export function EventCalendar({ events }) {
           const booked = dayEvents.length > 0
           const isToday = key === todayISO
           return (
-            <div
+            <button
               key={i}
+              type="button"
+              disabled={!booked}
+              onClick={() => handleDayClick(dayEvents)}
               title={dayEvents.map((e) => e.title).join(', ')}
               style={{
-                padding: '6px 0',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'flex-start',
+                gap: 2,
+                minWidth: 0,
+                minHeight: 42,
+                padding: '4px 2px',
                 borderRadius: 8,
-                fontSize: 12,
-                fontWeight: isToday ? 700 : 500,
+                fontFamily: 'inherit',
                 background: booked ? 'var(--primary)' : 'transparent',
-                color: booked ? 'white' : 'var(--ink)',
                 border: isToday && !booked ? '1px solid var(--primary)' : 'none',
+                cursor: booked ? 'pointer' : 'default',
               }}
             >
-              {day}
-            </div>
+              <span style={{ fontSize: 12, fontWeight: isToday ? 700 : 500, color: booked ? 'white' : 'var(--ink)' }}>{day}</span>
+              {booked && (
+                <span
+                  style={{
+                    fontSize: 8.5,
+                    fontWeight: 700,
+                    lineHeight: 1.15,
+                    color: 'white',
+                    // Flex children default to min-width: auto, which lets
+                    // text force the span (and the whole grid cell) wider
+                    // than its 1/7 track instead of truncating — width:
+                    // 100% + minWidth: 0 is what actually makes the
+                    // ellipsis kick in inside a flex column.
+                    width: '100%',
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {dayEvents[0].title}
+                  {dayEvents.length > 1 ? ` +${dayEvents.length - 1}` : ''}
+                </span>
+              )}
+            </button>
           )
         })}
       </div>
-      <div className="stack" style={{ gap: 4 }}>
-        <strong style={{ fontSize: 12 }}>Booked this month</strong>
-        {monthEvents.length === 0 ? (
-          <p className="subtitle" style={{ margin: 0 }}>Nothing booked yet.</p>
-        ) : (
-          monthEvents.map((ev) => (
-            <p key={ev.id} className="subtitle" style={{ margin: 0 }}>
-              🔵 {ev.title}
-            </p>
-          ))
-        )}
-      </div>
+
+      {dayPicker && (
+        <Modal title="Events on this day" onClose={() => setDayPicker(null)}>
+          <div className="stack">
+            {dayPicker.map((ev) => (
+              <button key={ev.id} type="button" className="btn btn-outline btn-block" onClick={() => pickEvent(ev)}>
+                {ev.title}
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

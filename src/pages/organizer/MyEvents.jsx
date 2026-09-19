@@ -321,7 +321,9 @@ export default function MyEvents() {
               />
             )}
 
-            {view === 'calendar' && <EventCalendar events={jobs} />}
+            {view === 'calendar' && (
+              <EventCalendar events={jobs} onSelectEvent={(job) => setManageModal({ jobId: job.id, sub: null })} />
+            )}
 
             {view === 'list' && !loading && jobs.length === 0 && (
               <div className="empty-state">No events yet — create one to get started.</div>
