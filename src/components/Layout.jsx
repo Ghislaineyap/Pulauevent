@@ -1,23 +1,36 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
 
 // Where "Profile" (no longer its own tabbar entry — see FreelancerTabbar/
-// OrganizerTabbar/VendorTabbar below) is reached from now: a link in the
-// topbar's corner, present on every screen. Signing out moved the other
-// way — off the topbar and onto the profile page itself (see
+// OrganizerTabbar/VendorTabbar below) is reached from now: a round avatar
+// in the topbar's corner, present on every screen. Signing out moved the
+// other way — off the topbar and onto the profile page itself (see
 // FreelancerOnboarding/OrganizerOnboarding/VendorOnboarding).
 const PROFILE_PATH_BY_ROLE = { freelancer: '/freelancer/onboarding', organizer: '/organizer/onboarding', vendor: '/vendor/onboarding' }
+// Each role keeps its "photo" under a different field — freelancers pick
+// from a gallery (photo_urls), organizers/vendors have one logo — so the
+// avatar shown here is whichever one that role actually has.
+const AVATAR_URL_BY_ROLE = {
+  freelancer: (p) => p?.photo_urls?.[0],
+  organizer: (p) => p?.logo_url,
+  vendor: (p) => p?.logo_url,
+}
 
 export function Topbar({ title }) {
-  const { user, role } = useAuth()
+  const { user, role, roleProfile } = useAuth()
   const profilePath = PROFILE_PATH_BY_ROLE[role]
+  const avatarUrl = AVATAR_URL_BY_ROLE[role]?.(roleProfile)
   return (
     <div className="topbar">
       <span className="brand">{title || 'Pulau Event'}</span>
       {user && profilePath && (
-        <Link to={profilePath} className="link">
-          Profile
+        <Link to={profilePath} className="topbar-avatar" aria-label="Profile">
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="" className="topbar-avatar-img" />
+          ) : (
+            <IconUser className="topbar-avatar-icon" />
+          )}
         </Link>
       )}
     </div>
@@ -52,10 +65,9 @@ export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
 }
 
 // pendingCount: applicants waiting on a decision, across every open-recruit
-// division — shown on Post, since that's the only place a division can be
-// public (and so the only source of a pending applicant) and where an
-// organizer reviews them. connectCount: unread messages across event and
-// personal chats.
+// division/vendor slot — shown on Team, since that's now the only place
+// either kind of application is reviewed (item 9 — Post retired). connectCount:
+// unread messages across event and personal chats.
 export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
   return (
     <nav className="tabbar">
@@ -65,12 +77,12 @@ export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
       <NavLink to="/organizer/browse" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconSearch className="tab-icon" />Discover
       </NavLink>
-      <NavLink to="/organizer/dashboard" className={({ isActive }) => (isActive ? 'active' : '')}>
+      <NavLink to="/organizer/team" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon-wrap">
-          <IconClipboard className="tab-icon" />
+          <IconUser className="tab-icon" />
           {pendingCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{pendingCount}</span>}
         </span>
-        Post
+        Team
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon-wrap">

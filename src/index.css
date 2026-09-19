@@ -62,14 +62,30 @@ a {
   letter-spacing: 0.2px;
 }
 
-.topbar button.link,
-.topbar a.link {
-  background: none;
-  border: none;
+.topbar-avatar {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.35);
+}
+
+.topbar-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.topbar-avatar-icon {
+  width: 17px;
+  height: 17px;
   color: #f7e9d2;
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: none;
 }
 
 .page {
@@ -966,10 +982,12 @@ textarea {
     font-size: 21px;
     font-weight: 700;
   }
-  .app-shell .topbar button.link,
-  .app-shell .topbar a.link {
+  .app-shell .topbar-avatar {
+    background: var(--cloud);
+    border-color: var(--border);
+  }
+  .app-shell .topbar-avatar-icon {
     color: var(--muted);
-    font-weight: 600;
   }
   .app-shell .page {
     padding: 0 0 24px;

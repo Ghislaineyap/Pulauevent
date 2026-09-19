@@ -1,19 +1,14 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { uploadProfilePhoto } from '../../lib/uploadPhoto'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { InfoButton } from '../../components/InfoButton'
-import { EventDashboard } from './MyEvents'
 
 export default function OrganizerOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
-  const [jobs, setJobs] = useState([])
-  const [teamMembers, setTeamMembers] = useState([])
-  const [pendingCount, setPendingCount] = useState(0)
-  const [dashLoading, setDashLoading] = useState(true)
   const [orgName, setOrgName] = useState('')
   const [instagramHandle, setInstagramHandle] = useState('')
   const [location, setLocation] = useState('')
@@ -45,73 +40,6 @@ export default function OrganizerOnboarding() {
         if (locError) console.error(locError)
         setLocationOptions((data || []).map((l) => l.label))
       })
-  }, [])
-
-  // Profile now doubles as the dashboard (My Event's old "Home" segment) —
-  // its own lightweight load, since routes don't share state with MyEvents.
-  // Only what EventDashboard's tiles actually need: no ratings, no per-
-  // division team roster beyond confirmedTeam/open-recruit counts.
-  const loadDashboard = useCallback(async () => {
-    setDashLoading(true)
-    const { data: jobRows, error: jobsError } = await supabase
-      .from('job_postings')
-      .select('id, title, location, event_start_date, event_end_date, job_divisions(id, skill, quantity, filled_count, open_recruit)')
-      .eq('organizer_id', user.id)
-      .order('created_at', { ascending: false })
-    if (jobsError) console.error(jobsError)
-
-    const divisionIds = (jobRows || []).flatMap((j) => j.job_divisions.map((d) => d.id))
-    const confirmedByJob = new Map()
-    const openRecruitDivisionIds = []
-    if (divisionIds.length > 0) {
-      const { data: apps, error: appsError } = await supabase
-        .from('applications')
-        .select('id, status, division_id, job_divisions(job_id, open_recruit), freelancer_profiles(id, name)')
-        .in('division_id', divisionIds)
-        .eq('status', 'accepted')
-      if (appsError) console.error(appsError)
-      ;(apps || []).forEach((a) => {
-        const jobId = a.job_divisions.job_id
-        const confirmed = confirmedByJob.get(jobId) || []
-        if (!confirmed.some((p) => p.id === a.freelancer_profiles.id)) confirmed.push({ id: a.freelancer_profiles.id, name: a.freelancer_profiles.name })
-        confirmedByJob.set(jobId, confirmed)
-      })
-      ;(jobRows || []).forEach((j) => j.job_divisions.filter((d) => d.open_recruit).forEach((d) => openRecruitDivisionIds.push(d.id)))
-    }
-
-    setJobs((jobRows || []).map((j) => ({ ...j, confirmedTeam: confirmedByJob.get(j.id) || [] })))
-
-    // Same count the Team roster tile and My Event's Post tab badge track —
-    // applicants waiting on a decision across every open-recruit division.
-    if (openRecruitDivisionIds.length > 0) {
-      const { count, error: pendingError } = await supabase
-        .from('applications')
-        .select('id', { count: 'exact', head: true })
-        .in('division_id', openRecruitDivisionIds)
-        .eq('status', 'pending')
-      if (pendingError) console.error(pendingError)
-      setPendingCount(count || 0)
-    } else {
-      setPendingCount(0)
-    }
-
-    setDashLoading(false)
-  }, [user.id])
-
-  useEffect(() => {
-    loadDashboard()
-  }, [loadDashboard])
-
-  useEffect(() => {
-    supabase
-      .from('team_members')
-      .select('freelancer_id, freelancer_profiles(id, name, skills)')
-      .eq('organizer_id', user.id)
-      .then(({ data, error: teamError }) => {
-        if (teamError) console.error(teamError)
-        setTeamMembers((data || []).map((t) => t.freelancer_profiles).filter(Boolean))
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleLogoChange(e) {
@@ -157,19 +85,8 @@ export default function OrganizerOnboarding() {
 
   return (
     <div className="app-shell">
-      <Topbar title="Profile" />
+      <Topbar title={isOnboarded ? 'Edit your organizer profile' : 'Set up your organizer profile'} />
       <div className="page">
-        {isOnboarded && (
-          <>
-            {dashLoading ? (
-              <p className="subtitle">Loading…</p>
-            ) : (
-              <EventDashboard jobs={jobs} teamMembers={teamMembers} pendingCount={pendingCount} orgName={orgName} onCreate={() => navigate('/organizer/my-events', { state: { openCreate: true } })} />
-            )}
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '18px 0' }} />
-          </>
-        )}
-
         <p className="subtitle" style={{ display: 'flex', alignItems: 'center' }}>
           Your public profile
           <InfoButton title="Your public profile">

@@ -134,10 +134,12 @@ export function VendorsView({ jobId }) {
 
 // Second, separate capability on this same tab: instead of booking from
 // your private roster, post an open call that platform Vendor accounts can
-// apply to (or invite one directly by application) — mirrors Team/Recruiting
-// for freelancers, just against vendor_slots/vendor_applications. This is a
-// first cut at the organizer side of the vendor booking loop; item 9's Team
-// tab is expected to absorb/relocate this once Post is retired.
+// apply to — mirrors Recruiting for freelancers, just against
+// vendor_slots/vendor_applications. Slot creation/toggling/deletion still
+// lives here, per-event, same as a freelancer division's "Recruiting"
+// switch — but reviewing who's applied is centralized on the Team tab now
+// (item 9), so this panel only shows a pending count as a pointer there
+// rather than its own Accept/Decline UI.
 function VendorRecruitPanel({ jobId }) {
   const [slots, setSlots] = useState([])
   const [loading, setLoading] = useState(true)
@@ -148,7 +150,7 @@ function VendorRecruitPanel({ jobId }) {
     const { data, error } = await supabase
       .from('vendor_slots')
       .select(
-        'id, category, quantity, filled_count, budget_amount, budget_type, notes, open_recruit, vendor_applications(id, status, vendor_profiles(id, vendor_name, category, logo_url, locations))'
+        'id, category, quantity, filled_count, budget_amount, budget_type, notes, open_recruit, vendor_applications(id, status)'
       )
       .eq('job_id', jobId)
       .order('created_at', { ascending: false })
@@ -189,15 +191,6 @@ function VendorRecruitPanel({ jobId }) {
     load()
   }
 
-  async function respondApplication(applicationId, status) {
-    const { error } = await supabase.from('vendor_applications').update({ status }).eq('id', applicationId)
-    if (error) {
-      console.error(error)
-      return
-    }
-    load()
-  }
-
   return (
     <div style={{ marginTop: 20, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -205,8 +198,8 @@ function VendorRecruitPanel({ jobId }) {
           Recruit vendors
           <InfoButton title="Recruit vendors">
             Post an open call for a category and any Vendor account on Pulau Event can apply — separate from your
-            private roster above. Accepting an application opens this event's team chat, same as accepting a
-            freelancer.
+            private roster above. Review who's applied from the Team tab; accepting there opens this event's team
+            chat, same as accepting a freelancer.
           </InfoButton>
         </p>
         <button type="button" className="btn btn-outline" style={{ padding: '7px 14px', fontSize: 12.5 }} onClick={() => setShowForm((s) => !s)}>
@@ -221,7 +214,7 @@ function VendorRecruitPanel({ jobId }) {
 
       <div className="stack" style={{ gap: 12 }}>
         {slots.map((slot) => {
-          const pending = (slot.vendor_applications || []).filter((a) => a.status === 'pending' || a.status === 'invited')
+          const pendingCount = (slot.vendor_applications || []).filter((a) => a.status === 'pending').length
           return (
             <div key={slot.id} className="ws-panel" style={{ background: 'var(--bg)' }}>
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
@@ -233,7 +226,8 @@ function VendorRecruitPanel({ jobId }) {
                     {slot.open_recruit ? ' · Open' : ' · Closed'}
                   </p>
                 </div>
-                <div className="row" style={{ gap: 6 }}>
+                <div className="row" style={{ gap: 6, alignItems: 'center' }}>
+                  {pendingCount > 0 && <span className="badge">{pendingCount}</span>}
                   <button type="button" className="btn btn-outline" style={{ padding: '5px 10px', fontSize: 11.5 }} onClick={() => toggleOpenRecruit(slot.id, !slot.open_recruit)}>
                     {slot.open_recruit ? 'Close' : 'Reopen'}
                   </button>
@@ -243,29 +237,10 @@ function VendorRecruitPanel({ jobId }) {
                 </div>
               </div>
               {slot.notes && <p className="subtitle" style={{ margin: '6px 0 0' }}>{slot.notes}</p>}
-
-              {pending.length > 0 && (
-                <div className="stack" style={{ gap: 8, marginTop: 10 }}>
-                  {pending.map((app) => (
-                    <div key={app.id} className="row" style={{ justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-                      <div>
-                        <strong style={{ fontSize: 12.5 }}>{app.vendor_profiles.vendor_name}</strong>
-                        <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                          {app.vendor_profiles.category || 'Uncategorized'}
-                          {(app.vendor_profiles.locations || []).length > 0 && ` · ${app.vendor_profiles.locations.join(', ')}`}
-                        </p>
-                      </div>
-                      <div className="row" style={{ gap: 6 }}>
-                        <button type="button" className="btn btn-outline" style={{ padding: '5px 10px', fontSize: 11.5 }} onClick={() => respondApplication(app.id, 'declined')}>
-                          Decline
-                        </button>
-                        <button type="button" className="btn btn-primary" style={{ padding: '5px 10px', fontSize: 11.5 }} onClick={() => respondApplication(app.id, 'accepted')}>
-                          Accept
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {pendingCount > 0 && (
+                <p className="subtitle" style={{ margin: '8px 0 0' }}>
+                  {pendingCount} applicant{pendingCount === 1 ? '' : 's'} waiting — review from the Team tab.
+                </p>
               )}
             </div>
           )
