@@ -31,6 +31,7 @@ export default function MyEvents() {
   const [respondingId, setRespondingId] = useState(null)
   const [view, setView] = useState('list') // 'list' | 'calendar'
   const [showPastEvents, setShowPastEvents] = useState(false)
+  const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
   const [aboutOrganizer, setAboutOrganizer] = useState(null)
   const [eventTool, setEventTool] = useState(null) // { jobId, title, type: 'rundown' | 'tasks' } | null
   const [calendarJob, setCalendarJob] = useState(null) // confirmed event tapped from the Calendar view
@@ -135,8 +136,19 @@ export default function MyEvents() {
     const end = a.job_divisions?.job_postings?.event_end_date
     return !!end && end < todayISO()
   }
-  const activeEvents = events.filter((a) => !isPastEvent(a))
-  const pastEvents = events.filter(isPastEvent)
+  // Invited (needs a response) still comes first regardless of sort choice —
+  // that's an urgency ordering, not a date one. Within that, the chosen
+  // date order applies.
+  const byDate = (a, b) => {
+    const rank = { invited: 0 }
+    const rankDiff = (rank[a.status] ?? 1) - (rank[b.status] ?? 1)
+    if (rankDiff !== 0) return rankDiff
+    const dateA = a.job_divisions?.job_postings?.event_start_date || ''
+    const dateB = b.job_divisions?.job_postings?.event_start_date || ''
+    return listSort === 'upcoming' ? dateA.localeCompare(dateB) : dateB.localeCompare(dateA)
+  }
+  const activeEvents = events.filter((a) => !isPastEvent(a)).sort(byDate)
+  const pastEvents = events.filter(isPastEvent).sort(byDate)
 
   // Add to calendar lives at the My Event level (not inside the Rundown
   // tab) for freelancers too — same reasoning and same helper as the
@@ -308,6 +320,17 @@ export default function MyEvents() {
         {loading && <p className="subtitle">Loading…</p>}
         {view === 'list' && !loading && events.length === 0 && (
           <div className="empty-state">Nothing here yet — jobs you apply to, or get invited to, will show up here.</div>
+        )}
+        {view === 'list' && events.length > 0 && (
+          <div className="row" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+            <label htmlFor="my-events-sort" className="subtitle" style={{ margin: 0 }}>
+              Sort
+            </label>
+            <select id="my-events-sort" style={{ width: 'auto' }} value={listSort} onChange={(e) => setListSort(e.target.value)}>
+              <option value="upcoming">Upcoming first</option>
+              <option value="latest">Latest first</option>
+            </select>
+          </div>
         )}
         {view === 'list' && activeEvents.length === 0 && pastEvents.length > 0 && (
           <div className="empty-state">No active events — see past events below.</div>

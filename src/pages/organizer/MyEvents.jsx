@@ -47,6 +47,7 @@ export default function MyEvents() {
   const [view, setView] = useState('dashboard') // 'dashboard' | 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showPastList, setShowPastList] = useState(false)
+  const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
 
   // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId }
   //   | { type: 'rundowns' } | { type: 'tasks' } | { type: 'share' } }
@@ -250,8 +251,14 @@ export default function MyEvents() {
   // Connect chat lists already do — an event's card moves under a collapsed
   // "Show past events" toggle once its end date has passed instead of
   // sitting in the main list forever.
-  const activeListJobs = jobs.filter((j) => j.event_end_date >= todayISO())
-  const pastListJobs = jobs.filter((j) => j.event_end_date < todayISO())
+  const sortByDate = (list) =>
+    [...list].sort((a, b) =>
+      listSort === 'upcoming'
+        ? a.event_start_date.localeCompare(b.event_start_date)
+        : b.event_start_date.localeCompare(a.event_start_date)
+    )
+  const activeListJobs = sortByDate(jobs.filter((j) => j.event_end_date >= todayISO()))
+  const pastListJobs = sortByDate(jobs.filter((j) => j.event_end_date < todayISO()))
 
   const manageJob = manageModal && jobs.find((j) => j.id === manageModal.jobId)
   const manageDivision =
@@ -327,6 +334,17 @@ export default function MyEvents() {
 
             {view === 'list' && !loading && jobs.length === 0 && (
               <div className="empty-state">No events yet — create one to get started.</div>
+            )}
+            {view === 'list' && jobs.length > 0 && (
+              <div className="row" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+                <label htmlFor="my-events-sort" className="subtitle" style={{ margin: 0 }}>
+                  Sort
+                </label>
+                <select id="my-events-sort" style={{ width: 'auto' }} value={listSort} onChange={(e) => setListSort(e.target.value)}>
+                  <option value="upcoming">Upcoming first</option>
+                  <option value="latest">Latest first</option>
+                </select>
+              </div>
             )}
             {view === 'list' && activeListJobs.length === 0 && pastListJobs.length > 0 && (
               <div className="empty-state">No upcoming events — see past events below.</div>
