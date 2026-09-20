@@ -80,7 +80,7 @@ export default function OrganizerOnboarding() {
       return
     }
     await refreshProfile()
-    navigate('/organizer/my-events')
+    navigate('/organizer/home')
   }
 
   return (

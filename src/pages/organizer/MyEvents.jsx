@@ -1,10 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { formatEventDates } from '../../lib/date'
-import { EventCalendar } from '../../components/EventCalendar'
 import { Switch } from '../../components/Switch'
 import { InfoButton } from '../../components/InfoButton'
 import { Modal } from '../../components/Modal'
@@ -30,21 +29,25 @@ function startOfWeek(date) {
   return d
 }
 
-// "My Event" — create an event here, and run it here: crew (per-division
-// "Select team"), recruiting settings (per-division "Recruiting" — budget,
-// fee, and the Open Recruit toggle), event details (editable any time from
-// "Manage event"), the team chat, and post-event ratings. Post is just the
-// read-only, notification-driven board of whatever's currently open here.
+// "My Event" — a list of your events, and manage them from here: crew
+// (per-division "Select team"), recruiting settings (per-division
+// "Recruiting" — budget, fee, and the Open Recruit toggle), event details
+// (editable any time from "Manage event"), the team chat, and post-event
+// ratings. The dashboard/calendar views that used to live here moved to
+// their own "Home" tab (2026-09-20 nav restructure) — this page is list-only
+// now, per "My event is only the list of event." The Home tab's
+// "+ Create a new event" hands off here via router state (openCreate) since
+// the create form itself still only lives on this page.
 export default function MyEvents() {
-  const { user, roleProfile } = useAuth()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
   const [jobs, setJobs] = useState([])
   const [ratedKeys, setRatedKeys] = useState(new Set())
   const [teamMembers, setTeamMembers] = useState([])
   const [skillOptions, setSkillOptions] = useState([])
   const [locationOptions, setLocationOptions] = useState([])
-  const [pendingCount, setPendingCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [view, setView] = useState('dashboard') // 'dashboard' | 'list' | 'calendar'
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [showPastList, setShowPastList] = useState(false)
   const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
@@ -104,28 +107,22 @@ export default function MyEvents() {
       }))
     )
 
-    // Same count the Post tab badges — how many applicants are waiting on a
-    // decision across every division you've opened to public recruiting.
-    // Powers the "Pending applicants" tile on the dashboard.
-    const openRecruitDivisionIds = (jobRows || []).flatMap((j) => j.job_divisions.filter((d) => d.open_recruit).map((d) => d.id))
-    if (openRecruitDivisionIds.length > 0) {
-      const { count, error: pendingError } = await supabase
-        .from('applications')
-        .select('id', { count: 'exact', head: true })
-        .in('division_id', openRecruitDivisionIds)
-        .eq('status', 'pending')
-      if (pendingError) console.error(pendingError)
-      setPendingCount(count || 0)
-    } else {
-      setPendingCount(0)
-    }
-
     setLoading(false)
   }, [user.id])
 
   useEffect(() => {
     load()
   }, [load])
+
+  // Hand-off from Home.jsx's "+ Create a new event" button (dashboard lives
+  // there now, but the create form is still only here) — open the form, then
+  // clear the router state so it doesn't reopen on a back-navigation.
+  useEffect(() => {
+    if (location.state?.openCreate) {
+      setShowCreateForm(true)
+      navigate(location.pathname, { replace: true, state: {} })
+    }
+  }, [location, navigate])
 
   useEffect(() => {
     supabase
@@ -281,48 +278,19 @@ export default function MyEvents() {
             />
           </div>
         ) : (
-          view !== 'dashboard' && (
-            <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
-              + Create a new event
-            </button>
-          )
+          <button className="btn btn-primary btn-block" onClick={() => setShowCreateForm(true)}>
+            + Create a new event
+          </button>
         )}
 
         {!showCreateForm && (
           <>
-            <div className="segmented">
-              <button type="button" className={view === 'dashboard' ? 'active' : ''} onClick={() => setView('dashboard')}>
-                Home
-              </button>
-              <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>
-                List
-              </button>
-              <button type="button" className={view === 'calendar' ? 'active' : ''} onClick={() => setView('calendar')}>
-                Calendar
-              </button>
-            </div>
-
             {loading && <p className="subtitle">Loading…</p>}
 
-            {!loading && view === 'dashboard' && (
-              <EventDashboard
-                jobs={jobs}
-                teamMembers={teamMembers}
-                pendingCount={pendingCount}
-                orgName={roleProfile?.org_name}
-                onManage={(jobId) => setManageModal({ jobId, sub: null })}
-                onCreate={() => setShowCreateForm(true)}
-              />
-            )}
-
-            {view === 'calendar' && (
-              <EventCalendar events={jobs} onSelectEvent={(job) => setManageModal({ jobId: job.id, sub: null })} />
-            )}
-
-            {view === 'list' && !loading && jobs.length === 0 && (
+            {!loading && jobs.length === 0 && (
               <div className="empty-state">No events yet — create one to get started.</div>
             )}
-            {view === 'list' && jobs.length > 0 && (
+            {jobs.length > 0 && (
               <div className="row" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
                 <label htmlFor="my-events-sort" className="subtitle" style={{ margin: 0 }}>
                   Sort
@@ -338,33 +306,31 @@ export default function MyEvents() {
                 </select>
               </div>
             )}
-            {view === 'list' && activeListJobs.length === 0 && pastListJobs.length > 0 && (
+            {activeListJobs.length === 0 && pastListJobs.length > 0 && (
               <div className="empty-state">No upcoming events — see past events below.</div>
             )}
-            {view === 'list' && (
-              <div className="stack">
-                {activeListJobs.map((job) => (
-                  <div key={job.id} className="card stack">
-                    <div>
-                      <h2 style={{ margin: 0 }}>{job.title}</h2>
-                      <p className="subtitle" style={{ margin: '4px 0 0' }}>
-                        📍 {job.location}
-                        {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
-                      </p>
-                    </div>
-                    <div className="row">
-                      <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => setManageModal({ jobId: job.id, sub: null })}>
-                        Manage event
-                      </button>
-                      <Link to={`/organizer/events/${job.id}`} className="btn btn-outline desktop-only-inline" style={{ flex: 1, textDecoration: 'none' }}>
-                        Open workspace
-                      </Link>
-                    </div>
+            <div className="stack">
+              {activeListJobs.map((job) => (
+                <div key={job.id} className="card stack">
+                  <div>
+                    <h2 style={{ margin: 0 }}>{job.title}</h2>
+                    <p className="subtitle" style={{ margin: '4px 0 0' }}>
+                      📍 {job.location}
+                      {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-            {view === 'list' && pastListJobs.length > 0 && (
+                  <div className="row">
+                    <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => setManageModal({ jobId: job.id, sub: null })}>
+                      Manage event
+                    </button>
+                    <Link to={`/organizer/events/${job.id}`} className="btn btn-outline desktop-only-inline" style={{ flex: 1, textDecoration: 'none' }}>
+                      Open workspace
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {pastListJobs.length > 0 && (
               <>
                 <button type="button" className="btn btn-outline btn-block" onClick={() => setShowPastList((s) => !s)}>
                   {showPastList ? 'Hide' : 'Show'} past events ({pastListJobs.length})

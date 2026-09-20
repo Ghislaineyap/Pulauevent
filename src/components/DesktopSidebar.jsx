@@ -1,6 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat, IconStore } from './TabIcons'
+import { IconHome, IconUser, IconClipboard, IconCalendar, IconSearch, IconChat, IconStore } from './TabIcons'
 import logoMark from '../assets/logo-mark.png'
 
 // The desktop-only left nav — mirrors the mobile tabbar's destinations (see
@@ -21,9 +21,9 @@ export function DesktopSidebar({ role }) {
 
       {role === 'organizer' && (
         <>
-          <NavLink to="/organizer/onboarding" end className={linkClass}>
-            <IconUser className="ds-icon" />
-            Profile
+          <NavLink to="/organizer/home" className={linkClass}>
+            <IconHome className="ds-icon" />
+            Home
           </NavLink>
           <NavLink to="/organizer/my-events" className={linkClass}>
             <IconCalendar className="ds-icon" />

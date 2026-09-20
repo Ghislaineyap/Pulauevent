@@ -10,6 +10,18 @@ const base = {
   strokeLinejoin: 'round',
 }
 
+// Home tab (dashboard + calendar) — added in the 2026-09-20 nav restructure
+// that split these off "My Event" into their own top-level tab.
+export function IconHome(props) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 11l8-7 8 7" />
+      <path d="M6 10v9.5h12V10" />
+      <path d="M10 19.5V14h4v5.5" />
+    </svg>
+  )
+}
+
 export function IconUser(props) {
   return (
     <svg {...base} {...props}>

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthProvider'
 // Every role's own "home" once signed in — used both to bounce a signed-in
 // user off a route that belongs to a different role, and to send them
 // onward to build their profile first if they haven't yet.
-const HOME_BY_ROLE = { freelancer: '/freelancer/jobs', organizer: '/organizer/my-events', vendor: '/vendor/jobs' }
+const HOME_BY_ROLE = { freelancer: '/freelancer/jobs', organizer: '/organizer/home', vendor: '/vendor/jobs' }
 const ONBOARDING_BY_ROLE = { freelancer: '/freelancer/onboarding', organizer: '/organizer/onboarding', vendor: '/vendor/onboarding' }
 
 // Wrap a route element with this to require: signed in, correct role, and
