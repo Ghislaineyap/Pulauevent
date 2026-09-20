@@ -64,11 +64,11 @@ export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
   )
 }
 
-// pendingCount: applicants waiting on a decision, across every open-recruit
-// division/vendor slot — shown on Team, since that's now the only place
-// either kind of application is reviewed (item 9 — Post retired). connectCount:
-// unread messages across event and personal chats.
-export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
+// connectCount: unread messages across event and personal chats. Team has no
+// badge of its own — applicant review moved back to each event's own
+// workspace (Select team/Recruiting/Review applicants, and the Vendors tab),
+// so there's no single cross-event "pending" number to show here any more.
+export function OrganizerTabbar({ connectCount = 0 }) {
   return (
     <nav className="tabbar">
       <NavLink to="/organizer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -78,11 +78,7 @@ export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
         <IconSearch className="tab-icon" />Discover
       </NavLink>
       <NavLink to="/organizer/team" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon-wrap">
-          <IconUser className="tab-icon" />
-          {pendingCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{pendingCount}</span>}
-        </span>
-        Team
+        <IconUser className="tab-icon" />Team
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon-wrap">

@@ -749,6 +749,15 @@ export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecr
                 Recruiting
               </button>
             </div>
+            {d.open_recruit && (
+              <Link
+                to={`/organizer/jobs/${job.id}/applicants`}
+                className="btn btn-outline btn-block"
+                style={{ marginTop: 6, padding: '6px 10px', fontSize: 12, textDecoration: 'none' }}
+              >
+                Review applicants
+              </Link>
+            )}
           </div>
         ))}
       </div>
