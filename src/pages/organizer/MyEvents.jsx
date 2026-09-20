@@ -10,6 +10,7 @@ import { Modal } from '../../components/Modal'
 import { SkillIcon } from '../../components/SkillIcon'
 import { DocumentsView } from '../../components/DocumentsView'
 import { TasksView } from '../../components/TasksView'
+import { HomeTasksWidget } from '../../components/HomeTasksWidget'
 import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
 import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
@@ -488,7 +489,7 @@ export default function MyEvents() {
 // mobile "Manage event" bottom sheet is still the only way in.
 const DESKTOP_BREAKPOINT = '(min-width: 900px)'
 
-export function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onManage, onCreate }) {
+export function EventDashboard({ jobs, pendingCount, pendingJobId, orgName, onManage, onCreate }) {
   const navigate = useNavigate()
   const today = todayISO()
   const [selectedDay, setSelectedDay] = useState(today)
@@ -516,16 +517,6 @@ export function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onMan
   const agendaJobs = jobs
     .filter((j) => j.event_start_date <= selectedDay && j.event_end_date >= selectedDay)
     .sort((a, b) => a.title.localeCompare(b.title))
-
-  const openRecruitCount = jobs.reduce(
-    (n, j) => n + j.job_divisions.filter((d) => d.open_recruit && d.filled_count < d.quantity).length,
-    0
-  )
-  const confirmedThisMonth = jobs.reduce((n, j) => {
-    const thisMonth = today.slice(0, 7)
-    const touchesThisMonth = (j.event_start_date && j.event_start_date.slice(0, 7) === thisMonth) || (j.event_end_date && j.event_end_date.slice(0, 7) === thisMonth)
-    return touchesThisMonth ? n + j.confirmedTeam.length : n
-  }, 0)
 
   return (
     <div className="stack">
@@ -608,28 +599,29 @@ export function EventDashboard({ jobs, teamMembers, pendingCount, orgName, onMan
           ))}
         </div>
 
-        {/* Same 4-across stat idiom as the desktop event workspace — on a
-            narrow phone this just wraps to two rows via CSS, so nothing
-            here is desktop-only markup; it's one row on any width wide
-            enough to fit it (see .home-stat-row's own wrap rule), and on
-            the desktop grid it becomes the side column instead. */}
-        <div className="row home-stat-row" style={{ gap: 10, flexWrap: 'wrap' }}>
-          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-            <span className="subtitle">Open recruit</span>
-            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{openRecruitCount}</span>
-          </div>
-          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-            <span className="subtitle">Pending applicants</span>
-            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{pendingCount}</span>
-          </div>
-          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-            <span className="subtitle">Confirmed this month</span>
-            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{confirmedThisMonth}</span>
-          </div>
-          <div className="stat-tile" style={{ flex: '1 1 130px' }}>
-            <span className="subtitle">Team roster</span>
-            <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{teamMembers.length}</span>
-          </div>
+        {/* Down to just the one number that actually needs a glance and a
+            tap — everything else that used to live here (open recruit,
+            confirmed this month, team roster) is one click away on its own
+            tab already (Team, My Event). On desktop this side column would
+            otherwise be a tall, mostly-empty strip next to the calendar, so
+            the to-do list underneath fills it in — on mobile it's just the
+            same stack, tile then list. */}
+        <div className="stack home-stat-row" style={{ gap: 10 }}>
+          {pendingJobId ? (
+            <Link to={`/organizer/jobs/${pendingJobId}/applicants`} className="stat-tile stat-tile-link" style={{ textDecoration: 'none', display: 'flex' }}>
+              <span className="subtitle">Pending applicants</span>
+              <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                {pendingCount}
+                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-dark)' }}>Review →</span>
+              </span>
+            </Link>
+          ) : (
+            <div className="stat-tile">
+              <span className="subtitle">Pending applicants</span>
+              <span style={{ fontSize: 22, fontWeight: 700, color: 'var(--ink)' }}>{pendingCount}</span>
+            </div>
+          )}
+          <HomeTasksWidget jobs={activeJobs} />
         </div>
       </div>
 

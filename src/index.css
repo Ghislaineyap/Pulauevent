@@ -958,6 +958,18 @@ textarea {
     align-self: flex-start;
   }
 
+  /* A workspace-style page that also needs the mobile tabbar (so it can't
+     render bare .desktop-workspace at the top level — see VendorRoster.jsx)
+     wraps its .desktop-workspace one level deeper, inside .app-shell. That
+     would otherwise cap it at .app-shell's own 920px instead of a workspace
+     page's usual 1100px, since ".desktop-content > .desktop-workspace"
+     above only matches a DIRECT child. This override keeps that outer
+     .app-shell — and the .desktop-workspace inside it — at the wider,
+     workspace-page width instead. */
+  .desktop-content > .app-shell.ws-app-shell {
+    max-width: 1100px;
+  }
+
   /* The bottom tabbar makes no sense next to a sidebar — nav lives in the
      sidebar instead once there's room for one. */
   .app-shell .tabbar {

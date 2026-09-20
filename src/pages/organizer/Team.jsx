@@ -22,6 +22,7 @@ export default function Team() {
   const [connectedPeople, setConnectedPeople] = useState([])
   const [connectedVendors, setConnectedVendors] = useState([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -59,6 +60,18 @@ export default function Team() {
     })
   }, [user.id])
 
+  const q = search.trim().toLowerCase()
+  const filteredPeople = !q
+    ? connectedPeople
+    : connectedPeople.filter((f) =>
+        [f.name, ...(f.skills || []), ...(f.locations || [])].some((s) => (s || '').toLowerCase().includes(q))
+      )
+  const filteredVendors = !q
+    ? connectedVendors
+    : connectedVendors.filter((v) =>
+        [v.vendor_name, v.category, ...(v.locations || [])].some((s) => (s || '').toLowerCase().includes(q))
+      )
+
   return (
     <div className="app-shell">
       <Topbar title="Team" />
@@ -79,6 +92,13 @@ export default function Team() {
           </InfoButton>
         </div>
 
+        <input
+          type="search"
+          placeholder={tab === 'people' ? 'Search your team by name, skill, or location…' : 'Search vendors by name, category, or location…'}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+
         {loading && <p className="subtitle">Loading…</p>}
 
         {tab === 'people' && (
@@ -86,8 +106,11 @@ export default function Team() {
             {!loading && connectedPeople.length === 0 && (
               <div className="empty-state">No connected people yet — browse People in Discover, or accept an applicant on one of your events.</div>
             )}
+            {!loading && connectedPeople.length > 0 && filteredPeople.length === 0 && (
+              <div className="empty-state">No matches for "{search.trim()}".</div>
+            )}
             <div className="stack">
-              {connectedPeople.map((f) => (
+              {filteredPeople.map((f) => (
                 <Link key={f.id} to={`/organizer/freelancers/${f.id}`} className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <ProfileAvatar avatarKey={f.avatar_key} photoUrl={(f.photo_urls || [])[0]} size={40} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -108,8 +131,11 @@ export default function Team() {
             {!loading && connectedVendors.length === 0 && (
               <div className="empty-state">No connected vendors yet — browse Vendor in Discover, or accept a vendor's application on one of your events.</div>
             )}
+            {!loading && connectedVendors.length > 0 && filteredVendors.length === 0 && (
+              <div className="empty-state">No matches for "{search.trim()}".</div>
+            )}
             <div className="stack">
-              {connectedVendors.map((v) => (
+              {filteredVendors.map((v) => (
                 <Link key={v.id} to={`/organizer/vendors-directory/${v.id}`} className="card" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   <div
                     style={{
