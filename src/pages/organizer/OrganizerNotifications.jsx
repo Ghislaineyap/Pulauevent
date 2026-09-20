@@ -11,13 +11,14 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export default function OrganizerNotifications() {
   const { user } = useAuth()
-  const [tab, setTab] = useState('event') // 'event' | 'team'
+  const [tab, setTab] = useState('team') // 'team' ("My chat") | 'event' — My chat is first now
   const [likeMatches, setLikeMatches] = useState([])
   const [eventTeams, setEventTeams] = useState([])
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
   const [personalUnread, setPersonalUnread] = useState(new Map())
   const [eventUnread, setEventUnread] = useState(new Map())
+  const [search, setSearch] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -109,41 +110,58 @@ export default function OrganizerNotifications() {
   const archivedEvents = useMemo(() => eventTeams.filter((j) => j.eventEndDate && j.eventEndDate < todayISO()), [eventTeams])
   const totalUnreadMessages = [...personalUnread.values(), ...eventUnread.values()].reduce((sum, n) => sum + n, 0)
 
+  // Client-side, by name/title only for now — searching message content
+  // would mean querying job_chat_messages/messages themselves, a bigger
+  // follow-up than this pass's name search.
+  const q = search.trim().toLowerCase()
+  const visibleActiveEvents = q ? activeEvents.filter((j) => j.title?.toLowerCase().includes(q)) : activeEvents
+  const visibleArchivedEvents = q ? archivedEvents.filter((j) => j.title?.toLowerCase().includes(q)) : archivedEvents
+  const visibleLikeMatches = q ? likeMatches.filter((m) => m.freelancer_profiles?.name?.toLowerCase().includes(q)) : likeMatches
+
   return (
     <div className="app-shell">
       <Topbar title="Connect" />
       <div className="page">
         <div className="row" style={{ alignItems: 'center', gap: 0 }}>
           <div className="segmented" style={{ flex: 1 }}>
+            <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
+              My chat
+              {[...personalUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
+                <span className="badge" style={{ marginLeft: 6 }}>{[...personalUnread.values()].reduce((s, n) => s + n, 0)}</span>
+              )}
+            </button>
             <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
               Event chat
               {[...eventUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
                 <span className="badge" style={{ marginLeft: 6 }}>{[...eventUnread.values()].reduce((s, n) => s + n, 0)}</span>
               )}
             </button>
-            <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
-              My team chat
-              {[...personalUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
-                <span className="badge" style={{ marginLeft: 6 }}>{[...personalUnread.values()].reduce((s, n) => s + n, 0)}</span>
-              )}
-            </button>
           </div>
-          <InfoButton title={tab === 'event' ? 'Event chat' : 'My team chat'}>
+          <InfoButton title={tab === 'event' ? 'Event chat' : 'My chat'}>
             {tab === 'event'
               ? 'One group thread per event, for everyone confirmed on it — named after the event, not a person.'
-              : "1:1 chats with people you've connected with via Discover — tap their name to revisit their profile."}
+              : "1:1 chats with people you've connected with — tap their name to revisit their profile."}
           </InfoButton>
         </div>
+
+        <input
+          type="text"
+          placeholder={tab === 'event' ? 'Search events…' : 'Search by name…'}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
 
         {loading && <p className="subtitle">Loading…</p>}
 
         {tab === 'event' && (
           <>
-            {!loading && activeEvents.length === 0 && (
-              <p className="subtitle">No confirmed team yet — accept an applicant or invite someone.</p>
+            {!loading && visibleActiveEvents.length === 0 && (
+              <p className="subtitle">
+                {q ? 'No events match that search.' : 'No confirmed team yet — accept an applicant or invite someone.'}
+              </p>
             )}
             <div className="stack">
-              {activeEvents.map((job) => (
+              {visibleActiveEvents.map((job) => (
                 <div key={job.id} className="row-card">
                   <div className="avatar-chip square" style={{ width: 40, height: 40, background: 'var(--mint)' }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -168,14 +186,14 @@ export default function OrganizerNotifications() {
               ))}
             </div>
 
-            {archivedEvents.length > 0 && (
+            {visibleArchivedEvents.length > 0 && (
               <>
                 <button type="button" className="btn btn-outline btn-block" onClick={() => setShowArchived((s) => !s)}>
-                  {showArchived ? 'Hide' : 'Show'} past events ({archivedEvents.length})
+                  {showArchived ? 'Hide' : 'Show'} past events ({visibleArchivedEvents.length})
                 </button>
                 {showArchived && (
                   <div className="stack">
-                    {archivedEvents.map((job) => (
+                    {visibleArchivedEvents.map((job) => (
                       <div key={job.id} className="row-card" style={{ opacity: 0.75, cursor: 'default' }}>
                         <div className="avatar-chip square" style={{ width: 40, height: 40, background: 'var(--muted)' }} />
                         <strong style={{ flex: 1 }}>{job.title}</strong>
@@ -197,9 +215,11 @@ export default function OrganizerNotifications() {
 
         {tab === 'team' && (
           <>
-            {!loading && likeMatches.length === 0 && <p className="subtitle">No connections yet — browse freelancers in Discover.</p>}
+            {!loading && visibleLikeMatches.length === 0 && (
+              <p className="subtitle">{q ? 'No connections match that search.' : 'No connections yet — browse freelancers in Discover.'}</p>
+            )}
             <div className="stack">
-              {likeMatches.map((m) => {
+              {visibleLikeMatches.map((m) => {
                 const f = m.freelancer_profiles
                 return (
                   <div key={m.id} className="row-card">

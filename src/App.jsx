@@ -24,6 +24,7 @@ import FreelancerNotifications from './pages/freelancer/FreelancerNotifications'
 import FreelancerEventWorkspace from './pages/freelancer/EventWorkspace'
 
 import OrganizerOnboarding from './pages/organizer/OrganizerOnboarding'
+import OrganizerHome from './pages/organizer/Home'
 import Team from './pages/organizer/Team'
 import ApplicantReview from './pages/organizer/ApplicantReview'
 import Discover from './pages/organizer/Discover'
@@ -132,6 +133,14 @@ export default function App() {
             element={
               <Guard role="organizer" skipOnboardedCheck>
                 <OrganizerOnboarding />
+              </Guard>
+            }
+          />
+          <Route
+            path="/organizer/home"
+            element={
+              <Guard role="organizer">
+                <OrganizerHome />
               </Guard>
             }
           />

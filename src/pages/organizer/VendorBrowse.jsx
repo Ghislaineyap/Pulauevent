@@ -12,12 +12,15 @@ import { IconStore } from '../../components/TabIcons'
 // deliberately read-only: search, filter by category, and open a profile.
 // (See the project doc's "deliberately deferred" list — a direct-invite flow
 // is a follow-on, not part of this pass.)
+const emptyFilters = { categories: [], locations: [] }
+
 export function VendorBrowse() {
   const navigate = useNavigate()
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [activeCategory, setActiveCategory] = useState(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState(emptyFilters)
 
   useEffect(() => {
     supabase
@@ -38,8 +41,24 @@ export function VendorBrowse() {
     return VENDOR_CATEGORIES.filter((c) => set.has(c))
   }, [vendors])
 
+  const locationOptions = useMemo(() => {
+    const set = new Set()
+    vendors.forEach((v) => (v.locations || []).forEach((l) => set.add(l)))
+    return [...set].sort()
+  }, [vendors])
+
+  function toggleFilter(category, value) {
+    setFilters((f) => ({
+      ...f,
+      [category]: f[category].includes(value) ? f[category].filter((v) => v !== value) : [...f[category], value],
+    }))
+  }
+
+  const activeFilterCount = Object.values(filters).reduce((n, arr) => n + arr.length, 0)
+
   const filtered = vendors.filter((v) => {
-    if (activeCategory && v.category !== activeCategory) return false
+    if (filters.categories.length && !filters.categories.includes(v.category)) return false
+    if (filters.locations.length && !(v.locations || []).some((l) => filters.locations.includes(l))) return false
     if (search.trim()) {
       const q = search.trim().toLowerCase()
       const haystack = `${v.vendor_name} ${v.category || ''} ${(v.locations || []).join(' ')}`.toLowerCase()
@@ -57,20 +76,59 @@ export function VendorBrowse() {
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      {categoriesInUse.length > 0 && (
-        <div className="chip-row">
-          <span className={`chip chip-toggle ${!activeCategory ? 'active' : ''}`} onClick={() => setActiveCategory(null)}>
-            All
-          </span>
-          {categoriesInUse.map((c) => (
-            <span
-              key={c}
-              className={`chip chip-toggle ${activeCategory === c ? 'active' : ''}`}
-              onClick={() => setActiveCategory((cur) => (cur === c ? null : c))}
-            >
-              {c}
-            </span>
-          ))}
+      <button
+        className="btn btn-outline btn-block"
+        style={{ justifyContent: 'space-between' }}
+        onClick={() => setShowFilters((s) => !s)}
+      >
+        <span>
+          Filters
+          {activeFilterCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{activeFilterCount}</span>}
+        </span>
+        <span style={{ color: 'var(--muted)', fontWeight: 400 }}>{showFilters ? '▴' : '▾'}</span>
+      </button>
+
+      {showFilters && (
+        <div className="card stack">
+          {categoriesInUse.length > 0 && (
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>Category</label>
+              <div className="chip-row">
+                {categoriesInUse.map((c) => (
+                  <span
+                    key={c}
+                    className={`chip chip-toggle ${filters.categories.includes(c) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('categories', c)}
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {locationOptions.length > 0 && (
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label>Location</label>
+              <div className="chip-row">
+                {locationOptions.map((loc) => (
+                  <span
+                    key={loc}
+                    className={`chip chip-toggle ${filters.locations.includes(loc) ? 'active' : ''}`}
+                    onClick={() => toggleFilter('locations', loc)}
+                  >
+                    {loc}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeFilterCount > 0 && (
+            <button type="button" className="btn btn-outline" onClick={() => setFilters(emptyFilters)}>
+              Clear filters
+            </button>
+          )}
         </div>
       )}
 

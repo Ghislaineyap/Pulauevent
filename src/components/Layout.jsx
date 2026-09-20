@@ -1,6 +1,6 @@
 import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthProvider'
-import { IconUser, IconClipboard, IconCalendar, IconSearch, IconChat } from './TabIcons'
+import { IconHome, IconUser, IconClipboard, IconCalendar, IconSearch, IconChat, IconStore } from './TabIcons'
 
 // Where "Profile" (no longer its own tabbar entry — see FreelancerTabbar/
 // OrganizerTabbar/VendorTabbar below) is reached from now: a round avatar
@@ -64,13 +64,20 @@ export function FreelancerTabbar({ myEventCount = 0, connectCount = 0 }) {
   )
 }
 
-// pendingCount: applicants waiting on a decision, across every open-recruit
-// division/vendor slot — shown on Team, since that's now the only place
-// either kind of application is reviewed (item 9 — Post retired). connectCount:
-// unread messages across event and personal chats.
-export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
+// connectCount: unread messages across event and personal chats. Team has no
+// badge of its own — applicant review moved back to each event's own
+// workspace (Select team/Recruiting/Review applicants, and the Vendors tab),
+// so there's no single cross-event "pending" number to show here any more.
+// 2026-09-20 nav restructure: Home (dashboard + calendar, split off My
+// Event) and Vendor Management (previously desktop-sidebar-only) both
+// became top-level tabs here, on mobile as well as desktop, per the new
+// 6-tab order: Home, My Event, Discover, Team, Connect, Vendor Management.
+export function OrganizerTabbar({ connectCount = 0 }) {
   return (
     <nav className="tabbar">
+      <NavLink to="/organizer/home" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconHome className="tab-icon" />Home
+      </NavLink>
       <NavLink to="/organizer/my-events" className={({ isActive }) => (isActive ? 'active' : '')}>
         <IconCalendar className="tab-icon" />My Event
       </NavLink>
@@ -78,11 +85,7 @@ export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
         <IconSearch className="tab-icon" />Discover
       </NavLink>
       <NavLink to="/organizer/team" className={({ isActive }) => (isActive ? 'active' : '')}>
-        <span className="tab-icon-wrap">
-          <IconUser className="tab-icon" />
-          {pendingCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{pendingCount}</span>}
-        </span>
-        Team
+        <IconUser className="tab-icon" />Team
       </NavLink>
       <NavLink to="/organizer/notifications" className={({ isActive }) => (isActive ? 'active' : '')}>
         <span className="tab-icon-wrap">
@@ -90,6 +93,9 @@ export function OrganizerTabbar({ pendingCount = 0, connectCount = 0 }) {
           {connectCount > 0 && <span className="badge" style={{ marginLeft: 4 }}>{connectCount}</span>}
         </span>
         Connect
+      </NavLink>
+      <NavLink to="/organizer/vendors" className={({ isActive }) => (isActive ? 'active' : '')}>
+        <IconStore className="tab-icon" />Vendors
       </NavLink>
     </nav>
   )
