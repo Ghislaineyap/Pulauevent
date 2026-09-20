@@ -11,7 +11,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export default function OrganizerNotifications() {
   const { user } = useAuth()
-  const [tab, setTab] = useState('event') // 'event' | 'team'
+  const [tab, setTab] = useState('team') // 'team' ("My chat") | 'event' — My chat is first now
   const [likeMatches, setLikeMatches] = useState([])
   const [eventTeams, setEventTeams] = useState([])
   const [loading, setLoading] = useState(true)
@@ -124,23 +124,23 @@ export default function OrganizerNotifications() {
       <div className="page">
         <div className="row" style={{ alignItems: 'center', gap: 0 }}>
           <div className="segmented" style={{ flex: 1 }}>
+            <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
+              My chat
+              {[...personalUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
+                <span className="badge" style={{ marginLeft: 6 }}>{[...personalUnread.values()].reduce((s, n) => s + n, 0)}</span>
+              )}
+            </button>
             <button type="button" className={tab === 'event' ? 'active' : ''} onClick={() => setTab('event')}>
               Event chat
               {[...eventUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
                 <span className="badge" style={{ marginLeft: 6 }}>{[...eventUnread.values()].reduce((s, n) => s + n, 0)}</span>
               )}
             </button>
-            <button type="button" className={tab === 'team' ? 'active' : ''} onClick={() => setTab('team')}>
-              My team chat
-              {[...personalUnread.values()].reduce((s, n) => s + n, 0) > 0 && (
-                <span className="badge" style={{ marginLeft: 6 }}>{[...personalUnread.values()].reduce((s, n) => s + n, 0)}</span>
-              )}
-            </button>
           </div>
-          <InfoButton title={tab === 'event' ? 'Event chat' : 'My team chat'}>
+          <InfoButton title={tab === 'event' ? 'Event chat' : 'My chat'}>
             {tab === 'event'
               ? 'One group thread per event, for everyone confirmed on it — named after the event, not a person.'
-              : "1:1 chats with people you've connected with via Discover — tap their name to revisit their profile."}
+              : "1:1 chats with people you've connected with — tap their name to revisit their profile."}
           </InfoButton>
         </div>
 
