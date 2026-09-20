@@ -26,6 +26,7 @@ export default function Home() {
   const [ratedKeys, setRatedKeys] = useState(new Set())
   const [teamMembers, setTeamMembers] = useState([])
   const [pendingCount, setPendingCount] = useState(0)
+  const [pendingJobId, setPendingJobId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('dashboard') // 'dashboard' | 'calendar'
   const [manageModal, setManageModal] = useState(null)
@@ -79,17 +80,35 @@ export default function Home() {
       }))
     )
 
+    // Fetched as rows (not a head:true count) so pending applicants can be
+    // attributed back to a specific job — the stat tile links straight to
+    // whichever event most needs a look, not just a bare number.
+    const divisionToJob = new Map()
+    ;(jobRows || []).forEach((j) => j.job_divisions.forEach((d) => divisionToJob.set(d.id, j.id)))
     const openRecruitDivisionIds = (jobRows || []).flatMap((j) => j.job_divisions.filter((d) => d.open_recruit).map((d) => d.id))
     if (openRecruitDivisionIds.length > 0) {
-      const { count, error: pendingError } = await supabase
+      const { data: pendingApps, error: pendingError } = await supabase
         .from('applications')
-        .select('id', { count: 'exact', head: true })
+        .select('id, division_id')
         .in('division_id', openRecruitDivisionIds)
         .eq('status', 'pending')
       if (pendingError) console.error(pendingError)
-      setPendingCount(count || 0)
+      setPendingCount((pendingApps || []).length)
+
+      const countByJob = new Map()
+      ;(pendingApps || []).forEach((a) => {
+        const jobId = divisionToJob.get(a.division_id)
+        countByJob.set(jobId, (countByJob.get(jobId) || 0) + 1)
+      })
+      // Whichever job with pending applicants has the soonest event — the
+      // most time-sensitive one to review first.
+      const jobsWithPending = (jobRows || [])
+        .filter((j) => countByJob.has(j.id))
+        .sort((a, b) => a.event_start_date.localeCompare(b.event_start_date))
+      setPendingJobId(jobsWithPending[0]?.id || null)
     } else {
       setPendingCount(0)
+      setPendingJobId(null)
     }
 
     setLoading(false)
@@ -215,8 +234,8 @@ export default function Home() {
         {!loading && view === 'dashboard' && (
           <EventDashboard
             jobs={jobs}
-            teamMembers={teamMembers}
             pendingCount={pendingCount}
+            pendingJobId={pendingJobId}
             orgName={roleProfile?.org_name}
             onManage={(jobId) => setManageModal({ jobId, sub: null })}
             onCreate={() => navigate('/organizer/my-events', { state: { openCreate: true } })}

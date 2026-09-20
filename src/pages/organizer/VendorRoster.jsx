@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { InfoButton } from '../../components/InfoButton'
+import { Topbar, OrganizerTabbar } from '../../components/Layout'
 
 // Same category vocabulary as the Budget tab's line items, so a vendor
 // picked from here reads consistently with the ledger it's usually tied to
@@ -24,15 +25,22 @@ export const VENDOR_CATEGORIES = [
 
 // Organizer-wide, reused across every event — same idea as the existing
 // Team roster (team_members table), but for vendors instead of freelancers.
-// Reached only from the desktop sidebar (see DesktopSidebar.jsx), matching
-// the "Vendor management" link on the design canvas.
+// Reachable from the desktop sidebar AND, since the 2026-09-20 nav
+// restructure, the mobile tabbar too (see DesktopSidebar.jsx/Layout.jsx) —
+// wrapped in the same app-shell/Topbar/OrganizerTabbar every other mobile
+// tab uses (the .desktop-workspace div inside still gets the wide desktop
+// treatment via the .ws-app-shell override in index.css), so there's
+// somewhere to navigate back to on a phone instead of a dead end. Adding a
+// vendor to the roster is no longer done here — see the "+ Add vendor" flow
+// on an event's own Vendors tab, which creates the roster entry and books it
+// onto that event in one step; this page is edit/remove on existing entries.
 export default function VendorRoster() {
   const { user } = useAuth()
   const [vendors, setVendors] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState(null)
-  const [formOpen, setFormOpen] = useState(false) // false | 'new' | vendorId
+  const [formOpen, setFormOpen] = useState(false) // false | vendorId
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -82,78 +90,83 @@ export default function VendorRoster() {
   })
 
   return (
-    <div className="desktop-workspace">
-      <div className="ws-header">
-        <div>
-          <h1>Vendor management</h1>
-          <p className="ws-meta" style={{ display: 'flex', alignItems: 'center' }}>
+    <div className="app-shell ws-app-shell">
+      <Topbar title="Vendor management" />
+      <div className="desktop-workspace">
+        {/* No h1 here — Topbar above already carries the "Vendor management"
+            title (on mobile and desktop alike, now that this page is
+            reachable from the tabbar too), so this header is just the
+            explanatory subtitle. */}
+        <div className="ws-header">
+          <p className="ws-meta" style={{ display: 'flex', alignItems: 'center', margin: 0 }}>
             Your reusable vendor list — book any of these straight from an event's Vendors tab.
             <InfoButton title="Vendor management">
-              Vendors here are organizer-wide, same as your Team roster — add one once, then reuse it across every event instead of re-entering contact details each time.
+              Vendors here are organizer-wide, same as your Team roster. To add a new one, use "+ Add vendor" on an
+              event's Vendors tab — that books it onto that event and adds it to this roster in one step.
             </InfoButton>
           </p>
         </div>
-        <button type="button" className="btn btn-primary" style={{ padding: '9px 16px', fontSize: 12.5 }} onClick={() => setFormOpen('new')}>
-          + Add vendor
-        </button>
-      </div>
 
-      <div className="roster-search-row">
-        <input type="text" placeholder="Search vendors…" value={search} onChange={(e) => setSearch(e.target.value)} />
-      </div>
-      {categoriesInUse.length > 0 && (
-        <div className="chip-row-desktop">
-          <button type="button" className={`filter-chip${!activeCategory ? ' active' : ''}`} onClick={() => setActiveCategory(null)}>
-            All
-          </button>
-          {categoriesInUse.map((c) => (
-            <button key={c} type="button" className={`filter-chip${activeCategory === c ? ' active' : ''}`} onClick={() => setActiveCategory(c)}>
-              {c}
-            </button>
-          ))}
+        <div className="roster-search-row">
+          <input type="text" placeholder="Search vendors…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-      )}
-
-      <div className="stack" style={{ marginTop: 18, gap: 14, maxWidth: 640 }}>
-        {formOpen === 'new' && <VendorForm onSave={(payload) => saveVendor(payload, null)} onCancel={() => setFormOpen(false)} />}
-
-        {loading && <p className="subtitle">Loading…</p>}
-        {!loading && filtered.length === 0 && !formOpen && (
-          <div className="empty-state">{vendors.length === 0 ? 'No vendors yet — add your first one to start your roster.' : 'No vendors match that search.'}</div>
+        {categoriesInUse.length > 0 && (
+          <div className="chip-row-desktop">
+            <button type="button" className={`filter-chip${!activeCategory ? ' active' : ''}`} onClick={() => setActiveCategory(null)}>
+              All
+            </button>
+            {categoriesInUse.map((c) => (
+              <button key={c} type="button" className={`filter-chip${activeCategory === c ? ' active' : ''}`} onClick={() => setActiveCategory(c)}>
+                {c}
+              </button>
+            ))}
+          </div>
         )}
 
-        {filtered.map((v) =>
-          formOpen === v.id ? (
-            <VendorForm key={v.id} vendor={v} onSave={(payload) => saveVendor(payload, v.id)} onCancel={() => setFormOpen(false)} />
-          ) : (
-            <div key={v.id} className="ws-panel vendor-card">
-              <div className="vendor-top">
-                <div>
-                  <div className="vendor-name">{v.name}</div>
-                  <div className="vendor-meta">
-                    {v.category || 'Uncategorized'}
-                    {v.contact_name && ` · ${v.contact_name}`}
-                    {v.contact_phone && ` · ${v.contact_phone}`}
+        <div className="stack" style={{ marginTop: 18, gap: 14, maxWidth: 640 }}>
+          {loading && <p className="subtitle">Loading…</p>}
+          {!loading && filtered.length === 0 && (
+            <div className="empty-state">
+              {vendors.length === 0
+                ? 'No vendors yet — add your first one from an event\'s Vendors tab.'
+                : 'No vendors match that search.'}
+            </div>
+          )}
+
+          {filtered.map((v) =>
+            formOpen === v.id ? (
+              <VendorForm key={v.id} vendor={v} onSave={(payload) => saveVendor(payload, v.id)} onCancel={() => setFormOpen(false)} />
+            ) : (
+              <div key={v.id} className="ws-panel vendor-card">
+                <div className="vendor-top">
+                  <div>
+                    <div className="vendor-name">{v.name}</div>
+                    <div className="vendor-meta">
+                      {v.category || 'Uncategorized'}
+                      {v.contact_name && ` · ${v.contact_name}`}
+                      {v.contact_phone && ` · ${v.contact_phone}`}
+                    </div>
+                    {v.notes && (
+                      <p className="subtitle" style={{ margin: '6px 0 0' }}>
+                        {v.notes}
+                      </p>
+                    )}
                   </div>
-                  {v.notes && (
-                    <p className="subtitle" style={{ margin: '6px 0 0' }}>
-                      {v.notes}
-                    </p>
-                  )}
-                </div>
-                <div className="budget-row-actions">
-                  <button type="button" className="budget-icon-btn" onClick={() => setFormOpen(v.id)} aria-label="Edit">
-                    ✎
-                  </button>
-                  <button type="button" className="budget-icon-btn" onClick={() => deleteVendor(v.id)} aria-label="Delete">
-                    ✕
-                  </button>
+                  <div className="budget-row-actions">
+                    <button type="button" className="budget-icon-btn" onClick={() => setFormOpen(v.id)} aria-label="Edit">
+                      ✎
+                    </button>
+                    <button type="button" className="budget-icon-btn" onClick={() => deleteVendor(v.id)} aria-label="Delete">
+                      ✕
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )
-        )}
+            )
+          )}
+        </div>
       </div>
+      <OrganizerTabbar />
     </div>
   )
 }
