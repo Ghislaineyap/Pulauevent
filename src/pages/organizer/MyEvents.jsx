@@ -6,13 +6,8 @@ import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { formatEventDates } from '../../lib/date'
 import { Switch } from '../../components/Switch'
 import { InfoButton } from '../../components/InfoButton'
-import { Modal } from '../../components/Modal'
 import { SkillIcon } from '../../components/SkillIcon'
-import { DocumentsView } from '../../components/DocumentsView'
-import { TasksView } from '../../components/TasksView'
 import { HomeTasksWidget } from '../../components/HomeTasksWidget'
-import { downloadICS, eventsFromJobSchedule } from '../../lib/ics'
-import { fetchUnreadCounts, subscribeUnreadIncrements } from '../../lib/chatReads'
 
 const OTHER_SKILL = '__other__'
 const OTHER_LOCATION = '__other__'
@@ -30,13 +25,15 @@ function startOfWeek(date) {
   return d
 }
 
-// "My Event" — a list of your events, and manage them from here: crew
-// (per-division "Select team"), recruiting settings (per-division
-// "Recruiting" — budget, fee, and the Open Recruit toggle), event details
-// (editable any time from "Manage event"), the team chat, and post-event
-// ratings. The dashboard/calendar views that used to live here moved to
-// their own "Home" tab (2026-09-20 nav restructure) — this page is list-only
-// now, per "My event is only the list of event." The Home tab's
+// "My Event" — a list of your events. Managing one (crew, recruiting,
+// budget, documents, vendors, tasks, event details, chat) all happens in
+// the event workspace now (EventWorkspace.jsx) — the same page whether
+// you're on a phone or a desktop (2026-09-20 workspace-unification pass:
+// this page used to also open a separate "Manage event" bottom-sheet modal
+// on mobile, built from ManageEventView/TeamSelectView/RecruitForm below,
+// with a different look and feel than the desktop workspace covering the
+// exact same actions — that duplication is gone; every "Manage event" link
+// below just navigates into the workspace). The Home tab's
 // "+ Create a new event" hands off here via router state (openCreate) since
 // the create form itself still only lives on this page.
 export default function MyEvents() {
@@ -44,8 +41,6 @@ export default function MyEvents() {
   const navigate = useNavigate()
   const location = useLocation()
   const [jobs, setJobs] = useState([])
-  const [ratedKeys, setRatedKeys] = useState(new Set())
-  const [teamMembers, setTeamMembers] = useState([])
   const [skillOptions, setSkillOptions] = useState([])
   const [locationOptions, setLocationOptions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -53,61 +48,15 @@ export default function MyEvents() {
   const [showPastList, setShowPastList] = useState(false)
   const [listSort, setListSort] = useState('upcoming') // 'upcoming' (soonest first) | 'latest' (newest first)
 
-  // { jobId, sub: null | { type: 'edit' } | { type: 'team', divisionId } | { type: 'recruit', divisionId }
-  //   | { type: 'rundowns' } | { type: 'tasks' } | { type: 'share' } }
-  const [manageModal, setManageModal] = useState(null)
-
   const load = useCallback(async () => {
     setLoading(true)
-    const [{ data: jobRows, error: jobsError }, { data: myRatings }] = await Promise.all([
-      supabase
-        .from('job_postings')
-        .select(
-          'id, title, description, location, location_detail, event_start_date, event_end_date, status, chat_opened_at, job_divisions(id, skill, quantity, filled_count, budget_amount, budget_type, fee_type, transport_max_amount, open_recruit, jobdesk)'
-        )
-        .eq('organizer_id', user.id)
-        .order('created_at', { ascending: false }),
-      supabase.from('ratings').select('job_id, freelancer_id').eq('organizer_id', user.id),
-    ])
+    const { data: jobRows, error: jobsError } = await supabase
+      .from('job_postings')
+      .select('id, title, location, location_detail, event_start_date, event_end_date')
+      .eq('organizer_id', user.id)
+      .order('created_at', { ascending: false })
     if (jobsError) console.error(jobsError)
-    setRatedKeys(new Set((myRatings || []).map((r) => `${r.job_id}:${r.freelancer_id}`)))
-
-    const divisionIds = (jobRows || []).flatMap((j) => j.job_divisions.map((d) => d.id))
-    const teamByDivision = new Map()
-    const confirmedByJob = new Map()
-    if (divisionIds.length > 0) {
-      // Only accepted/invited here — pending (public) applicants are tracked
-      // and notified on in Post, not in My Event.
-      const { data: apps, error: appsError } = await supabase
-        .from('applications')
-        .select('id, status, division_id, job_divisions(job_id), freelancer_profiles(id, name)')
-        .in('division_id', divisionIds)
-        .in('status', ['accepted', 'invited'])
-      if (appsError) console.error(appsError)
-      ;(apps || []).forEach((a) => {
-        const jobId = a.job_divisions.job_id
-        const entry = teamByDivision.get(a.division_id) || { accepted: [], invited: [] }
-        const person = { appId: a.id, freelancerId: a.freelancer_profiles.id, name: a.freelancer_profiles.name }
-        if (a.status === 'accepted') {
-          entry.accepted.push(person)
-          const confirmed = confirmedByJob.get(jobId) || []
-          if (!confirmed.some((p) => p.id === person.freelancerId)) confirmed.push({ id: person.freelancerId, name: person.name })
-          confirmedByJob.set(jobId, confirmed)
-        } else {
-          entry.invited.push(person)
-        }
-        teamByDivision.set(a.division_id, entry)
-      })
-    }
-
-    setJobs(
-      (jobRows || []).map((j) => ({
-        ...j,
-        job_divisions: j.job_divisions.map((d) => ({ ...d, team: teamByDivision.get(d.id) || { accepted: [], invited: [] } })),
-        confirmedTeam: confirmedByJob.get(j.id) || [],
-      }))
-    )
-
+    setJobs(jobRows || [])
     setLoading(false)
   }, [user.id])
 
@@ -136,102 +85,7 @@ export default function MyEvents() {
       .select('label')
       .order('sort_order')
       .then(({ data }) => setLocationOptions((data || []).map((l) => l.label)))
-    supabase
-      .from('team_members')
-      .select('freelancer_id, freelancer_profiles(id, name, skills)')
-      .eq('organizer_id', user.id)
-      .then(({ data, error: teamError }) => {
-        if (teamError) console.error(teamError)
-        setTeamMembers((data || []).map((t) => t.freelancer_profiles).filter(Boolean))
-      })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Event chat is a plain on/off now — flip it back off any time (e.g. a
-  // last-minute cancellation) rather than a one-way "start" button.
-  async function toggleEventChat(jobId, nextOpen) {
-    const { error } = await supabase
-      .from('job_postings')
-      .update({ chat_opened_at: nextOpen ? new Date().toISOString() : null })
-      .eq('id', jobId)
-    if (error) {
-      console.error(error)
-      return
-    }
-    setJobs((js) => js.map((j) => (j.id === jobId ? { ...j, chat_opened_at: nextOpen ? new Date().toISOString() : null } : j)))
-  }
-
-  // Adding someone from your team roster into a division. Upsert (not plain
-  // insert) so re-inviting someone who was previously cancelled/withdrawn
-  // from this same division works instead of hitting the unique constraint.
-  async function addToTeam(freelancerId, divisionId) {
-    const { error } = await supabase
-      .from('applications')
-      .upsert(
-        { division_id: divisionId, freelancer_id: freelancerId, status: 'invited', source: 'invited' },
-        { onConflict: 'division_id,freelancer_id' }
-      )
-    if (error) {
-      console.error(error)
-      return
-    }
-    load()
-  }
-
-  // Removing a confirmed team member frees their slot automatically (a
-  // database trigger drops the division's filled count) — it can be filled
-  // again right away, by someone else on your team or publicly.
-  async function removeFromTeam(applicationId) {
-    const { error } = await supabase.from('applications').update({ status: 'cancelled' }).eq('id', applicationId)
-    if (error) {
-      console.error(error)
-      return
-    }
-    load()
-  }
-
-  async function withdrawInvite(applicationId) {
-    const { error } = await supabase.from('applications').update({ status: 'declined' }).eq('id', applicationId)
-    if (error) {
-      console.error(error)
-      return
-    }
-    load()
-  }
-
-  async function saveRecruit(divisionId, payload) {
-    const { error } = await supabase.from('job_divisions').update(payload).eq('id', divisionId)
-    if (error) {
-      console.error(error)
-      return
-    }
-    setManageModal((m) => (m ? { ...m, sub: null } : m))
-    load()
-  }
-
-  async function submitRating(jobId, freelancerId, rating, recommendation) {
-    const { error } = await supabase.from('ratings').insert({
-      job_id: jobId,
-      organizer_id: user.id,
-      freelancer_id: freelancerId,
-      rating,
-      recommendation: recommendation.trim() || null,
-    })
-    if (error) {
-      console.error(error)
-      return false
-    }
-    setRatedKeys((s) => new Set(s).add(`${jobId}:${freelancerId}`))
-    return true
-  }
-
-  // Add to calendar lives at the My Event / overview level — a single
-  // all-day-ish event covering the event's date span (eventsFromJobSchedule
-  // falls back to this whenever there's no rundown data, which is now
-  // always, since the Rundown feature was replaced by Documents).
-  function addToCalendar(job) {
-    downloadICS(job.title, eventsFromJobSchedule(job, [], []))
-  }
 
   // Keep wrapped-up events out of the way on the List tab, same as the
   // Connect chat lists already do — an event's card moves under a collapsed
@@ -245,19 +99,6 @@ export default function MyEvents() {
     )
   const activeListJobs = sortByDate(jobs.filter((j) => j.event_end_date >= todayISO()))
   const pastListJobs = sortByDate(jobs.filter((j) => j.event_end_date < todayISO()))
-
-  const manageJob = manageModal && jobs.find((j) => j.id === manageModal.jobId)
-  const manageDivision =
-    manageJob && (manageModal.sub?.type === 'team' || manageModal.sub?.type === 'recruit')
-      ? manageJob.job_divisions.find((d) => d.id === manageModal.sub.divisionId)
-      : null
-
-  let manageTitle = manageJob?.title
-  if (manageModal?.sub?.type === 'edit') manageTitle = `Edit — ${manageJob.title}`
-  if (manageModal?.sub?.type === 'team' && manageDivision) manageTitle = `Select team — ${manageDivision.skill}`
-  if (manageModal?.sub?.type === 'recruit' && manageDivision) manageTitle = `Recruiting — ${manageDivision.skill}`
-  if (manageModal?.sub?.type === 'documents') manageTitle = `Documents — ${manageJob.title}`
-  if (manageModal?.sub?.type === 'tasks') manageTitle = `Tasks — ${manageJob.title}`
 
   return (
     <div className="app-shell">
@@ -320,14 +161,9 @@ export default function MyEvents() {
                       {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
                     </p>
                   </div>
-                  <div className="row">
-                    <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={() => setManageModal({ jobId: job.id, sub: null })}>
-                      Manage event
-                    </button>
-                    <Link to={`/organizer/events/${job.id}`} className="btn btn-outline desktop-only-inline" style={{ flex: 1, textDecoration: 'none' }}>
-                      Open workspace
-                    </Link>
-                  </div>
+                  <Link to={`/organizer/events/${job.id}`} className="btn btn-primary btn-block" style={{ textDecoration: 'none' }}>
+                    Manage event
+                  </Link>
                 </div>
               ))}
             </div>
@@ -347,14 +183,9 @@ export default function MyEvents() {
                             {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
                           </p>
                         </div>
-                        <div className="row">
-                          <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={() => setManageModal({ jobId: job.id, sub: null })}>
-                            Manage event
-                          </button>
-                          <Link to={`/organizer/events/${job.id}`} className="btn btn-outline desktop-only-inline" style={{ flex: 1, textDecoration: 'none' }}>
-                            Open workspace
-                          </Link>
-                        </div>
+                        <Link to={`/organizer/events/${job.id}`} className="btn btn-outline btn-block" style={{ textDecoration: 'none' }}>
+                          Manage event
+                        </Link>
                       </div>
                     ))}
                   </div>
@@ -365,114 +196,6 @@ export default function MyEvents() {
         )}
       </div>
 
-      {manageJob && (
-        <Modal title={manageTitle} onClose={() => setManageModal(null)}>
-          {!manageModal.sub && (
-            <ManageEventView
-              job={manageJob}
-              ratedKeys={ratedKeys}
-              onEdit={() => setManageModal((m) => ({ ...m, sub: { type: 'edit' } }))}
-              onOpenTeam={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'team', divisionId } }))}
-              onOpenRecruit={(divisionId) => setManageModal((m) => ({ ...m, sub: { type: 'recruit', divisionId } }))}
-              onOpenDocuments={() => setManageModal((m) => ({ ...m, sub: { type: 'documents' } }))}
-              onOpenTasks={() => setManageModal((m) => ({ ...m, sub: { type: 'tasks' } }))}
-              onAddToCalendar={() => addToCalendar(manageJob)}
-              onToggleChat={toggleEventChat}
-              onSubmitRating={submitRating}
-            />
-          )}
-
-          {manageModal.sub?.type === 'edit' && (
-            <div className="stack">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
-                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
-              >
-                ← Back
-              </button>
-              <EventForm
-                bare
-                job={manageJob}
-                organizerId={user.id}
-                skillOptions={skillOptions}
-                locationOptions={locationOptions}
-                onCancel={() => setManageModal((m) => ({ ...m, sub: null }))}
-                onSaved={() => {
-                  setManageModal((m) => ({ ...m, sub: null }))
-                  load()
-                }}
-              />
-            </div>
-          )}
-
-          {manageModal.sub?.type === 'team' && manageDivision && (
-            <div className="stack">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
-                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
-              >
-                ← Back
-              </button>
-              <TeamSelectView
-                job={manageJob}
-                division={manageDivision}
-                teamMembers={teamMembers}
-                onAdd={addToTeam}
-                onRemove={removeFromTeam}
-                onWithdraw={withdrawInvite}
-              />
-            </div>
-          )}
-
-          {manageModal.sub?.type === 'recruit' && manageDivision && (
-            <div className="stack">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
-                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
-              >
-                ← Back
-              </button>
-              <RecruitForm key={manageDivision.id} division={manageDivision} onSave={(payload) => saveRecruit(manageDivision.id, payload)} />
-            </div>
-          )}
-
-          {manageModal.sub?.type === 'documents' && (
-            <div className="stack">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
-                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
-              >
-                ← Back
-              </button>
-              <DocumentsView jobId={manageJob.id} canEdit />
-            </div>
-          )}
-
-          {manageModal.sub?.type === 'tasks' && (
-            <div className="stack">
-              <button
-                type="button"
-                className="btn btn-outline"
-                style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }}
-                onClick={() => setManageModal((m) => ({ ...m, sub: null }))}
-              >
-                ← Back
-              </button>
-              <TasksView jobId={manageJob.id} canManage currentUserId={user.id} teamMembers={manageJob.confirmedTeam} />
-            </div>
-          )}
-
-        </Modal>
-      )}
-
       <OrganizerTabbar />
     </div>
   )
@@ -481,26 +204,16 @@ export default function MyEvents() {
 // The Home tab — a quick "what's going on" view instead of jumping straight
 // into the create form or a flat list: what's coming up next, a week strip
 // to jump to a day's agenda, and a few at-a-glance numbers. Everything here
-// reads from the same `jobs`/`teamMembers` the List/Calendar views use — no
-// separate data model — and tapping into an event reuses the same "Manage
-// event" modal those views already open.
-// 900px matches the .desktop-workspace/.app-shell breakpoint in index.css —
-// below it EventWorkspace isn't reachable from navigation at all, so the
-// mobile "Manage event" bottom sheet is still the only way in.
-const DESKTOP_BREAKPOINT = '(min-width: 900px)'
-
-export function EventDashboard({ jobs, pendingCount, pendingJobId, orgName, onManage, onCreate }) {
+// reads from its own copy of `jobs` — no separate data model — and tapping
+// into an event navigates into the event workspace (EventWorkspace.jsx),
+// the same one whether you're on a phone or a desktop.
+export function EventDashboard({ jobs, pendingCount, pendingJobId, orgName, onCreate }) {
   const navigate = useNavigate()
   const today = todayISO()
   const [selectedDay, setSelectedDay] = useState(today)
 
-  // On desktop, go straight to the real event workspace instead of the old
-  // mobile bottom-sheet modal — the modal reads like a stretched-phone
-  // overlay on a wide screen, and the workspace is what desktop is for.
-  // Mobile keeps opening the modal exactly as before.
   function openEvent(jobId) {
-    if (window.matchMedia(DESKTOP_BREAKPOINT).matches) navigate(`/organizer/events/${jobId}`)
-    else onManage(jobId)
+    navigate(`/organizer/events/${jobId}`)
   }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
@@ -628,137 +341,6 @@ export function EventDashboard({ jobs, pendingCount, pendingJobId, orgName, onMa
       <button type="button" className="fab-btn" aria-label="Create a new event" onClick={onCreate}>
         +
       </button>
-    </div>
-  )
-}
-
-export function ManageEventView({ job, ratedKeys, onEdit, onOpenTeam, onOpenRecruit, onOpenDocuments, onOpenTasks, onAddToCalendar, onToggleChat, onSubmitRating }) {
-  const { user } = useAuth()
-  const isPast = job.event_end_date < todayISO()
-  const toRate = isPast ? job.confirmedTeam.filter((f) => !ratedKeys.has(`${job.id}:${f.id}`)) : []
-
-  // Unread count on this event's chat button — fetched fresh whenever this
-  // view mounts (opening "Manage event" for a job, or toggling chat on),
-  // plus kept live while it's open so an incoming message shows up right
-  // away instead of only after the next reopen.
-  const [chatUnread, setChatUnread] = useState(0)
-  useEffect(() => {
-    if (!job.chat_opened_at) {
-      setChatUnread(0)
-      return
-    }
-    fetchUnreadCounts({ userId: user.id, chatType: 'event', ids: [job.id] }).then((counts) => setChatUnread(counts.get(job.id) || 0))
-    const unsubscribe = subscribeUnreadIncrements('event', user.id, (chatId) => {
-      if (chatId === job.id) setChatUnread((n) => n + 1)
-    })
-    return unsubscribe
-  }, [user.id, job.id, job.chat_opened_at])
-
-  return (
-    <div className="stack">
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <p className="subtitle" style={{ margin: 0 }}>
-          📍 {job.location}
-          {job.location_detail && ` — ${job.location_detail}`} · {formatEventDates(job.event_start_date, job.event_end_date)}
-        </p>
-        <button type="button" className="btn btn-outline" style={{ padding: '4px 10px', fontSize: 12 }} onClick={onEdit}>
-          Edit
-        </button>
-      </div>
-
-      {(onOpenDocuments || onOpenTasks || onAddToCalendar) && (
-        <div className="stack" style={{ gap: 8, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '10px 0' }}>
-          <strong style={{ fontSize: 12.5 }}>Event tools</strong>
-          <div className="row" style={{ flexWrap: 'wrap', gap: 8 }}>
-            {onOpenDocuments && (
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenDocuments}>
-                Documents
-              </button>
-            )}
-            {onOpenTasks && (
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onOpenTasks}>
-                Tasks
-              </button>
-            )}
-            {onAddToCalendar && (
-              <button type="button" className="btn btn-outline" style={{ flex: '1 1 45%', padding: '8px 10px', fontSize: 12.5 }} onClick={onAddToCalendar}>
-                Add to calendar
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="stack" style={{ gap: 8 }}>
-        {job.job_divisions.map((d) => (
-          <div key={d.id} className="card" style={{ padding: 10 }}>
-            <strong>{d.skill}</strong>
-            {d.jobdesk && (
-              <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                {d.jobdesk}
-              </p>
-            )}
-            <p className="subtitle" style={{ margin: '4px 0 8px' }}>
-              {d.filled_count}/{d.quantity} filled
-              {d.team.accepted.length > 0 && ` · ${d.team.accepted.map((p) => p.name).join(', ')}`}
-              {d.team.invited.length > 0 && ` · ${d.team.invited.length} invited (pending)`}
-              {d.open_recruit && ' · Open recruit'}
-            </p>
-            <div className="row">
-              <button type="button" className="btn btn-outline" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onClick={() => onOpenTeam(d.id)}>
-                Select team
-              </button>
-              <button type="button" className="btn btn-outline" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onClick={() => onOpenRecruit(d.id)}>
-                Recruiting
-              </button>
-            </div>
-            {d.open_recruit && (
-              <Link
-                to={`/organizer/jobs/${job.id}/applicants`}
-                className="btn btn-outline btn-block"
-                style={{ marginTop: 6, padding: '6px 10px', fontSize: 12, textDecoration: 'none' }}
-              >
-                Review applicants
-              </Link>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {job.confirmedTeam.length > 0 && (
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-          <span style={{ display: 'flex', alignItems: 'center' }}>
-            <Switch checked={Boolean(job.chat_opened_at)} onChange={(v) => onToggleChat(job.id, v)} label="Event chat" />
-            <InfoButton title="Event chat">
-              Opens automatically the moment your first team member is confirmed, so everyone lands straight in the
-              group chat instead of waiting on you. Turn it off any time — handy if a cancellation means you need to
-              swap someone out first.
-            </InfoButton>
-          </span>
-          {job.chat_opened_at ? (
-            <Link to={`/event-chat/${job.id}`} className="chip" style={{ textDecoration: 'none', position: 'relative' }}>
-              💬 {job.confirmedTeam.length + 1} people
-              {chatUnread > 0 && (
-                <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
-                  {chatUnread}
-                </span>
-              )}
-            </Link>
-          ) : (
-            <span className="chip chip-outline">Off</span>
-          )}
-        </div>
-      )}
-
-      {isPast && job.confirmedTeam.length > 0 && (
-        <div className="stack" style={{ borderTop: '1px solid var(--border)', paddingTop: 10, gap: 10 }}>
-          <strong style={{ fontSize: 13 }}>Rate your team — this event has wrapped up</strong>
-          {toRate.length === 0 && <p className="subtitle" style={{ margin: 0 }}>You've rated everyone on this event. 🎉</p>}
-          {toRate.map((f) => (
-            <RateForm key={f.id} freelancer={f} onSubmit={(rating, text) => onSubmitRating(job.id, f.id, rating, text)} />
-          ))}
-        </div>
-      )}
     </div>
   )
 }
