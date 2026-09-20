@@ -327,7 +327,12 @@ export default function MyEvents() {
                 <label htmlFor="my-events-sort" className="subtitle" style={{ margin: 0 }}>
                   Sort
                 </label>
-                <select id="my-events-sort" style={{ width: 'auto' }} value={listSort} onChange={(e) => setListSort(e.target.value)}>
+                <select
+                  id="my-events-sort"
+                  style={{ width: 'auto', padding: '4px 8px', fontSize: 12, borderRadius: 8 }}
+                  value={listSort}
+                  onChange={(e) => setListSort(e.target.value)}
+                >
                   <option value="upcoming">Upcoming first</option>
                   <option value="latest">Latest first</option>
                 </select>
