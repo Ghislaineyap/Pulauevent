@@ -21,10 +21,13 @@ alter table public.chat_reads enable row level security;
 
 -- A user can only ever see/touch their own read-receipts — this table isn't
 -- about who's in the chat, just what each person has personally seen.
+drop policy if exists "a user can read their own chat_reads" on public.chat_reads;
 create policy "a user can read their own chat_reads" on public.chat_reads
   for select using (auth.uid() = user_id);
+drop policy if exists "a user can upsert their own chat_reads" on public.chat_reads;
 create policy "a user can upsert their own chat_reads" on public.chat_reads
   for insert with check (auth.uid() = user_id);
+drop policy if exists "a user can update their own chat_reads" on public.chat_reads;
 create policy "a user can update their own chat_reads" on public.chat_reads
   for update using (auth.uid() = user_id);
 

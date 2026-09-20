@@ -6,11 +6,16 @@
 -- See the bottom of this file for how to create your own admin login.
 
 -- ---------------------------------------------------------------------------
--- Let profiles.role also be 'admin'.
+-- Let profiles.role also be 'admin'. Spelled out with 'vendor' included too
+-- (whether or not migration_vendor_role.sql has run yet on this database) —
+-- otherwise, whichever of that migration and this one runs LAST would drop
+-- the other's role from the constraint and silently lock out that role's
+-- existing accounts. Safe either way: a role this database doesn't have any
+-- profiles in yet just isn't used.
 -- ---------------------------------------------------------------------------
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check
-  check (role in ('freelancer', 'organizer', 'admin'));
+  check (role in ('freelancer', 'organizer', 'vendor', 'admin'));
 
 -- ---------------------------------------------------------------------------
 -- is_admin() — security definer so it can check the CALLER's own profiles

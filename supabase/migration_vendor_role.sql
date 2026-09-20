@@ -15,10 +15,14 @@
 -- profiles.role gains 'vendor'. Postgres can't ALTER a check constraint in
 -- place, so drop and recreate it under the same auto-generated name Postgres
 -- would have given the original (the "profiles_role_check" default from
--- "check (role in (...))" in schema.sql).
+-- "check (role in (...))" in schema.sql). 'admin' is spelled out here too
+-- (whether or not migration_admin.sql has run yet on this database) — so
+-- that whichever of these two migrations runs LAST doesn't drop the other's
+-- role from the constraint and silently lock out that role's existing
+-- accounts.
 -- ---------------------------------------------------------------------------
 alter table public.profiles drop constraint if exists profiles_role_check;
-alter table public.profiles add constraint profiles_role_check check (role in ('freelancer', 'organizer', 'vendor'));
+alter table public.profiles add constraint profiles_role_check check (role in ('freelancer', 'organizer', 'vendor', 'admin'));
 
 create table if not exists public.vendor_profiles (
   id uuid primary key references public.profiles(id) on delete cascade,
@@ -34,10 +38,13 @@ create table if not exists public.vendor_profiles (
 
 alter table public.vendor_profiles enable row level security;
 
+drop policy if exists "vendor profiles are browsable by signed-in users" on public.vendor_profiles;
 create policy "vendor profiles are browsable by signed-in users" on public.vendor_profiles
   for select using (auth.role() = 'authenticated');
+drop policy if exists "a vendor can insert their own profile" on public.vendor_profiles;
 create policy "a vendor can insert their own profile" on public.vendor_profiles
   for insert with check (auth.uid() = id);
+drop policy if exists "a vendor can update their own profile" on public.vendor_profiles;
 create policy "a vendor can update their own profile" on public.vendor_profiles
   for update using (auth.uid() = id);
 
