@@ -146,18 +146,22 @@ export default function VendorProfileDetail() {
             {vendor.category || 'Uncategorized'}
             {(vendor.locations || []).length > 0 && ` · 📍 ${vendor.locations.join(', ')}`}
           </p>
-          {vendor.website_url && (
+        </div>
+
+        {vendor.website_url && (
+          <div className="card">
+            <strong>Portfolio</strong>
             <a
               href={vendor.website_url}
               target="_blank"
               rel="noreferrer"
               className="subtitle"
-              style={{ color: 'var(--primary-dark)', fontWeight: 600 }}
+              style={{ display: 'block', margin: '4px 0 0', color: 'var(--primary-dark)', fontWeight: 600 }}
             >
               🔗 Visit website
             </a>
-          )}
-        </div>
+          </div>
+        )}
 
         {formatPriceRange(vendor.price_range_min, vendor.price_range_max) && (
           <div className="card">
