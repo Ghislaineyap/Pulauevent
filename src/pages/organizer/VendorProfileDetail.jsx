@@ -5,6 +5,7 @@ import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { Modal } from '../../components/Modal'
 import { ReportForm } from '../../components/ReportForm'
 import { IconStore } from '../../components/TabIcons'
+import { formatPriceRange } from '../../lib/vendorPrice'
 
 // Full-detail view reached from Discover's Vendor tab (VendorBrowse.jsx) —
 // mirrors FreelancerProfileDetail's structure (photo/portfolio gallery,
@@ -158,11 +159,11 @@ export default function VendorProfileDetail() {
           )}
         </div>
 
-        {vendor.price_range && (
+        {formatPriceRange(vendor.price_range_min, vendor.price_range_max) && (
           <div className="card">
             <strong>Price range</strong>
             <p className="subtitle" style={{ margin: '4px 0 0' }}>
-              {vendor.price_range}
+              {formatPriceRange(vendor.price_range_min, vendor.price_range_max)}
             </p>
           </div>
         )}

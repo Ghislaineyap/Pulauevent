@@ -1291,6 +1291,12 @@ create policy "admins can edit vendor categories" on public.vendor_categories
   for update using (public.is_admin()) with check (public.is_admin());
 
 -- =============================================================================
+-- From migration_vendor_price_range.sql
+-- =============================================================================
+alter table public.vendor_profiles add column if not exists price_range_min numeric;
+alter table public.vendor_profiles add column if not exists price_range_max numeric;
+
+-- =============================================================================
 -- Verify — every one of these should return a row/count with no error.
 -- =============================================================================
 select
@@ -1308,12 +1314,13 @@ select
   (select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'reports') as has_reports,
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'status') as has_admin_status,
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'skills' and column_name = 'audience') as has_skill_audience,
-  (select count(*) from public.vendor_categories) as vendor_categories_count;
+  (select count(*) from public.vendor_categories) as vendor_categories_count,
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'vendor_profiles' and column_name = 'price_range_min') as has_vendor_price_range;
 -- has_jobdesk / has_chat_opened_at / has_logo_url should read 1, the three
 -- catalog counts should be > 0 (18, 14, and 12 respectively, if none of
 -- those tables has been hand-edited), and every has_* column from
 -- has_event_documents onward should read 1 — those are the tables/columns
--- the 10 migrations added by this sync script (on top of the original 9)
+-- the 11 migrations added by this sync script (on top of the original 9)
 -- are responsible for. A 0 in any of them means something above threw
 -- partway through — scroll up in the SQL Editor's output for the actual
 -- error and re-run once it's fixed (every statement here is safe to run

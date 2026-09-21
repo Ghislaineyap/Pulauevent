@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { IconStore } from '../../components/TabIcons'
+import { formatPriceRange } from '../../lib/vendorPrice'
 
 // Item 8's other half of Discover — a full public directory over
 // vendor_profiles (every Vendor account on the platform), not filtered down
@@ -178,9 +179,9 @@ export function VendorBrowse() {
                 {v.category || 'Uncategorized'}
                 {(v.locations || []).length > 0 && ` · 📍 ${v.locations.join(', ')}`}
               </p>
-              {v.price_range && (
+              {formatPriceRange(v.price_range_min, v.price_range_max) && (
                 <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                  {v.price_range}
+                  {formatPriceRange(v.price_range_min, v.price_range_max)}
                 </p>
               )}
             </div>

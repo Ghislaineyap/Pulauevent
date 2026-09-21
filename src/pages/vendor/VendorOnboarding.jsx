@@ -27,7 +27,8 @@ export default function VendorOnboarding() {
     websiteUrl: '',
     locations: [],
     locationInput: '',
-    priceRange: '',
+    priceRangeMin: '',
+    priceRangeMax: '',
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -47,7 +48,8 @@ export default function VendorOnboarding() {
       portfolioUrls: roleProfile.portfolio_urls || [],
       websiteUrl: roleProfile.website_url || '',
       locations: roleProfile.locations || [],
-      priceRange: roleProfile.price_range || '',
+      priceRangeMin: roleProfile.price_range_min != null ? String(roleProfile.price_range_min) : '',
+      priceRangeMax: roleProfile.price_range_max != null ? String(roleProfile.price_range_max) : '',
     }))
     setHydrated(true)
   }, [roleProfile, hydrated])
@@ -146,7 +148,8 @@ export default function VendorOnboarding() {
       portfolio_urls: form.portfolioUrls,
       website_url: form.websiteUrl.trim() || null,
       locations: form.locations,
-      price_range: form.priceRange.trim() || null,
+      price_range_min: form.priceRangeMin.trim() !== '' ? Number(form.priceRangeMin) : null,
+      price_range_max: form.priceRangeMax.trim() !== '' ? Number(form.priceRangeMax) : null,
     })
     setBusy(false)
     if (upsertError) {
@@ -359,14 +362,35 @@ export default function VendorOnboarding() {
             )}
 
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="priceRange">Price range (optional)</label>
-              <input
-                id="priceRange"
-                type="text"
-                placeholder="e.g. Rp 5jt–15jt, or Contact for quote"
-                value={form.priceRange}
-                onChange={(e) => setForm((f) => ({ ...f, priceRange: e.target.value }))}
-              />
+              <label>Price range (optional)</label>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <div className="field" style={{ flex: 1, minWidth: 120, marginBottom: 0 }}>
+                  <label htmlFor="priceRangeMin" style={{ fontWeight: 400, fontSize: 12 }}>
+                    Min (Rp)
+                  </label>
+                  <input
+                    id="priceRangeMin"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 5000000"
+                    value={form.priceRangeMin}
+                    onChange={(e) => setForm((f) => ({ ...f, priceRangeMin: e.target.value }))}
+                  />
+                </div>
+                <div className="field" style={{ flex: 1, minWidth: 120, marginBottom: 0 }}>
+                  <label htmlFor="priceRangeMax" style={{ fontWeight: 400, fontSize: 12 }}>
+                    Max (Rp)
+                  </label>
+                  <input
+                    id="priceRangeMax"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 15000000"
+                    value={form.priceRangeMax}
+                    onChange={(e) => setForm((f) => ({ ...f, priceRangeMax: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

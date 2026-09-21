@@ -69,6 +69,27 @@ export function DesktopSidebar({ role }) {
         </>
       )}
 
+      {role === 'vendor' && (
+        <>
+          <NavLink to="/vendor/onboarding" end className={linkClass}>
+            <IconUser className="ds-icon" />
+            Profile
+          </NavLink>
+          <NavLink to="/vendor/jobs" className={linkClass}>
+            <IconClipboard className="ds-icon" />
+            Opportunities
+          </NavLink>
+          <NavLink to="/vendor/my-events" className={linkClass}>
+            <IconCalendar className="ds-icon" />
+            My Event
+          </NavLink>
+          <NavLink to="/vendor/notifications" className={linkClass}>
+            <IconChat className="ds-icon" />
+            Connect
+          </NavLink>
+        </>
+      )}
+
       <div className="ds-spacer" />
       <div className="ds-signout">
         <button type="button" className="ds-link" onClick={signOut}>
