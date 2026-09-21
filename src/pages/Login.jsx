@@ -38,8 +38,24 @@ export default function Login() {
           return
         }
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+        const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) throw signInError
+        // A profile row can be missing even though the login itself exists —
+        // if an earlier sign-up got as far as creating the auth account but
+        // the profiles insert right after it failed (e.g. a database
+        // constraint that hadn't been migrated in yet), there's no
+        // session-less way to retry that insert, and every sign-in after
+        // that just silently lands back on the role picker with no error
+        // shown. Self-heal it here instead of leaving that account stuck
+        // forever.
+        const userId = data.user?.id
+        if (userId) {
+          const { data: existingProfile } = await supabase.from('profiles').select('id').eq('id', userId).maybeSingle()
+          if (!existingProfile) {
+            const { error: profileError } = await supabase.from('profiles').insert({ id: userId, role: intendedRole })
+            if (profileError) throw profileError
+          }
+        }
       }
       navigate('/')
     } catch (err) {
