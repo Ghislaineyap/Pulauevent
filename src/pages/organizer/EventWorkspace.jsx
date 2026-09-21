@@ -59,7 +59,8 @@ export default function EventWorkspace() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('overview') // 'overview' | 'team' | 'budget' | 'documents' | 'vendors' | 'tasks'
   const [editing, setEditing] = useState(false)
-  const [divSub, setDivSub] = useState(null) // { type: 'team' | 'recruit', divisionId } | null
+  const [divSub, setDivSub] = useState(null) // { type: 'team', divisionId } | null
+  const [teamSubView, setTeamSubView] = useState('roster') // 'roster' | 'recruit' — sub-tab inside the "Select team" panel
   const [chatCollapsed, setChatCollapsed] = useState(CHAT_COLLAPSED_BY_DEFAULT.overview)
   const [chatTabSeen, setChatTabSeen] = useState('overview')
   // Reset to the new tab's default whenever the tab actually changes (a
@@ -441,7 +442,8 @@ export default function EventWorkspace() {
                     {job.job_divisions.length} division{job.job_divisions.length === 1 ? '' : 's'} · {job.confirmedTeam.length} of{' '}
                     {job.job_divisions.reduce((n, d) => n + d.quantity, 0)} spots filled
                     <InfoButton title="Team">
-                      "Select team" adds your own roster to a role. "Recruiting" sets budget/fee and whether the remaining spots show up publicly on Post.
+                      "Select team" adds your own roster to a role, or switch to its "Recruiting" tab to set budget/fee and whether the
+                      remaining spots show up publicly on Post. "Review applicants" is where you accept or decline whoever applies.
                     </InfoButton>
                   </p>
                   <div className="ws-team-list">
@@ -499,11 +501,16 @@ export default function EventWorkspace() {
                         )}
 
                         <div className="row" style={{ marginTop: 12 }}>
-                          <button type="button" className="btn btn-outline" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onClick={() => setDivSub({ type: 'team', divisionId: d.id })}>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                            onClick={() => {
+                              setDivSub({ type: 'team', divisionId: d.id })
+                              setTeamSubView('roster')
+                            }}
+                          >
                             Select team
-                          </button>
-                          <button type="button" className="btn btn-outline" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onClick={() => setDivSub({ type: 'recruit', divisionId: d.id })}>
-                            Recruiting
                           </button>
                           <Link
                             to={`/organizer/jobs/${job.id}/applicants`}
@@ -529,15 +536,19 @@ export default function EventWorkspace() {
                   <button type="button" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }} onClick={() => setDivSub(null)}>
                     ← Back
                   </button>
-                  <TeamSelectView job={job} division={divisionForSub} teamMembers={teamMembers} onAdd={addToTeam} onRemove={removeFromTeam} onWithdraw={withdrawInvite} />
-                </div>
-              )}
-              {divSub?.type === 'recruit' && divisionForSub && (
-                <div className="stack" style={{ maxWidth: 480 }}>
-                  <button type="button" className="btn btn-outline" style={{ alignSelf: 'flex-start', padding: '4px 10px', fontSize: 12 }} onClick={() => setDivSub(null)}>
-                    ← Back
-                  </button>
-                  <RecruitForm key={divisionForSub.id} division={divisionForSub} onSave={(payload) => saveRecruit(divisionForSub.id, payload)} />
+                  <div className="segmented">
+                    <button type="button" className={teamSubView === 'roster' ? 'active' : ''} onClick={() => setTeamSubView('roster')}>
+                      From your roster
+                    </button>
+                    <button type="button" className={teamSubView === 'recruit' ? 'active' : ''} onClick={() => setTeamSubView('recruit')}>
+                      Recruiting
+                    </button>
+                  </div>
+                  {teamSubView === 'roster' ? (
+                    <TeamSelectView job={job} division={divisionForSub} teamMembers={teamMembers} onAdd={addToTeam} onRemove={removeFromTeam} onWithdraw={withdrawInvite} />
+                  ) : (
+                    <RecruitForm key={divisionForSub.id} division={divisionForSub} onSave={(payload) => saveRecruit(divisionForSub.id, payload)} />
+                  )}
                 </div>
               )}
             </div>
