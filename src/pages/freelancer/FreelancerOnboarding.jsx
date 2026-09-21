@@ -79,6 +79,7 @@ export default function FreelancerOnboarding() {
     supabase
       .from('skills')
       .select('label')
+      .eq('audience', 'freelancer')
       .order('sort_order')
       .then(({ data, error }) => {
         if (error) console.error(error)
