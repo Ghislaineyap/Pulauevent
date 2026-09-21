@@ -21,7 +21,9 @@ export default function Chat() {
   const loadMatch = useCallback(async () => {
     const { data, error: matchError } = await supabase
       .from('matches')
-      .select('id, organizer_id, freelancer_id, organizer_profiles(org_name), freelancer_profiles(name, avatar_key, photo_urls)')
+      .select(
+        'id, organizer_id, freelancer_id, vendor_id, organizer_profiles(org_name), freelancer_profiles(name, avatar_key, photo_urls), vendor_profiles(vendor_name, logo_url)'
+      )
       .eq('id', matchId)
       .single()
     if (matchError) {
@@ -115,11 +117,13 @@ export default function Chat() {
 
   const counterpart =
     role === 'organizer'
-      ? {
-          name: match.freelancer_profiles.name,
-          avatarKey: match.freelancer_profiles.avatar_key,
-          photoUrl: (match.freelancer_profiles.photo_urls || [])[0],
-        }
+      ? match.freelancer_id
+        ? {
+            name: match.freelancer_profiles.name,
+            avatarKey: match.freelancer_profiles.avatar_key,
+            photoUrl: (match.freelancer_profiles.photo_urls || [])[0],
+          }
+        : { name: match.vendor_profiles.vendor_name, avatarKey: null, photoUrl: match.vendor_profiles.logo_url }
       : { name: match.organizer_profiles.org_name, avatarKey: null, photoUrl: null }
 
   return (
@@ -133,8 +137,10 @@ export default function Chat() {
         >
           ←
         </button>
-        {counterpart.avatarKey && <ProfileAvatar avatarKey={counterpart.avatarKey} photoUrl={counterpart.photoUrl} size={32} />}
-        <span className="brand" style={{ marginLeft: counterpart.avatarKey ? 8 : 0 }}>
+        {(counterpart.avatarKey || counterpart.photoUrl) && (
+          <ProfileAvatar avatarKey={counterpart.avatarKey} photoUrl={counterpart.photoUrl} size={32} />
+        )}
+        <span className="brand" style={{ marginLeft: counterpart.avatarKey || counterpart.photoUrl ? 8 : 0 }}>
           {counterpart.name}
         </span>
       </div>

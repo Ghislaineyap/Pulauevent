@@ -1297,6 +1297,56 @@ alter table public.vendor_profiles add column if not exists price_range_min nume
 alter table public.vendor_profiles add column if not exists price_range_max numeric;
 
 -- =============================================================================
+-- From migration_vendor_messaging.sql
+-- =============================================================================
+alter table public.matches alter column freelancer_id drop not null;
+alter table public.matches add column if not exists vendor_id uuid references public.vendor_profiles(id) on delete cascade;
+
+alter table public.matches drop constraint if exists matches_party_check;
+alter table public.matches add constraint matches_party_check
+  check ((freelancer_id is not null) <> (vendor_id is not null));
+
+alter table public.matches drop constraint if exists matches_source_check;
+alter table public.matches add constraint matches_source_check
+  check (source in ('application', 'like', 'direct'));
+
+create unique index if not exists matches_organizer_vendor_unique
+  on public.matches (organizer_id, vendor_id) where vendor_id is not null;
+
+drop policy if exists "the two matched parties can read a match" on public.matches;
+create policy "the two matched parties can read a match" on public.matches
+  for select using (auth.uid() = organizer_id or auth.uid() = freelancer_id or auth.uid() = vendor_id);
+
+drop policy if exists "an organizer can start a vendor conversation" on public.matches;
+create policy "an organizer can start a vendor conversation" on public.matches
+  for insert with check (
+    auth.uid() = organizer_id and vendor_id is not null and freelancer_id is null and source = 'direct'
+  );
+
+drop policy if exists "the two matched parties can read their messages" on public.messages;
+create policy "the two matched parties can read their messages" on public.messages
+  for select using (
+    exists (
+      select 1 from public.matches m
+      where m.id = match_id and (m.organizer_id = auth.uid() or m.freelancer_id = auth.uid() or m.vendor_id = auth.uid())
+    )
+  );
+
+drop policy if exists "a matched party can send a message as themselves" on public.messages;
+create policy "a matched party can send a message as themselves" on public.messages
+  for insert with check (
+    auth.uid() = sender_id
+    and exists (
+      select 1 from public.matches m
+      where m.id = match_id and (m.organizer_id = auth.uid() or m.freelancer_id = auth.uid() or m.vendor_id = auth.uid())
+    )
+  );
+
+alter table public.vendor_roster add column if not exists vendor_id uuid references public.vendor_profiles(id) on delete set null;
+create unique index if not exists vendor_roster_organizer_vendor_unique
+  on public.vendor_roster (organizer_id, vendor_id) where vendor_id is not null;
+
+-- =============================================================================
 -- Verify — every one of these should return a row/count with no error.
 -- =============================================================================
 select
@@ -1315,12 +1365,13 @@ select
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'status') as has_admin_status,
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'skills' and column_name = 'audience') as has_skill_audience,
   (select count(*) from public.vendor_categories) as vendor_categories_count,
-  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'vendor_profiles' and column_name = 'price_range_min') as has_vendor_price_range;
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'vendor_profiles' and column_name = 'price_range_min') as has_vendor_price_range,
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'matches' and column_name = 'vendor_id') as has_vendor_messaging;
 -- has_jobdesk / has_chat_opened_at / has_logo_url should read 1, the three
 -- catalog counts should be > 0 (18, 14, and 12 respectively, if none of
 -- those tables has been hand-edited), and every has_* column from
 -- has_event_documents onward should read 1 — those are the tables/columns
--- the 11 migrations added by this sync script (on top of the original 9)
+-- the 12 migrations added by this sync script (on top of the original 9)
 -- are responsible for. A 0 in any of them means something above threw
 -- partway through — scroll up in the SQL Editor's output for the actual
 -- error and re-run once it's fixed (every statement here is safe to run
