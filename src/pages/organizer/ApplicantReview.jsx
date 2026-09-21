@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useLocation, Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { ProfileAvatar } from '../../components/ProfileAvatar'
@@ -16,9 +16,14 @@ const emptyFilters = { genders: [], experienceBands: [], locations: [] }
 // applicants for that division are auto-declined (enforced in the database).
 export default function ApplicantReview() {
   const { jobId } = useParams()
+  // A "Review applicants" link from a specific role (EventWorkspace's Team
+  // tab) passes its division id via router state so this opens already on
+  // that role, instead of always defaulting to the first one.
+  const location = useLocation()
+  const requestedDivisionId = location.state?.divisionId || null
   const [job, setJob] = useState(null)
   const [divisions, setDivisions] = useState([])
-  const [activeDivisionId, setActiveDivisionId] = useState(null)
+  const [activeDivisionId, setActiveDivisionId] = useState(requestedDivisionId)
   const [applicants, setApplicants] = useState([])
   const [loading, setLoading] = useState(true)
   const [justMatched, setJustMatched] = useState(null)
