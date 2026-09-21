@@ -1261,6 +1261,36 @@ create policy "admins can retag skills" on public.skills
   for update using (public.is_admin()) with check (public.is_admin());
 
 -- =============================================================================
+-- From migration_vendor_categories.sql
+-- =============================================================================
+create table if not exists public.vendor_categories (
+  id serial primary key,
+  label text not null unique,
+  sort_order int not null default 0
+);
+
+insert into public.vendor_categories (label, sort_order) values
+  ('Venue & Rentals', 1), ('Catering & Beverage', 2), ('Décor & Styling', 3),
+  ('Entertainment & AV', 4), ('Photography & Video', 5), ('Staffing & Labor', 6),
+  ('Transportation & Logistics', 7), ('Marketing & Print', 8), ('Beauty & Attire', 9),
+  ('Gifts & Favors', 10), ('Technology & Equipment', 11), ('Other', 12)
+on conflict (label) do nothing;
+
+alter table public.vendor_categories enable row level security;
+
+drop policy if exists "vendor categories are readable by anyone signed in" on public.vendor_categories;
+create policy "vendor categories are readable by anyone signed in" on public.vendor_categories
+  for select using (auth.role() = 'authenticated');
+
+drop policy if exists "admins can add vendor categories" on public.vendor_categories;
+create policy "admins can add vendor categories" on public.vendor_categories
+  for insert with check (public.is_admin());
+
+drop policy if exists "admins can edit vendor categories" on public.vendor_categories;
+create policy "admins can edit vendor categories" on public.vendor_categories
+  for update using (public.is_admin()) with check (public.is_admin());
+
+-- =============================================================================
 -- Verify — every one of these should return a row/count with no error.
 -- =============================================================================
 select
@@ -1277,12 +1307,14 @@ select
   (select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'vendor_profiles') as has_vendor_profiles,
   (select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'reports') as has_reports,
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'status') as has_admin_status,
-  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'skills' and column_name = 'audience') as has_skill_audience;
--- has_jobdesk / has_chat_opened_at / has_logo_url should read 1, the two
--- catalog counts should be > 0 (18 and 14 respectively, if neither table has
--- been hand-edited), and every has_* column from has_event_documents onward
--- should read 1 — those are the tables/columns the 9 migrations added by this
--- sync script (on top of the original 9) are responsible for. A 0 in any of
--- them means something above threw partway through — scroll up in the SQL
--- Editor's output for the actual error and re-run once it's fixed (every
--- statement here is safe to run again).
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'skills' and column_name = 'audience') as has_skill_audience,
+  (select count(*) from public.vendor_categories) as vendor_categories_count;
+-- has_jobdesk / has_chat_opened_at / has_logo_url should read 1, the three
+-- catalog counts should be > 0 (18, 14, and 12 respectively, if none of
+-- those tables has been hand-edited), and every has_* column from
+-- has_event_documents onward should read 1 — those are the tables/columns
+-- the 10 migrations added by this sync script (on top of the original 9)
+-- are responsible for. A 0 in any of them means something above threw
+-- partway through — scroll up in the SQL Editor's output for the actual
+-- error and re-run once it's fixed (every statement here is safe to run
+-- again).

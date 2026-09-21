@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { uploadProfilePhoto } from '../../lib/uploadPhoto'
 import { uploadPortfolioImage, MAX_PORTFOLIO_IMAGES } from '../../lib/uploadVendorPortfolio'
-import { VENDOR_CATEGORIES } from '../organizer/VendorRoster'
 import { Topbar, VendorTabbar } from '../../components/Layout'
 import { Modal } from '../../components/Modal'
 
@@ -19,9 +18,10 @@ export default function VendorOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [locationOptions, setLocationOptions] = useState([])
+  const [categoryOptions, setCategoryOptions] = useState([])
   const [form, setForm] = useState({
     vendorName: '',
-    category: VENDOR_CATEGORIES[0],
+    category: '',
     logoUrl: '',
     portfolioUrls: [],
     websiteUrl: '',
@@ -42,7 +42,7 @@ export default function VendorOnboarding() {
     setForm((f) => ({
       ...f,
       vendorName: roleProfile.vendor_name || '',
-      category: roleProfile.category || VENDOR_CATEGORIES[0],
+      category: roleProfile.category || f.category,
       logoUrl: roleProfile.logo_url || '',
       portfolioUrls: roleProfile.portfolio_urls || [],
       websiteUrl: roleProfile.website_url || '',
@@ -60,6 +60,19 @@ export default function VendorOnboarding() {
       .then(({ data, error: err }) => {
         if (err) console.error(err)
         setLocationOptions((data || []).map((l) => l.label))
+      })
+    supabase
+      .from('vendor_categories')
+      .select('label')
+      .order('sort_order')
+      .then(({ data, error: err }) => {
+        if (err) console.error(err)
+        const labels = (data || []).map((c) => c.label)
+        setCategoryOptions(labels)
+        // Default a brand-new vendor's category to the first option once
+        // it's loaded — never override one already set (own value, or from
+        // the hydration effect above, whichever ran first).
+        setForm((f) => (f.category ? f : { ...f, category: labels[0] || '' }))
       })
   }, [])
 
@@ -179,7 +192,7 @@ export default function VendorOnboarding() {
             <div className="field">
               <label htmlFor="category">Category</label>
               <select id="category" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-                {VENDOR_CATEGORIES.map((c) => (
+                {categoryOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
