@@ -491,7 +491,7 @@ alter table public.job_divisions add column if not exists jobdesk text;
 -- =============================================================================
 alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles add constraint profiles_role_check
-  check (role in ('freelancer', 'organizer', 'admin'));
+  check (role in ('freelancer', 'organizer', 'vendor', 'admin'));
 
 create or replace function public.is_admin()
 returns boolean

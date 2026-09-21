@@ -25,7 +25,11 @@ export function EventCalendar({ events, onSelectEvent }) {
       let d = new Date(`${ev.event_start_date}T00:00:00`)
       const end = new Date(`${(ev.event_end_date || ev.event_start_date)}T00:00:00`)
       while (d <= end) {
-        const key = d.toISOString().slice(0, 10)
+        // Build the key from the local calendar fields, not toISOString()
+        // (which converts through UTC first) — for anyone east of UTC that
+        // shifts local midnight back a day, so a 27th event was keyed and
+        // marked on the 26th.
+        const key = isoDay(d.getFullYear(), d.getMonth(), d.getDate())
         const list = map.get(key) || []
         list.push(ev)
         map.set(key, list)
@@ -40,7 +44,7 @@ export function EventCalendar({ events, onSelectEvent }) {
   const startOffset = firstOfMonth.getDay()
   const cells = [...Array(startOffset).fill(null), ...Array.from({ length: daysInMonth }, (_, i) => i + 1)]
   const monthLabel = firstOfMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-  const todayISO = today.toISOString().slice(0, 10)
+  const todayISO = isoDay(today.getFullYear(), today.getMonth(), today.getDate())
 
   function changeMonth(delta) {
     let m = viewMonth + delta

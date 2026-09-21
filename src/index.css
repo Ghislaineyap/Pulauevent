@@ -1409,15 +1409,18 @@ textarea {
   margin-bottom: 8px;
 }
 
-/* Flex stat row (not a wrapping grid) — matches the mockup's fixed 4-across
-   strip exactly; kept as its own ws-* class so the existing global
-   .stat-tile (used by the mobile dashboards) is untouched. */
+/* Mobile-first: wraps into a 2x2 grid on a phone (4 tiles at 1/1 don't fit
+   a phone's width without truncating); the mockup's fixed 4-across strip
+   only applies at the 900px+ breakpoint, once there's room for it. Kept as
+   its own ws-* class so the existing global .stat-tile (used by the mobile
+   dashboards) is untouched. */
 .ws-stat-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 .ws-stat-tile {
-  flex: 1;
+  flex: 1 1 calc(50% - 5px);
   min-width: 0;
   border-radius: 12px;
   padding: 10px 13px;
@@ -1426,6 +1429,11 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+@media (min-width: 900px) {
+  .ws-stat-tile {
+    flex: 1;
+  }
 }
 .ws-stat-tile .ws-stat-label {
   font-size: 11px;
@@ -1446,25 +1454,39 @@ textarea {
 
 /* Two-column body (About/Run-of-show on the left, Team-at-a-glance/Budget
    on the right) — the mockup's main content shape, once there's a chat
-   rail eating the right edge of the page. */
+   rail eating the right edge of the page. Mobile-first: stacked into one
+   column below the 900px workspace breakpoint (this page is now reachable
+   from a phone, not just the desktop sidebar — see the min-width query
+   further down), side-by-side above it. */
 .ws-two-col {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 .ws-col-main {
-  flex: 1.55;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 .ws-col-side {
-  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+@media (min-width: 900px) {
+  .ws-two-col {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .ws-col-main {
+    flex: 1.55;
+  }
+  .ws-col-side {
+    flex: 1;
+  }
 }
 
 .ws-kv-row {
@@ -1478,39 +1500,65 @@ textarea {
 }
 
 /* Body row that splits the workspace's main column from the persistent
-   chat rail — wraps under the rail on narrower windows rather than
-   squeezing the tab content. */
+   chat rail. Mobile-first: one column (main content, then chat below) —
+   the 480px min-width the main column used to carry unconditionally made
+   this page overflow horizontally on a phone, back when it was only ever
+   opened from the desktop sidebar; that min-width (and the chat rail's
+   fixed 320px sidebar width) now only apply at the 900px+ breakpoint,
+   where there's room for both side by side. */
 .ws-body-row {
   display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
+  align-items: stretch;
 }
 .ws-body-row > .ws-main-col {
-  flex: 3;
-  min-width: 480px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 20px;
 }
+@media (min-width: 900px) {
+  .ws-body-row {
+    flex-direction: row;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .ws-body-row > .ws-main-col {
+    flex: 3;
+    min-width: 480px;
+  }
+}
 
 /* ---------- Event chat rail ---------- */
+/* Mobile-first: a full-width block that sits in normal flow below the main
+   column (not a fixed-width sticky sidebar — there's no room for one next
+   to 480px+ of content on a phone). Becomes the persistent 320px sidebar
+   from the original desktop mockup at 900px+. */
 .chat-rail {
-  width: 320px;
-  flex: 1 0 320px;
-  max-width: 320px;
-  flex-shrink: 0;
+  width: 100%;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 18px;
   display: flex;
   flex-direction: column;
-  max-height: 640px;
-  min-height: 320px;
-  position: sticky;
-  top: 20px;
+  max-height: 420px;
+  min-height: 280px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(23, 26, 18, 0.06);
+}
+@media (min-width: 900px) {
+  .chat-rail {
+    width: 320px;
+    flex: 1 0 320px;
+    max-width: 320px;
+    flex-shrink: 0;
+    max-height: 640px;
+    min-height: 320px;
+    position: sticky;
+    top: 20px;
+  }
 }
 .chat-rail .chat-head {
   padding: 15px 16px 13px;
@@ -1622,6 +1670,7 @@ textarea {
 }
 .ws-team-card-top {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;

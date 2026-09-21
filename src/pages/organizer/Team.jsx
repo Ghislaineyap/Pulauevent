@@ -93,7 +93,7 @@ export default function Team() {
         </div>
 
         <input
-          type="search"
+          type="text"
           placeholder={tab === 'people' ? 'Search your team by name, skill, or location…' : 'Search vendors by name, category, or location…'}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
