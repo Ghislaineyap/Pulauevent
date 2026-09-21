@@ -96,13 +96,18 @@ export default function EventWorkspace() {
     const divisionIds = jobRow.job_divisions.map((d) => d.id)
     const teamByDivision = new Map()
     const confirmedTeam = []
+    const pendingByDivision = new Map()
     if (divisionIds.length > 0) {
-      const { data: apps, error: appsError } = await supabase
-        .from('applications')
-        .select('id, status, division_id, freelancer_profiles(id, name)')
-        .in('division_id', divisionIds)
-        .in('status', ['accepted', 'invited'])
+      const [{ data: apps, error: appsError }, { data: pendingApps, error: pendingError }] = await Promise.all([
+        supabase
+          .from('applications')
+          .select('id, status, division_id, freelancer_profiles(id, name)')
+          .in('division_id', divisionIds)
+          .in('status', ['accepted', 'invited']),
+        supabase.from('applications').select('id, division_id').in('division_id', divisionIds).eq('status', 'pending'),
+      ])
       if (appsError) console.error(appsError)
+      if (pendingError) console.error(pendingError)
       ;(apps || []).forEach((a) => {
         const entry = teamByDivision.get(a.division_id) || { accepted: [], invited: [] }
         const person = { appId: a.id, freelancerId: a.freelancer_profiles.id, name: a.freelancer_profiles.name }
@@ -114,11 +119,18 @@ export default function EventWorkspace() {
         }
         teamByDivision.set(a.division_id, entry)
       })
+      ;(pendingApps || []).forEach((a) => {
+        pendingByDivision.set(a.division_id, (pendingByDivision.get(a.division_id) || 0) + 1)
+      })
     }
 
     setJob({
       ...jobRow,
-      job_divisions: jobRow.job_divisions.map((d) => ({ ...d, team: teamByDivision.get(d.id) || { accepted: [], invited: [] } })),
+      job_divisions: jobRow.job_divisions.map((d) => ({
+        ...d,
+        team: teamByDivision.get(d.id) || { accepted: [], invited: [] },
+        pendingCount: pendingByDivision.get(d.id) || 0,
+      })),
       confirmedTeam,
     })
     setLoading(false)
@@ -493,6 +505,19 @@ export default function EventWorkspace() {
                           <button type="button" className="btn btn-outline" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }} onClick={() => setDivSub({ type: 'recruit', divisionId: d.id })}>
                             Recruiting
                           </button>
+                          <Link
+                            to={`/organizer/jobs/${job.id}/applicants`}
+                            state={{ divisionId: d.id }}
+                            className="btn btn-outline"
+                            style={{ flex: 1, padding: '6px 10px', fontSize: 12, textDecoration: 'none', position: 'relative' }}
+                          >
+                            Review applicants
+                            {d.pendingCount > 0 && (
+                              <span className="badge" style={{ position: 'absolute', top: -6, right: -6 }}>
+                                {d.pendingCount}
+                              </span>
+                            )}
+                          </Link>
                         </div>
                       </div>
                     ))}
