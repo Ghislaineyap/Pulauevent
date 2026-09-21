@@ -96,10 +96,22 @@ grant usage, select on all sequences in schema public to authenticated;
 alter table public.job_postings add column if not exists event_start_date date;
 alter table public.job_postings add column if not exists event_end_date date;
 
-update public.job_postings
-set event_start_date = coalesce(event_start_date, event_date),
-    event_end_date = coalesce(event_end_date, event_date)
-where event_date is not null;
+-- Only a database that started from the OLD single-event_date schema has
+-- this column to backfill from — a fresh install built from the current
+-- schema.sql went straight to event_start_date/event_end_date and never had
+-- it, so referencing event_date unconditionally fails on those installs.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'job_postings' and column_name = 'event_date'
+  ) then
+    update public.job_postings
+    set event_start_date = coalesce(event_start_date, event_date),
+        event_end_date = coalesce(event_end_date, event_date)
+    where event_date is not null;
+  end if;
+end $$;
 
 do $$
 begin
