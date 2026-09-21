@@ -9,7 +9,7 @@ import { DesktopSidebar } from './DesktopSidebar'
 // decides WHETHER the sidebar mounts, never how it's positioned.
 export function AppFrame({ children }) {
   const { user, role, isOnboarded } = useAuth()
-  const showSidebar = Boolean(user && isOnboarded && (role === 'organizer' || role === 'freelancer'))
+  const showSidebar = Boolean(user && isOnboarded && (role === 'organizer' || role === 'freelancer' || role === 'vendor'))
 
   return (
     <div className="desktop-frame">
