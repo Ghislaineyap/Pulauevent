@@ -19,7 +19,7 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('organizers') // 'organizers' | 'freelancers' | 'vendors' | 'events' | 'skills' | 'reports' | 'appeals'
+  const [tab, setTab] = useState('organizers') // 'organizers' | 'freelancers' | 'vendors' | 'events' | 'skills' | 'categories' | 'reports' | 'appeals'
   const [locationFilter, setLocationFilter] = useState('')
   const [locationOptions, setLocationOptions] = useState([])
   const [organizers, setOrganizers] = useState([])
@@ -31,6 +31,10 @@ export default function AdminDashboard() {
   const [newSkillLabel, setNewSkillLabel] = useState('')
   const [newSkillAudience, setNewSkillAudience] = useState('freelancer')
   const [addingSkill, setAddingSkill] = useState(false)
+  const [vendorCategories, setVendorCategories] = useState([])
+  const [categoriesUnavailable, setCategoriesUnavailable] = useState(false)
+  const [newCategoryLabel, setNewCategoryLabel] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
   const [reports, setReports] = useState([])
   const [appeals, setAppeals] = useState([])
   const [reportFilter, setReportFilter] = useState('open') // 'open' | 'all'
@@ -55,6 +59,7 @@ export default function AdminDashboard() {
       { data: jobRows, error: jobsError },
       { data: locationRows, error: locationsError },
       { data: skillRows, error: skillsError },
+      { data: categoryRows, error: categoriesError },
       { count: pendingCount, error: pendingError },
       { data: reportRows, error: reportsError },
       { data: appealRows, error: appealsError },
@@ -71,6 +76,7 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false }),
       supabase.from('locations').select('label').order('sort_order'),
       supabase.from('skills').select('id, label, sort_order, audience').order('sort_order'),
+      supabase.from('vendor_categories').select('id, label, sort_order').order('sort_order'),
       supabase.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
       supabase.from('appeals').select('*').order('created_at', { ascending: false }),
@@ -92,10 +98,15 @@ export default function AdminDashboard() {
     // failing the whole dashboard.
     setSkillsUnavailable(Boolean(skillsError))
     if (skillsError) console.error(skillsError)
+    // Same again for vendor_categories — most likely
+    // migration_vendor_categories.sql hasn't been run yet.
+    setCategoriesUnavailable(Boolean(categoriesError))
+    if (categoriesError) console.error(categoriesError)
     setPendingApplications(pendingCount || 0)
     setEvents(jobRows || [])
     setLocationOptions((locationRows || []).map((l) => l.label))
     setSkills(skillRows || [])
+    setVendorCategories(categoryRows || [])
     setReports(reportRows || [])
     setAppeals(appealRows || [])
 
@@ -357,6 +368,31 @@ export default function AdminDashboard() {
     setNewSkillLabel('')
   }
 
+  // ---------------------------------------------------------------------
+  // Vendor categories — moved out of the hardcoded VENDOR_CATEGORIES
+  // constant into their own table (migration_vendor_categories.sql) so a
+  // new one can be added here instead of needing a code change.
+  // ---------------------------------------------------------------------
+  async function handleAddCategory(e) {
+    e.preventDefault()
+    const label = newCategoryLabel.trim()
+    if (!label) return
+    setAddingCategory(true)
+    setActionError('')
+    const { data, error } = await supabase
+      .from('vendor_categories')
+      .insert({ label, sort_order: vendorCategories.length + 1 })
+      .select()
+      .single()
+    setAddingCategory(false)
+    if (error) {
+      setActionError(error.message)
+      return
+    }
+    setVendorCategories((cs) => [...cs, data])
+    setNewCategoryLabel('')
+  }
+
   const filteredOrganizers = locationFilter ? organizers.filter((o) => o.location === locationFilter) : organizers
   const filteredFreelancers = locationFilter
     ? freelancers.filter((f) => f.locations.includes(locationFilter))
@@ -437,6 +473,9 @@ export default function AdminDashboard() {
           </button>
           <button type="button" className={tab === 'skills' ? 'active' : ''} onClick={() => setTab('skills')}>
             Skills
+          </button>
+          <button type="button" className={tab === 'categories' ? 'active' : ''} onClick={() => setTab('categories')}>
+            Categories
           </button>
           <button type="button" className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>
             Reports
@@ -784,6 +823,65 @@ export default function AdminDashboard() {
                       <tr>
                         <td colSpan={2} className="subtitle" style={{ textAlign: 'center', padding: 20 }}>
                           No skills yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {!loading && tab === 'categories' && (
+        <div className="stack" style={{ gap: 16 }}>
+          {categoriesUnavailable ? (
+            <p className="helper-text">
+              Vendor category management isn't available yet — run <code>migration_vendor_categories.sql</code> (or
+              the full <code>sync_all_migrations.sql</code>) in Supabase's SQL Editor first.
+            </p>
+          ) : (
+            <>
+              <p className="subtitle" style={{ margin: 0, maxWidth: 640 }}>
+                The categories a vendor picks from when setting up their profile (and organizers filter by in
+                Discover). Add a new one here instead of a code change — nothing here can be deleted or renamed yet,
+                since existing vendor profiles store their category as plain text against the current label.
+              </p>
+              <form className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }} onSubmit={handleAddCategory}>
+                <input
+                  type="text"
+                  placeholder="Add a new category…"
+                  value={newCategoryLabel}
+                  onChange={(e) => setNewCategoryLabel(e.target.value)}
+                  style={{ maxWidth: 240 }}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ padding: '7px 14px' }}
+                  disabled={addingCategory || !newCategoryLabel.trim()}
+                >
+                  {addingCategory ? 'Adding…' : 'Add category'}
+                </button>
+              </form>
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Category</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {vendorCategories.map((c) => (
+                      <tr key={c.id}>
+                        <td>{c.label}</td>
+                      </tr>
+                    ))}
+                    {vendorCategories.length === 0 && (
+                      <tr>
+                        <td className="subtitle" style={{ textAlign: 'center', padding: 20 }}>
+                          No categories yet.
                         </td>
                       </tr>
                     )}

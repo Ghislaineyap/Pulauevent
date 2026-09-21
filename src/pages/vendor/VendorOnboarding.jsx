@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../../context/AuthProvider'
 import { uploadProfilePhoto } from '../../lib/uploadPhoto'
 import { uploadPortfolioImage, MAX_PORTFOLIO_IMAGES } from '../../lib/uploadVendorPortfolio'
-import { VENDOR_CATEGORIES } from '../organizer/VendorRoster'
 import { Topbar, VendorTabbar } from '../../components/Layout'
 import { Modal } from '../../components/Modal'
 
@@ -19,15 +18,17 @@ export default function VendorOnboarding() {
   const { user, roleProfile, isOnboarded, refreshProfile, signOut } = useAuth()
   const navigate = useNavigate()
   const [locationOptions, setLocationOptions] = useState([])
+  const [categoryOptions, setCategoryOptions] = useState([])
   const [form, setForm] = useState({
     vendorName: '',
-    category: VENDOR_CATEGORIES[0],
+    category: '',
     logoUrl: '',
     portfolioUrls: [],
     websiteUrl: '',
     locations: [],
     locationInput: '',
-    priceRange: '',
+    priceRangeMin: '',
+    priceRangeMax: '',
   })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -42,12 +43,13 @@ export default function VendorOnboarding() {
     setForm((f) => ({
       ...f,
       vendorName: roleProfile.vendor_name || '',
-      category: roleProfile.category || VENDOR_CATEGORIES[0],
+      category: roleProfile.category || f.category,
       logoUrl: roleProfile.logo_url || '',
       portfolioUrls: roleProfile.portfolio_urls || [],
       websiteUrl: roleProfile.website_url || '',
       locations: roleProfile.locations || [],
-      priceRange: roleProfile.price_range || '',
+      priceRangeMin: roleProfile.price_range_min != null ? String(roleProfile.price_range_min) : '',
+      priceRangeMax: roleProfile.price_range_max != null ? String(roleProfile.price_range_max) : '',
     }))
     setHydrated(true)
   }, [roleProfile, hydrated])
@@ -60,6 +62,19 @@ export default function VendorOnboarding() {
       .then(({ data, error: err }) => {
         if (err) console.error(err)
         setLocationOptions((data || []).map((l) => l.label))
+      })
+    supabase
+      .from('vendor_categories')
+      .select('label')
+      .order('sort_order')
+      .then(({ data, error: err }) => {
+        if (err) console.error(err)
+        const labels = (data || []).map((c) => c.label)
+        setCategoryOptions(labels)
+        // Default a brand-new vendor's category to the first option once
+        // it's loaded — never override one already set (own value, or from
+        // the hydration effect above, whichever ran first).
+        setForm((f) => (f.category ? f : { ...f, category: labels[0] || '' }))
       })
   }, [])
 
@@ -133,7 +148,8 @@ export default function VendorOnboarding() {
       portfolio_urls: form.portfolioUrls,
       website_url: form.websiteUrl.trim() || null,
       locations: form.locations,
-      price_range: form.priceRange.trim() || null,
+      price_range_min: form.priceRangeMin.trim() !== '' ? Number(form.priceRangeMin) : null,
+      price_range_max: form.priceRangeMax.trim() !== '' ? Number(form.priceRangeMax) : null,
     })
     setBusy(false)
     if (upsertError) {
@@ -179,7 +195,7 @@ export default function VendorOnboarding() {
             <div className="field">
               <label htmlFor="category">Category</label>
               <select id="category" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-                {VENDOR_CATEGORIES.map((c) => (
+                {categoryOptions.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
@@ -346,14 +362,35 @@ export default function VendorOnboarding() {
             )}
 
             <div className="field" style={{ marginBottom: 0 }}>
-              <label htmlFor="priceRange">Price range (optional)</label>
-              <input
-                id="priceRange"
-                type="text"
-                placeholder="e.g. Rp 5jt–15jt, or Contact for quote"
-                value={form.priceRange}
-                onChange={(e) => setForm((f) => ({ ...f, priceRange: e.target.value }))}
-              />
+              <label>Price range (optional)</label>
+              <div className="row" style={{ flexWrap: 'wrap' }}>
+                <div className="field" style={{ flex: 1, minWidth: 120, marginBottom: 0 }}>
+                  <label htmlFor="priceRangeMin" style={{ fontWeight: 400, fontSize: 12 }}>
+                    Min (Rp)
+                  </label>
+                  <input
+                    id="priceRangeMin"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 5000000"
+                    value={form.priceRangeMin}
+                    onChange={(e) => setForm((f) => ({ ...f, priceRangeMin: e.target.value }))}
+                  />
+                </div>
+                <div className="field" style={{ flex: 1, minWidth: 120, marginBottom: 0 }}>
+                  <label htmlFor="priceRangeMax" style={{ fontWeight: 400, fontSize: 12 }}>
+                    Max (Rp)
+                  </label>
+                  <input
+                    id="priceRangeMax"
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 15000000"
+                    value={form.priceRangeMax}
+                    onChange={(e) => setForm((f) => ({ ...f, priceRangeMax: e.target.value }))}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

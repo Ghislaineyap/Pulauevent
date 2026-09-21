@@ -4,25 +4,6 @@ import { useAuth } from '../../context/AuthProvider'
 import { InfoButton } from '../../components/InfoButton'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 
-// Same category vocabulary as the Budget tab's line items, so a vendor
-// picked from here reads consistently with the ledger it's usually tied to
-// — but stored as free text (not a foreign key), so a one-off category
-// typed here doesn't require a schema change.
-export const VENDOR_CATEGORIES = [
-  'Venue & Rentals',
-  'Catering & Beverage',
-  'Décor & Styling',
-  'Entertainment & AV',
-  'Photography & Video',
-  'Staffing & Labor',
-  'Transportation & Logistics',
-  'Marketing & Print',
-  'Beauty & Attire',
-  'Gifts & Favors',
-  'Technology & Equipment',
-  'Other',
-]
-
 // Organizer-wide, reused across every event — same idea as the existing
 // Team roster (team_members table), but for vendors instead of freelancers.
 // Reachable from the desktop sidebar AND, since the 2026-09-20 nav
@@ -173,12 +154,28 @@ export default function VendorRoster() {
 
 export function VendorForm({ vendor, onSave, onCancel }) {
   const [name, setName] = useState(vendor?.name || '')
-  const [category, setCategory] = useState(vendor?.category || VENDOR_CATEGORIES[0])
+  const [category, setCategory] = useState(vendor?.category || '')
+  const [categoryOptions, setCategoryOptions] = useState([])
   const [contactName, setContactName] = useState(vendor?.contact_name || '')
   const [contactPhone, setContactPhone] = useState(vendor?.contact_phone || '')
   const [contactEmail, setContactEmail] = useState(vendor?.contact_email || '')
   const [notes, setNotes] = useState(vendor?.notes || '')
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('vendor_categories')
+      .select('label')
+      .order('sort_order')
+      .then(({ data }) => {
+        const labels = (data || []).map((c) => c.label)
+        setCategoryOptions(labels)
+        // Only default a brand-new vendor (no category yet) to the first
+        // option once it's actually loaded — never override an existing
+        // vendor's already-set category.
+        setCategory((c) => c || labels[0] || '')
+      })
+  }, [])
 
   async function submit() {
     if (!name.trim()) return
@@ -203,7 +200,7 @@ export function VendorForm({ vendor, onSave, onCancel }) {
       <div className="field" style={{ marginBottom: 0 }}>
         <label>Category</label>
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          {VENDOR_CATEGORIES.map((c) => (
+          {categoryOptions.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>

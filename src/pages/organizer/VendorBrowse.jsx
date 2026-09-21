@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
-import { VENDOR_CATEGORIES } from './VendorRoster'
 import { IconStore } from '../../components/TabIcons'
+import { formatPriceRange } from '../../lib/vendorPrice'
 
 // Item 8's other half of Discover — a full public directory over
 // vendor_profiles (every Vendor account on the platform), not filtered down
@@ -17,6 +17,7 @@ const emptyFilters = { categories: [], locations: [] }
 export function VendorBrowse() {
   const navigate = useNavigate()
   const [vendors, setVendors] = useState([])
+  const [categoryOrder, setCategoryOrder] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -32,14 +33,19 @@ export function VendorBrowse() {
         setVendors(data || [])
         setLoading(false)
       })
+    supabase
+      .from('vendor_categories')
+      .select('label')
+      .order('sort_order')
+      .then(({ data }) => setCategoryOrder((data || []).map((c) => c.label)))
   }, [])
 
   const categoriesInUse = useMemo(() => {
     const set = new Set(vendors.map((v) => v.category).filter(Boolean))
     // Keep the platform's canonical order rather than insertion order, same
     // spirit as VendorRoster's own category filter chips.
-    return VENDOR_CATEGORIES.filter((c) => set.has(c))
-  }, [vendors])
+    return categoryOrder.filter((c) => set.has(c))
+  }, [vendors, categoryOrder])
 
   const locationOptions = useMemo(() => {
     const set = new Set()
@@ -173,9 +179,9 @@ export function VendorBrowse() {
                 {v.category || 'Uncategorized'}
                 {(v.locations || []).length > 0 && ` · 📍 ${v.locations.join(', ')}`}
               </p>
-              {v.price_range && (
+              {formatPriceRange(v.price_range_min, v.price_range_max) && (
                 <p className="subtitle" style={{ margin: '2px 0 0' }}>
-                  {v.price_range}
+                  {formatPriceRange(v.price_range_min, v.price_range_max)}
                 </p>
               )}
             </div>

@@ -1,24 +1,32 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
+import { useAuth } from '../../context/AuthProvider'
 import { Topbar, OrganizerTabbar } from '../../components/Layout'
 import { Modal } from '../../components/Modal'
 import { ReportForm } from '../../components/ReportForm'
 import { IconStore } from '../../components/TabIcons'
+import { formatPriceRange } from '../../lib/vendorPrice'
 
 // Full-detail view reached from Discover's Vendor tab (VendorBrowse.jsx) —
 // mirrors FreelancerProfileDetail's structure (photo/portfolio gallery,
-// 🚩 Report) but stays read-only throughout: there's no shortlist/skip/invite
-// action for a vendor yet, so unlike the freelancer version this page never
-// grows an action row.
+// 🚩 Report). Unlike the freelancer version there's no shortlist/skip
+// accept-decline flow — a vendor's Discover profile works like a business
+// directory: "Message" starts (or resumes) a 1:1 chat straight away, and
+// "Add to vendor management" saves it to the organizer's roster for booking
+// onto events. See migration_vendor_messaging.sql.
 export default function VendorProfileDetail() {
   const { vendorId } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [vendor, setVendor] = useState(null)
   const [activePhoto, setActivePhoto] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reporting, setReporting] = useState(false)
+  const [messaging, setMessaging] = useState(false)
+  const [inRoster, setInRoster] = useState(false)
+  const [addingToRoster, setAddingToRoster] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -32,7 +40,55 @@ export default function VendorProfileDetail() {
         setVendor(data)
         setLoading(false)
       })
-  }, [vendorId])
+    supabase
+      .from('vendor_roster')
+      .select('id')
+      .eq('organizer_id', user.id)
+      .eq('vendor_id', vendorId)
+      .maybeSingle()
+      .then(({ data }) => setInRoster(Boolean(data)))
+  }, [vendorId, user.id])
+
+  async function handleMessage() {
+    setMessaging(true)
+    setError('')
+    const { data: existing } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('organizer_id', user.id)
+      .eq('vendor_id', vendorId)
+      .maybeSingle()
+    if (existing) {
+      navigate(`/chat/${existing.id}`)
+      return
+    }
+    const { data, error: matchError } = await supabase
+      .from('matches')
+      .insert({ organizer_id: user.id, vendor_id: vendorId, source: 'direct' })
+      .select('id')
+      .single()
+    setMessaging(false)
+    if (matchError) {
+      setError(matchError.message)
+      return
+    }
+    navigate(`/chat/${data.id}`)
+  }
+
+  async function handleAddToRoster() {
+    setAddingToRoster(true)
+    setError('')
+    const { error: rosterError } = await supabase.from('vendor_roster').upsert(
+      { organizer_id: user.id, vendor_id: vendorId, name: vendor.vendor_name, category: vendor.category || null },
+      { onConflict: 'organizer_id,vendor_id', ignoreDuplicates: true }
+    )
+    setAddingToRoster(false)
+    if (rosterError) {
+      setError(rosterError.message)
+      return
+    }
+    setInRoster(true)
+  }
 
   if (loading) {
     return (
@@ -145,24 +201,42 @@ export default function VendorProfileDetail() {
             {vendor.category || 'Uncategorized'}
             {(vendor.locations || []).length > 0 && ` · 📍 ${vendor.locations.join(', ')}`}
           </p>
-          {vendor.website_url && (
+        </div>
+
+        <div className="row">
+          <button className="btn btn-primary" style={{ flex: 1 }} disabled={messaging} onClick={handleMessage}>
+            {messaging ? 'Opening…' : '💬 Message'}
+          </button>
+          <button
+            className="btn btn-outline"
+            style={{ flex: 1 }}
+            disabled={inRoster || addingToRoster}
+            onClick={handleAddToRoster}
+          >
+            {inRoster ? '✓ In vendor management' : addingToRoster ? 'Adding…' : '+ Add to vendor management'}
+          </button>
+        </div>
+
+        {vendor.website_url && (
+          <div className="card">
+            <strong>Portfolio</strong>
             <a
               href={vendor.website_url}
               target="_blank"
               rel="noreferrer"
               className="subtitle"
-              style={{ color: 'var(--primary-dark)', fontWeight: 600 }}
+              style={{ display: 'block', margin: '4px 0 0', color: 'var(--primary-dark)', fontWeight: 600 }}
             >
               🔗 Visit website
             </a>
-          )}
-        </div>
+          </div>
+        )}
 
-        {vendor.price_range && (
+        {formatPriceRange(vendor.price_range_min, vendor.price_range_max) && (
           <div className="card">
             <strong>Price range</strong>
             <p className="subtitle" style={{ margin: '4px 0 0' }}>
-              {vendor.price_range}
+              {formatPriceRange(vendor.price_range_min, vendor.price_range_max)}
             </p>
           </div>
         )}

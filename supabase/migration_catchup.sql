@@ -11,10 +11,22 @@
 alter table public.job_postings add column if not exists event_start_date date;
 alter table public.job_postings add column if not exists event_end_date date;
 
-update public.job_postings
-set event_start_date = coalesce(event_start_date, event_date),
-    event_end_date = coalesce(event_end_date, event_date)
-where event_date is not null;
+-- Only a database that started from the OLD single-event_date schema has
+-- this column to backfill from — a fresh install built from the current
+-- schema.sql went straight to event_start_date/event_end_date and never had
+-- it, so referencing event_date unconditionally fails on those installs.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'job_postings' and column_name = 'event_date'
+  ) then
+    update public.job_postings
+    set event_start_date = coalesce(event_start_date, event_date),
+        event_end_date = coalesce(event_end_date, event_date)
+    where event_date is not null;
+  end if;
+end $$;
 
 alter table public.job_postings alter column event_start_date set not null;
 alter table public.job_postings alter column event_end_date set not null;
@@ -47,8 +59,18 @@ alter table public.freelancer_profiles alter column avatar_key set default 'pref
 -- ---------------------------------------------------------------------------
 alter table public.freelancer_profiles add column if not exists photo_urls text[] not null default '{}';
 
-update public.freelancer_profiles
-set photo_urls = array[photo_url]
-where photo_url is not null and photo_urls = '{}';
+-- Same reasoning as event_date above — photo_url (singular) only exists on
+-- a database that started from the OLD one-photo schema.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'freelancer_profiles' and column_name = 'photo_url'
+  ) then
+    update public.freelancer_profiles
+    set photo_urls = array[photo_url]
+    where photo_url is not null and photo_urls = '{}';
+  end if;
+end $$;
 
 alter table public.freelancer_profiles drop column if exists photo_url;

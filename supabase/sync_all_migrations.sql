@@ -96,10 +96,22 @@ grant usage, select on all sequences in schema public to authenticated;
 alter table public.job_postings add column if not exists event_start_date date;
 alter table public.job_postings add column if not exists event_end_date date;
 
-update public.job_postings
-set event_start_date = coalesce(event_start_date, event_date),
-    event_end_date = coalesce(event_end_date, event_date)
-where event_date is not null;
+-- Only a database that started from the OLD single-event_date schema has
+-- this column to backfill from — a fresh install built from the current
+-- schema.sql went straight to event_start_date/event_end_date and never had
+-- it, so referencing event_date unconditionally fails on those installs.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'job_postings' and column_name = 'event_date'
+  ) then
+    update public.job_postings
+    set event_start_date = coalesce(event_start_date, event_date),
+        event_end_date = coalesce(event_end_date, event_date)
+    where event_date is not null;
+  end if;
+end $$;
 
 do $$
 begin
@@ -1249,6 +1261,92 @@ create policy "admins can retag skills" on public.skills
   for update using (public.is_admin()) with check (public.is_admin());
 
 -- =============================================================================
+-- From migration_vendor_categories.sql
+-- =============================================================================
+create table if not exists public.vendor_categories (
+  id serial primary key,
+  label text not null unique,
+  sort_order int not null default 0
+);
+
+insert into public.vendor_categories (label, sort_order) values
+  ('Venue & Rentals', 1), ('Catering & Beverage', 2), ('Décor & Styling', 3),
+  ('Entertainment & AV', 4), ('Photography & Video', 5), ('Staffing & Labor', 6),
+  ('Transportation & Logistics', 7), ('Marketing & Print', 8), ('Beauty & Attire', 9),
+  ('Gifts & Favors', 10), ('Technology & Equipment', 11), ('Other', 12)
+on conflict (label) do nothing;
+
+alter table public.vendor_categories enable row level security;
+
+drop policy if exists "vendor categories are readable by anyone signed in" on public.vendor_categories;
+create policy "vendor categories are readable by anyone signed in" on public.vendor_categories
+  for select using (auth.role() = 'authenticated');
+
+drop policy if exists "admins can add vendor categories" on public.vendor_categories;
+create policy "admins can add vendor categories" on public.vendor_categories
+  for insert with check (public.is_admin());
+
+drop policy if exists "admins can edit vendor categories" on public.vendor_categories;
+create policy "admins can edit vendor categories" on public.vendor_categories
+  for update using (public.is_admin()) with check (public.is_admin());
+
+-- =============================================================================
+-- From migration_vendor_price_range.sql
+-- =============================================================================
+alter table public.vendor_profiles add column if not exists price_range_min numeric;
+alter table public.vendor_profiles add column if not exists price_range_max numeric;
+
+-- =============================================================================
+-- From migration_vendor_messaging.sql
+-- =============================================================================
+alter table public.matches alter column freelancer_id drop not null;
+alter table public.matches add column if not exists vendor_id uuid references public.vendor_profiles(id) on delete cascade;
+
+alter table public.matches drop constraint if exists matches_party_check;
+alter table public.matches add constraint matches_party_check
+  check ((freelancer_id is not null) <> (vendor_id is not null));
+
+alter table public.matches drop constraint if exists matches_source_check;
+alter table public.matches add constraint matches_source_check
+  check (source in ('application', 'like', 'direct'));
+
+create unique index if not exists matches_organizer_vendor_unique
+  on public.matches (organizer_id, vendor_id) where vendor_id is not null;
+
+drop policy if exists "the two matched parties can read a match" on public.matches;
+create policy "the two matched parties can read a match" on public.matches
+  for select using (auth.uid() = organizer_id or auth.uid() = freelancer_id or auth.uid() = vendor_id);
+
+drop policy if exists "an organizer can start a vendor conversation" on public.matches;
+create policy "an organizer can start a vendor conversation" on public.matches
+  for insert with check (
+    auth.uid() = organizer_id and vendor_id is not null and freelancer_id is null and source = 'direct'
+  );
+
+drop policy if exists "the two matched parties can read their messages" on public.messages;
+create policy "the two matched parties can read their messages" on public.messages
+  for select using (
+    exists (
+      select 1 from public.matches m
+      where m.id = match_id and (m.organizer_id = auth.uid() or m.freelancer_id = auth.uid() or m.vendor_id = auth.uid())
+    )
+  );
+
+drop policy if exists "a matched party can send a message as themselves" on public.messages;
+create policy "a matched party can send a message as themselves" on public.messages
+  for insert with check (
+    auth.uid() = sender_id
+    and exists (
+      select 1 from public.matches m
+      where m.id = match_id and (m.organizer_id = auth.uid() or m.freelancer_id = auth.uid() or m.vendor_id = auth.uid())
+    )
+  );
+
+alter table public.vendor_roster add column if not exists vendor_id uuid references public.vendor_profiles(id) on delete set null;
+create unique index if not exists vendor_roster_organizer_vendor_unique
+  on public.vendor_roster (organizer_id, vendor_id) where vendor_id is not null;
+
+-- =============================================================================
 -- Verify — every one of these should return a row/count with no error.
 -- =============================================================================
 select
@@ -1265,12 +1363,16 @@ select
   (select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'vendor_profiles') as has_vendor_profiles,
   (select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'reports') as has_reports,
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'profiles' and column_name = 'status') as has_admin_status,
-  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'skills' and column_name = 'audience') as has_skill_audience;
--- has_jobdesk / has_chat_opened_at / has_logo_url should read 1, the two
--- catalog counts should be > 0 (18 and 14 respectively, if neither table has
--- been hand-edited), and every has_* column from has_event_documents onward
--- should read 1 — those are the tables/columns the 9 migrations added by this
--- sync script (on top of the original 9) are responsible for. A 0 in any of
--- them means something above threw partway through — scroll up in the SQL
--- Editor's output for the actual error and re-run once it's fixed (every
--- statement here is safe to run again).
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'skills' and column_name = 'audience') as has_skill_audience,
+  (select count(*) from public.vendor_categories) as vendor_categories_count,
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'vendor_profiles' and column_name = 'price_range_min') as has_vendor_price_range,
+  (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'matches' and column_name = 'vendor_id') as has_vendor_messaging;
+-- has_jobdesk / has_chat_opened_at / has_logo_url should read 1, the three
+-- catalog counts should be > 0 (18, 14, and 12 respectively, if none of
+-- those tables has been hand-edited), and every has_* column from
+-- has_event_documents onward should read 1 — those are the tables/columns
+-- the 12 migrations added by this sync script (on top of the original 9)
+-- are responsible for. A 0 in any of them means something above threw
+-- partway through — scroll up in the SQL Editor's output for the actual
+-- error and re-run once it's fixed (every statement here is safe to run
+-- again).
