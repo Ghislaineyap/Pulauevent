@@ -48,6 +48,7 @@ export function PeopleBrowse() {
     supabase
       .from('skills')
       .select('label')
+      .eq('audience', 'freelancer')
       .order('sort_order')
       .then(({ data }) => setSkillOptions((data || []).map((s) => s.label)))
   }, [])

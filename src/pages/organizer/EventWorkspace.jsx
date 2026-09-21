@@ -138,7 +138,12 @@ export default function EventWorkspace() {
   }, [jobId, tab])
 
   useEffect(() => {
-    supabase.from('skills').select('label').order('sort_order').then(({ data }) => setSkillOptions((data || []).map((s) => s.label)))
+    supabase
+      .from('skills')
+      .select('label')
+      .eq('audience', 'freelancer')
+      .order('sort_order')
+      .then(({ data }) => setSkillOptions((data || []).map((s) => s.label)))
     supabase.from('locations').select('label').order('sort_order').then(({ data }) => setLocationOptions((data || []).map((l) => l.label)))
     supabase
       .from('team_members')

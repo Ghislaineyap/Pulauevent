@@ -19,12 +19,18 @@ export default function AdminDashboard() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('organizers') // 'organizers' | 'freelancers' | 'events' | 'reports' | 'appeals'
+  const [tab, setTab] = useState('organizers') // 'organizers' | 'freelancers' | 'vendors' | 'events' | 'skills' | 'reports' | 'appeals'
   const [locationFilter, setLocationFilter] = useState('')
   const [locationOptions, setLocationOptions] = useState([])
   const [organizers, setOrganizers] = useState([])
   const [freelancers, setFreelancers] = useState([])
+  const [vendors, setVendors] = useState([])
   const [events, setEvents] = useState([])
+  const [skills, setSkills] = useState([])
+  const [skillsUnavailable, setSkillsUnavailable] = useState(false)
+  const [newSkillLabel, setNewSkillLabel] = useState('')
+  const [newSkillAudience, setNewSkillAudience] = useState('freelancer')
+  const [addingSkill, setAddingSkill] = useState(false)
   const [reports, setReports] = useState([])
   const [appeals, setAppeals] = useState([])
   const [reportFilter, setReportFilter] = useState('open') // 'open' | 'all'
@@ -45,8 +51,10 @@ export default function AdminDashboard() {
       { data: profileRows, error: profilesError },
       { data: freelancerRows, error: freelancerError },
       { data: organizerRows, error: organizerError },
+      { data: vendorRows, error: vendorError },
       { data: jobRows, error: jobsError },
       { data: locationRows, error: locationsError },
+      { data: skillRows, error: skillsError },
       { count: pendingCount, error: pendingError },
       { data: reportRows, error: reportsError },
       { data: appealRows, error: appealsError },
@@ -54,6 +62,7 @@ export default function AdminDashboard() {
       supabase.from('profiles').select('id, created_at, status, suspended_reason'),
       supabase.from('freelancer_profiles').select('id, name, locations'),
       supabase.from('organizer_profiles').select('id, org_name, location'),
+      supabase.from('vendor_profiles').select('id, vendor_name, category, locations'),
       supabase
         .from('job_postings')
         .select(
@@ -61,6 +70,7 @@ export default function AdminDashboard() {
         )
         .order('created_at', { ascending: false }),
       supabase.from('locations').select('label').order('sort_order'),
+      supabase.from('skills').select('id, label, sort_order, audience').order('sort_order'),
       supabase.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
       supabase.from('appeals').select('*').order('created_at', { ascending: false }),
@@ -68,6 +78,7 @@ export default function AdminDashboard() {
     if (profilesError) console.error(profilesError)
     if (freelancerError) console.error(freelancerError)
     if (organizerError) console.error(organizerError)
+    if (vendorError) console.error(vendorError)
     if (jobsError) console.error(jobsError)
     if (locationsError) console.error(locationsError)
     if (pendingError) console.error(pendingError)
@@ -76,9 +87,15 @@ export default function AdminDashboard() {
     // those two tabs empty rather than failing the whole load.
     if (reportsError) console.error(reportsError)
     if (appealsError) console.error(appealsError)
+    // Same idea for skills.audience — most likely migration_skill_audience.sql
+    // hasn't been run yet. Leave the Skills tab showing a message instead of
+    // failing the whole dashboard.
+    setSkillsUnavailable(Boolean(skillsError))
+    if (skillsError) console.error(skillsError)
     setPendingApplications(pendingCount || 0)
     setEvents(jobRows || [])
     setLocationOptions((locationRows || []).map((l) => l.label))
+    setSkills(skillRows || [])
     setReports(reportRows || [])
     setAppeals(appealRows || [])
 
@@ -128,6 +145,18 @@ export default function AdminDashboard() {
         suspendedReason: statusById.get(f.id)?.suspendedReason || null,
       }))
     )
+    setVendors(
+      (vendorRows || []).map((v) => ({
+        id: v.id,
+        name: v.vendor_name,
+        category: v.category,
+        locations: v.locations || [],
+        email: emailById.get(v.id) || null,
+        createdAt: createdAtById.get(v.id),
+        status: statusById.get(v.id)?.status || 'active',
+        suspendedReason: statusById.get(v.id)?.suspendedReason || null,
+      }))
+    )
     setLoading(false)
   }, [])
 
@@ -143,8 +172,9 @@ export default function AdminDashboard() {
     const map = new Map()
     organizers.forEach((o) => map.set(o.id, { name: o.name || 'Organizer (onboarding incomplete)', role: 'Organizer' }))
     freelancers.forEach((f) => map.set(f.id, { name: f.name || 'Freelancer (onboarding incomplete)', role: 'Freelancer' }))
+    vendors.forEach((v) => map.set(v.id, { name: v.name || 'Vendor (onboarding incomplete)', role: 'Vendor' }))
     return map
-  }, [organizers, freelancers])
+  }, [organizers, freelancers, vendors])
 
   const openReportsCount = reports.filter((r) => r.status === 'open').length
   const pendingAppealsCount = appeals.filter((a) => a.status === 'pending').length
@@ -288,10 +318,50 @@ export default function AdminDashboard() {
     setEvents((es) => es.filter((e) => e.id !== jobId))
   }
 
+  // ---------------------------------------------------------------------
+  // Skills catalog — tag each row as a freelancer role or a vendor
+  // category (migration_skill_audience.sql). Freelancer-facing skill
+  // pickers elsewhere in the app only query audience = 'freelancer', so
+  // retagging a row here (e.g. moving "Photographer" to vendor) is what
+  // actually removes it from those without deleting the row.
+  // ---------------------------------------------------------------------
+  async function handleSetSkillAudience(skillId, audience) {
+    setBusyId(skillId)
+    setActionError('')
+    const { error } = await supabase.from('skills').update({ audience }).eq('id', skillId)
+    setBusyId(null)
+    if (error) {
+      setActionError(error.message)
+      return
+    }
+    setSkills((ss) => ss.map((s) => (s.id === skillId ? { ...s, audience } : s)))
+  }
+
+  async function handleAddSkill(e) {
+    e.preventDefault()
+    const label = newSkillLabel.trim()
+    if (!label) return
+    setAddingSkill(true)
+    setActionError('')
+    const { data, error } = await supabase
+      .from('skills')
+      .insert({ label, audience: newSkillAudience, sort_order: skills.length + 1 })
+      .select()
+      .single()
+    setAddingSkill(false)
+    if (error) {
+      setActionError(error.message)
+      return
+    }
+    setSkills((ss) => [...ss, data])
+    setNewSkillLabel('')
+  }
+
   const filteredOrganizers = locationFilter ? organizers.filter((o) => o.location === locationFilter) : organizers
   const filteredFreelancers = locationFilter
     ? freelancers.filter((f) => f.locations.includes(locationFilter))
     : freelancers
+  const filteredVendors = locationFilter ? vendors.filter((v) => v.locations.includes(locationFilter)) : vendors
   const filteredEvents = locationFilter ? events.filter((e) => e.location === locationFilter) : events
   const visibleReports = reportFilter === 'open' ? reports.filter((r) => r.status === 'open') : reports
   const visibleAppeals = appealFilter === 'pending' ? appeals.filter((a) => a.status === 'pending') : appeals
@@ -316,6 +386,10 @@ export default function AdminDashboard() {
         <div className="stat-tile">
           <span className="subtitle">Organizers</span>
           <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{organizers.length}</span>
+        </div>
+        <div className="stat-tile">
+          <span className="subtitle">Vendors</span>
+          <span style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{vendors.length}</span>
         </div>
         <div className="stat-tile">
           <span className="subtitle">Events</span>
@@ -355,8 +429,14 @@ export default function AdminDashboard() {
           <button type="button" className={tab === 'freelancers' ? 'active' : ''} onClick={() => setTab('freelancers')}>
             Freelancers
           </button>
+          <button type="button" className={tab === 'vendors' ? 'active' : ''} onClick={() => setTab('vendors')}>
+            Vendors
+          </button>
           <button type="button" className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>
             Events
+          </button>
+          <button type="button" className={tab === 'skills' ? 'active' : ''} onClick={() => setTab('skills')}>
+            Skills
           </button>
           <button type="button" className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>
             Reports
@@ -367,7 +447,7 @@ export default function AdminDashboard() {
             {pendingAppealsCount > 0 && <span className="badge" style={{ marginLeft: 6 }}>{pendingAppealsCount}</span>}
           </button>
         </div>
-        {(tab === 'organizers' || tab === 'freelancers' || tab === 'events') && (
+        {(tab === 'organizers' || tab === 'freelancers' || tab === 'vendors' || tab === 'events') && (
           <>
             <select
               value={locationFilter}
@@ -526,6 +606,65 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {!loading && tab === 'vendors' && (
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Category</th>
+                <th>Locations</th>
+                <th>Email</th>
+                <th>Joined</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredVendors.map((v) => (
+                <tr key={v.id}>
+                  <td>{v.name || <span style={{ color: 'var(--muted)' }}>Onboarding not finished</span>}</td>
+                  <td>{v.category || '—'}</td>
+                  <td>{v.locations.length > 0 ? v.locations.join(', ') : '—'}</td>
+                  <td>{v.email || '—'}</td>
+                  <td>{v.createdAt ? new Date(v.createdAt).toLocaleDateString() : '—'}</td>
+                  <td>
+                    <StatusPill tone={v.status === 'suspended' ? 'danger' : 'success'}>
+                      {v.status === 'suspended' ? 'Suspended' : 'Active'}
+                    </StatusPill>
+                  </td>
+                  <td>
+                    <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+                      <SuspendButton
+                        profile={v}
+                        busy={busyId === v.id}
+                        onSuspend={() => setSuspendTarget({ id: v.id, name: v.name || 'this vendor' })}
+                        onUnsuspend={() => handleUnsuspend(v.id)}
+                      />
+                      <DeleteButton
+                        id={v.id}
+                        confirmDeleteId={confirmDeleteId}
+                        busy={busyId === v.id}
+                        onArm={() => setConfirmDeleteId(v.id)}
+                        onCancel={() => setConfirmDeleteId(null)}
+                        onConfirm={() => handleDeleteUser(v.id)}
+                      />
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {filteredVendors.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="subtitle" style={{ textAlign: 'center', padding: 20 }}>
+                    {locationFilter ? `No vendors covering ${locationFilter}.` : 'No vendors yet.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {!loading && tab === 'events' && (
         <div className="admin-table-wrap">
           <table className="admin-table">
@@ -568,6 +707,91 @@ export default function AdminDashboard() {
               )}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && tab === 'skills' && (
+        <div className="stack" style={{ gap: 16 }}>
+          {skillsUnavailable ? (
+            <p className="helper-text">
+              Skill tagging isn't available yet — run <code>migration_skill_audience.sql</code> (or the full{' '}
+              <code>sync_all_migrations.sql</code>) in Supabase's SQL Editor first.
+            </p>
+          ) : (
+            <>
+              <p className="subtitle" style={{ margin: 0, maxWidth: 640 }}>
+                Tag each skill as a freelancer role or a vendor category. Freelancer-facing skill pickers across the
+                app (job-division roles, a freelancer's own skills, the Discover skill filter) only show
+                "Freelancer"-tagged skills — so retagging an overlapping one like Photographer or Caterer to
+                "Vendor" moves it out of those without deleting it.
+              </p>
+              <form className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }} onSubmit={handleAddSkill}>
+                <input
+                  type="text"
+                  placeholder="Add a new skill…"
+                  value={newSkillLabel}
+                  onChange={(e) => setNewSkillLabel(e.target.value)}
+                  style={{ maxWidth: 240 }}
+                />
+                <select value={newSkillAudience} onChange={(e) => setNewSkillAudience(e.target.value)} style={{ maxWidth: 160 }}>
+                  <option value="freelancer">Freelancer</option>
+                  <option value="vendor">Vendor</option>
+                </select>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ padding: '7px 14px' }}
+                  disabled={addingSkill || !newSkillLabel.trim()}
+                >
+                  {addingSkill ? 'Adding…' : 'Add skill'}
+                </button>
+              </form>
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Skill</th>
+                      <th>Audience</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {skills.map((s) => (
+                      <tr key={s.id}>
+                        <td>{s.label}</td>
+                        <td>
+                          <div className="segmented" style={{ maxWidth: 220 }}>
+                            <button
+                              type="button"
+                              className={s.audience === 'freelancer' ? 'active' : ''}
+                              disabled={busyId === s.id}
+                              onClick={() => handleSetSkillAudience(s.id, 'freelancer')}
+                            >
+                              Freelancer
+                            </button>
+                            <button
+                              type="button"
+                              className={s.audience === 'vendor' ? 'active' : ''}
+                              disabled={busyId === s.id}
+                              onClick={() => handleSetSkillAudience(s.id, 'vendor')}
+                            >
+                              Vendor
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {skills.length === 0 && (
+                      <tr>
+                        <td colSpan={2} className="subtitle" style={{ textAlign: 'center', padding: 20 }}>
+                          No skills yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </div>
       )}
 
